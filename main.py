@@ -918,7 +918,11 @@ def main() -> int:
     # 解析股票列表
     stock_codes = None
     if args.stocks:
-        stock_codes = [code.strip() for code in args.stocks.split(',') if code.strip()]
+        stock_codes = [
+            code.strip().zfill(6)  # 补零到6位（修复 Windows 命令行前导零丢失问题）
+            for code in args.stocks.split(',')
+            if code.strip()
+        ]
         logger.info(f"使用命令行指定的股票列表: {stock_codes}")
     
     # === 启动 WebUI (如果启用) ===
