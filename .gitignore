@@ -68,3 +68,4 @@ run.sh
 
 verify_*.py
 .claude/settings.local.json
+/.claude
