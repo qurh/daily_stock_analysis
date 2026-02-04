@@ -3,7 +3,7 @@
 # ===================================
 # 
 # 使用方式:
-#   定时模式: docker-compose up -d
+#   定时模式: docker-compose up -d analyzer
 #   WebUI模式: docker-compose up -d webui
 #   同时启动: docker-compose up -d analyzer webui
 
@@ -12,7 +12,7 @@ version: '3.8'
 x-common: &common
   build:
     context: .
-    dockerfile: Dockerfile
+    dockerfile: Dockerfile.backend
   restart: unless-stopped
 
   # 环境变量（从 .env 文件加载）
@@ -20,10 +20,10 @@ x-common: &common
     - .env
 
   volumes:
-    - ./data:/app/data
-    - ./logs:/app/logs
-    - ./reports:/app/reports
-    - ./.env:/app/.env
+    - ./backend/data:/app/backend/data
+    - ./backend/logs:/app/backend/logs
+    - ./backend/reports:/app/backend/reports
+    - ./.env:/app/backend/.env
 
   environment:
     - TZ=Asia/Shanghai
@@ -50,10 +50,10 @@ services:
     <<: *common
     container_name: stock-analyzer
 
-  # WebUI 模式
+  # WebUI 模式（legacy）
   webui:
     <<: *common
     container_name: stock-webui
-    command: ["python", "main.py", "--webui-only"]
+    command: ["python", "-m", "backend.app.core.pipeline", "--webui-only"]
     ports:
       - "8000:8000"
