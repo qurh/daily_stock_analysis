@@ -17,6 +17,11 @@ from dotenv import load_dotenv, dotenv_values
 from dataclasses import dataclass, field
 
 
+BASE_DIR = Path(__file__).resolve().parents[2]
+BACKEND_DIR = BASE_DIR / 'backend'
+DEFAULT_DB_PATH = str(BACKEND_DIR / 'data' / 'stock_analysis.db')
+DEFAULT_LOG_DIR = str(BACKEND_DIR / 'logs')
+
 @dataclass
 class Config:
     """
@@ -93,10 +98,10 @@ class Config:
     wechat_max_bytes: int = 4000   # 企业微信限制 4096 字节，默认 4000 字节
     
     # === 数据库配置 ===
-    database_path: str = "./data/stock_analysis.db"
+    database_path: str = DEFAULT_DB_PATH
     
     # === 日志配置 ===
-    log_dir: str = "./logs"  # 日志文件目录
+    log_dir: str = DEFAULT_LOG_DIR  # 日志文件目录
     log_level: str = "INFO"  # 日志级别
     
     # === 系统配置 ===
@@ -211,8 +216,8 @@ class Config:
             single_stock_notify=os.getenv('SINGLE_STOCK_NOTIFY', 'false').lower() == 'true',
             feishu_max_bytes=int(os.getenv('FEISHU_MAX_BYTES', '20000')),
             wechat_max_bytes=int(os.getenv('WECHAT_MAX_BYTES', '4000')),
-            database_path=os.getenv('DATABASE_PATH', './data/stock_analysis.db'),
-            log_dir=os.getenv('LOG_DIR', './logs'),
+            database_path=os.getenv('DATABASE_PATH', DEFAULT_DB_PATH),
+            log_dir=os.getenv('LOG_DIR', DEFAULT_LOG_DIR),
             log_level=os.getenv('LOG_LEVEL', 'INFO'),
             max_workers=int(os.getenv('MAX_WORKERS', '3')),
             debug=os.getenv('DEBUG', 'false').lower() == 'true',
