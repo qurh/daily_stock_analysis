@@ -210,6 +210,10 @@ export default function PortfolioPage() {
   ]
 
   const summary = portfolio?.summary
+  const totalValue = summary?.total_value ?? 0
+  const totalProfit = summary?.total_profit ?? 0
+  const totalProfitPct = summary?.total_profit_pct ?? 0
+  const positionCount = summary?.position_count ?? 0
 
   return (
     <div style={{ padding: 24 }}>
@@ -219,7 +223,7 @@ export default function PortfolioPage() {
           <Card>
             <Statistic
               title="总资产"
-              value={summary?.total_value || 0}
+              value={totalValue}
               prefix={<DollarOutlined />}
               precision={2}
             />
@@ -229,9 +233,9 @@ export default function PortfolioPage() {
           <Card>
             <Statistic
               title="浮动盈亏"
-              value={summary?.total_profit || 0}
-              prefix={summary?.total_profit >= 0 ? <RiseOutlined /> : <FallOutlined />}
-              valueStyle={{ color: summary?.total_profit >= 0 ? '#ff4d4f' : '#52c41a' }}
+              value={totalProfit}
+              prefix={totalProfit >= 0 ? <RiseOutlined /> : <FallOutlined />}
+              valueStyle={{ color: totalProfit >= 0 ? '#ff4d4f' : '#52c41a' }}
               precision={2}
             />
           </Card>
@@ -240,9 +244,9 @@ export default function PortfolioPage() {
           <Card>
             <Statistic
               title="收益率"
-              value={summary?.total_profit_pct || 0}
+              value={totalProfitPct}
               suffix="%"
-              valueStyle={{ color: summary?.total_profit_pct >= 0 ? '#ff4d4f' : '#52c41a' }}
+              valueStyle={{ color: totalProfitPct >= 0 ? '#ff4d4f' : '#52c41a' }}
             />
           </Card>
         </Col>
@@ -250,7 +254,7 @@ export default function PortfolioPage() {
           <Card>
             <Statistic
               title="持仓数量"
-              value={summary?.position_count || 0}
+              value={positionCount}
               prefix={<WalletOutlined />}
             />
           </Card>
