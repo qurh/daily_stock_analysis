@@ -7,6 +7,7 @@
 [![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-Ready-2088FF?logo=github-actions&logoColor=white)](https://github.com/features/actions)
 
 > 🤖 基于 AI 大模型的 A/H 股自选股智能分析系统，每日自动分析并推送「决策仪表盘」到企业微信/飞书/Telegram/邮箱
+> ⚠️ 仓库正在进行目录重构，文档与路径可能短期调整。
 
 ![运行效果演示](./sources/all_2026-01-13_221547.gif)
 
