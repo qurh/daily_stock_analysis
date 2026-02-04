@@ -4,8 +4,6 @@
 # 
 # 使用方式:
 #   定时模式: docker-compose up -d analyzer
-#   WebUI模式: docker-compose up -d webui
-#   同时启动: docker-compose up -d analyzer webui
 
 version: '3.8'
 
@@ -49,11 +47,3 @@ services:
   analyzer:
     <<: *common
     container_name: stock-analyzer
-
-  # WebUI 模式（legacy）
-  webui:
-    <<: *common
-    container_name: stock-webui
-    command: ["python", "-m", "backend.app.core.pipeline", "--webui-only"]
-    ports:
-      - "8000:8000"
