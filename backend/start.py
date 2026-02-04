@@ -36,7 +36,7 @@ def init_database():
     """初始化数据库"""
     print("\n[2/3] Initializing database...")
     try:
-        from app.db.database import init_db, engine
+        from app.db.database import init_db
         import asyncio
 
         async def setup():

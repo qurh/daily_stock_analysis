@@ -47,6 +47,7 @@ env/
 
 # 数据和日志
 data/
+backend/data/
 logs/
 reports/
 *.db
