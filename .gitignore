@@ -96,4 +96,5 @@ yarn-error.log*
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+!frontend/next-env.d.ts
 .worktrees/
