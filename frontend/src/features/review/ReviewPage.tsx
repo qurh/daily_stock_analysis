@@ -73,7 +73,7 @@ export default function ReviewPage() {
     try {
       const values = await form.validateFields()
 
-      await reviewApi.generateDailyReview({
+      await reviewApi.createDailyReview({
         date: values.date.format('YYYY-MM-DD'),
         market_overview: values.market_overview,
         hot_sectors: [],

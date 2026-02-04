@@ -128,35 +128,68 @@ export interface Category {
 // Review types
 export interface DailyReviewResponse {
   id: number
-  review_date: string
-  content: string
-  summary: string
-  market_overview: string
-  watchlist_notes: string
-  trading_signals: Array<{
-    code: string
-    name: string
-    signal_type: string
-    reason: string
-  }>
+  date: string
+  market_overview?: string
+  hot_sectors: Array<Record<string, any>>
+  winning_trades: Array<Record<string, any>>
+  losing_trades: Array<Record<string, any>>
+  lessons_learned: string[]
+  knowledge_gained: string[]
+  tomorrow_focus: string[]
+  created_by?: number
   created_at: string
   updated_at?: string
 }
 
 export interface WeeklyReviewResponse {
   id: number
-  week_start_date: string
-  week_end_date: string
-  content: string
-  summary: string
-  market_overview: string
+  week_start: string
+  week_end: string
+  market_summary: string
+  sector_performance: Array<Record<string, any>>
+  key_lessons: string[]
+  strategy_updates: Array<Record<string, any>>
+  next_week_outlook?: string
   created_at: string
 }
 
 export interface ReviewCalendarResponse {
   year: number
   month: number
-  dates_with_reviews: string[]
+  days: Array<{
+    date: string
+    has_review: boolean
+    review_id?: number
+  }>
+}
+
+// Strategy types
+export interface Strategy {
+  id: number
+  name: string
+  category: string
+  description?: string
+  conditions: Record<string, any>
+  actions: Record<string, any>
+  risk_management: Record<string, any>
+  source_doc_id?: number
+  verification_count: number
+  success_rate?: number
+  status: string
+  created_at: string
+  updated_at?: string
+}
+
+export interface SignalResponse {
+  id: number
+  strategy_id: number
+  strategy_name: string
+  code: string
+  signal_type: string
+  confidence: number
+  reasoning?: string
+  price: number
+  created_at: string
 }
 
 // Chat types

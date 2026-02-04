@@ -118,7 +118,7 @@ export const monitorApi = {
 
 // Strategy API
 export const strategyApi = {
-  listStrategies: (params?: { category?: string; status?: string }) =>
+  listStrategies: (params?: { category?: string; status?: string; limit?: number; offset?: number }) =>
     api.get('/strategy', { params }),
 
   getStrategy: (id: number) => api.get(`/strategy/${id}`),
@@ -131,7 +131,7 @@ export const strategyApi = {
 
   backtest: (id: number, data: any) => api.post(`/strategy/${id}/test`, data),
 
-  getSignals: (params?: { code?: string }) => api.get('/strategy/signals', { params }),
+  getSignals: (params?: { code?: string; limit?: number }) => api.get('/strategy/signals', { params }),
 }
 
 // Review API
@@ -142,8 +142,16 @@ export const reviewApi = {
   getDailyReview: (review_date: string) =>
     api.get(`/review/daily/${review_date}`),
 
-  createDailyReview: (data: { date: string; content?: string; summary?: string; market_overview?: string; watchlist_notes?: string }) =>
-    api.post('/review/daily', data),
+  createDailyReview: (data: {
+    date: string
+    market_overview?: string
+    hot_sectors?: Array<Record<string, any>>
+    winning_trades?: Array<Record<string, any>>
+    losing_trades?: Array<Record<string, any>>
+    lessons_learned?: string[]
+    knowledge_gained?: string[]
+    tomorrow_focus?: string[]
+  }) => api.post('/review/daily', data),
 
   getWeeklyReviews: (params?: { limit?: number }) =>
     api.get('/review/weekly', { params }),
