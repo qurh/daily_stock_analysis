@@ -9,7 +9,28 @@
 > 🤖 基于 AI 大模型的 A/H 股自选股智能分析系统，每日自动分析并推送「决策仪表盘」到企业微信/飞书/Telegram/邮箱
 > ⚠️ 仓库正在进行目录重构，文档与路径可能短期调整。
 
-![运行效果演示](./sources/all_2026-01-13_221547.gif)
+![运行效果演示](./backend/sources/all_2026-01-13_221547.gif)
+
+## 🧭 目录结构（重构版）
+
+- 后端：`backend/`（FastAPI/分析管线）
+- 前端：`frontend/`（Next.js 16.1.6 + Tailwind）
+- 旧版 WebUI：`frontend/legacy/web/`
+
+## 🧪 本地运行（重构版）
+
+```bash
+python -m venv venv
+source venv/bin/activate
+pip install -r backend/requirements.txt
+
+cp .env.example backend/app/.env
+
+python -m backend.app.core.pipeline
+python -m backend.app.core.pipeline --webui-only
+```
+
+_说明：旧版说明保留，后续将逐步对齐新结构。_
 
 ## ✨ 功能特性
 
@@ -127,7 +148,7 @@
 
 ### 大盘复盘
 
-![大盘复盘推送效果](./sources/dapan_2026-01-13_22-14-52.png)
+![大盘复盘推送效果](./backend/sources/dapan_2026-01-13_22-14-52.png)
 
 ```
 🎯 2026-01-10 大盘复盘
@@ -283,6 +304,6 @@ daily_stock_analysis/
 - 感谢支持, 祝您股市长虹，拿主力当提款机。
 
 <div align="center">
-  <img src="./sources/wechatpay.jpg" alt="WeChat Pay" width="200" style="margin-right: 20px;">
-  <img src="./sources/alipay.jpg" alt="Alipay" width="200">
+  <img src="./backend/sources/wechatpay.jpg" alt="WeChat Pay" width="200" style="margin-right: 20px;">
+  <img src="./backend/sources/alipay.jpg" alt="Alipay" width="200">
 </div>
