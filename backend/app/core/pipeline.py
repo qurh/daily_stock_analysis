@@ -39,18 +39,18 @@ from datetime import datetime, date, timezone, timedelta
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
-from feishu_doc import FeishuDocManager
+from backend.app.services.feishu_doc import FeishuDocManager
 
-from config import get_config, Config
-from storage import get_db, DatabaseManager
-from data_provider import DataFetcherManager
-from data_provider.akshare_fetcher import AkshareFetcher, RealtimeQuote, ChipDistribution
-from analyzer import GeminiAnalyzer, AnalysisResult, STOCK_NAME_MAP
-from notification import NotificationService, NotificationChannel, send_daily_report
-from search_service import SearchService, SearchResponse
-from enums import ReportType
-from stock_analyzer import StockTrendAnalyzer, TrendAnalysisResult
-from market_analyzer import MarketAnalyzer
+from backend.app.config import get_config, Config
+from backend.app.db.connection import get_db, DatabaseManager
+from backend.app.data_providers import DataFetcherManager
+from backend.app.data_providers.akshare_fetcher import AkshareFetcher, RealtimeQuote, ChipDistribution
+from backend.app.ml.analyzer import GeminiAnalyzer, AnalysisResult, STOCK_NAME_MAP
+from backend.app.notification.notification_service import NotificationService, NotificationChannel, send_daily_report
+from backend.app.ml.search_service import SearchService, SearchResponse
+from backend.app.utils.enums import ReportType
+from backend.app.ml.stock_analyzer import StockTrendAnalyzer, TrendAnalysisResult
+from backend.app.ml.market_analyzer import MarketAnalyzer
 
 # 配置日志格式
 LOG_FORMAT = '%(asctime)s | %(levelname)-8s | %(name)-20s | %(message)s'

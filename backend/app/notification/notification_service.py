@@ -28,8 +28,8 @@ from enum import Enum
 
 import requests
 
-from config import get_config
-from analyzer import AnalysisResult
+from backend.app.config import get_config
+from backend.app.ml.analyzer import AnalysisResult
 
 logger = logging.getLogger(__name__)
 
