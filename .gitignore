@@ -69,4 +69,29 @@ run.sh
 verify_*.py
 .claude/settings.local.json
 /.claude
-/frontend/node_modules
+.worktrees/
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# npm
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# pnpm
+.pnpm-store/
+
+# Turbo
+.turbo/
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
