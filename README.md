@@ -1,4 +1,4 @@
-# 📈 A股智能分析系统
+﻿# 📈 A股智能分析系统
 
 [![GitHub stars](https://img.shields.io/github/stars/ZhuLinsen/daily_stock_analysis?style=social)](https://github.com/ZhuLinsen/daily_stock_analysis/stargazers)
 [![CI](https://github.com/ZhuLinsen/daily_stock_analysis/actions/workflows/ci.yml/badge.svg)](https://github.com/ZhuLinsen/daily_stock_analysis/actions/workflows/ci.yml)
@@ -96,7 +96,7 @@ _说明：旧版说明保留，后续将逐步对齐新结构。_
 
 > *注：至少配置一个渠道，配置多个则同时推送
 >
-> 📖 更多配置（Pushover 手机推送、飞书云文档等）请参考 [完整配置指南](docs/完整配置指南.md)
+> 📖 更多配置（Pushover 手机推送、飞书云文档等）请参考 [运行与配置指南](docs/03-工程化/运行与配置指南.md)
 
 **其他配置**
 
@@ -122,7 +122,7 @@ _说明：旧版说明保留，后续将逐步对齐新结构。_
 
 ### 方式二：本地运行 / Docker 部署
 
-> 📖 本地运行、Docker 部署详细步骤请参考 [完整配置指南](docs/完整配置指南.md)
+> 📖 本地运行、Docker 部署详细步骤请参考 [运行与配置指南](docs/03-工程化/运行与配置指南.md)
 
 ## 📱 推送效果
 
@@ -166,7 +166,7 @@ _说明：旧版说明保留，后续将逐步对齐新结构。_
 
 ## ⚙️ 配置说明
 
-> 📖 完整环境变量、定时任务配置请参考 [完整配置指南](docs/完整配置指南.md)
+> 📖 完整环境变量、定时任务配置请参考 [运行与配置指南](docs/03-工程化/运行与配置指南.md)
 
 ## 📁 项目结构
 
@@ -263,3 +263,5 @@ daily_stock_analysis/
   <img src="./backend/sources/wechatpay.jpg" alt="WeChat Pay" width="200" style="margin-right: 20px;">
   <img src="./backend/sources/alipay.jpg" alt="Alipay" width="200">
 </div>
+
+
