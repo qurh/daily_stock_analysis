@@ -13,7 +13,7 @@
 ### Task 1: Build 0-to-1 requirement baseline document
 
 **Files:**
-- Create: `docs/01-需求管理/2026-02-06-从0到1-需求分析.md`
+- Create: `docs/01-需求管理/需求分析.md`
 - Modify: `docs/01-需求管理/README.md`
 
 **Steps:**
