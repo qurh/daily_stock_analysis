@@ -99,3 +99,4 @@ yarn-error.log*
 next-env.d.ts
 !frontend/next-env.d.ts
 .worktrees/
+/docs/temp/
