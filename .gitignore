@@ -9,6 +9,7 @@
 test_*.py
 !test_env.py
 !tests/backend/test_imports.py
+!tests/backend/test_mvp_api.py
 
 # Python
 __pycache__/
