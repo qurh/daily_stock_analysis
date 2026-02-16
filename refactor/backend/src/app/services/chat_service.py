@@ -1,0 +1,188 @@
+from __future__ import annotations
+
+from typing import Any
+
+from app.llm.provider import LLMProvider
+from app.services.knowledge_service import KnowledgeService
+from app.services.memory_service import MemoryService
+from app.services.prompt_lock_audit_service import PromptLockAuditService
+from app.services.prompt_routing import (
+    PromptLockError,
+    normalize_lock_mode,
+    normalize_prompt_refs,
+    resolve_binding_prompt,
+)
+from app.services.prompt_service import PromptService
+from app.services.strategy_service import StrategyService
+
+
+class ChatService:
+    """Chat application service for multi-turn conversation and RAG citations."""
+
+    def __init__(
+        self,
+        memory_service: MemoryService,
+        knowledge_service: KnowledgeService,
+        prompt_service: PromptService,
+        llm_provider: LLMProvider,
+        strategy_service: StrategyService | None = None,
+        prompt_lock_audit_service: PromptLockAuditService | None = None,
+        default_prompt_lock_mode: str = "lenient",
+    ) -> None:
+        self._memory_service = memory_service
+        self._knowledge_service = knowledge_service
+        self._prompt_service = prompt_service
+        self._llm_provider = llm_provider
+        self._strategy_service = strategy_service
+        self._prompt_lock_audit_service = prompt_lock_audit_service
+        self._default_prompt_lock_mode = normalize_lock_mode(default_prompt_lock_mode)
+
+    def create_session(self, user_id: str, memory_policy: str = "summary_v1") -> dict[str, Any]:
+        return self._memory_service.create_session(user_id=user_id, memory_policy=memory_policy)
+
+    def handle_message(self, session_id: str, content: str) -> dict[str, Any]:
+        self._memory_service.append_message(
+            session_id=session_id,
+            role="user",
+            content=content,
+            citations=[],
+            tool_trace={},
+        )
+
+        knowledge_hits = self._knowledge_service.search_chunks(query=content, top_k=3)["hits"]
+        memory_hits = self._memory_service.search_long_term(query=content, top_k=2)["hits"]
+        citations = _build_citations(knowledge_hits=knowledge_hits, memory_hits=memory_hits)
+
+        knowledge_hint = knowledge_hits[0].get("summary", "") if knowledge_hits else ""
+        memory_hint = memory_hits[0].get("content", "") if memory_hits else ""
+        strategy_context = self._resolve_strategy_context()
+        try:
+            prompt_resolution = self._resolve_prompt(
+                question=content,
+                knowledge_hint=knowledge_hint,
+                memory_hint=memory_hint,
+                strategy_context=strategy_context,
+            )
+        except PromptLockError as exc:
+            if self._prompt_lock_audit_service is not None:
+                self._prompt_lock_audit_service.record_event(
+                    flow_id=exc.flow_id,
+                    lock_mode=exc.lock_mode,
+                    source_type="chat",
+                    source_id=session_id,
+                    requested_prompt_refs=exc.requested_prompt_refs,
+                    failures=exc.failures,
+                )
+            raise
+        assistant_content = self._llm_provider.generate(prompt_resolution["rendered_prompt"])
+        tool_trace = {
+            "knowledge_hit_count": len(knowledge_hits),
+            "memory_hit_count": len(memory_hits),
+            "prompt_ref": prompt_resolution["prompt_ref"],
+            "llm_provider": self._llm_provider.provider_name,
+            "llm_model": self._llm_provider.model_name,
+        }
+        if strategy_context is not None:
+            tool_trace["strategy_id"] = strategy_context["strategy_id"]
+            tool_trace["strategy_binding_id"] = strategy_context["binding_id"]
+            tool_trace["strategy_flow_id"] = strategy_context["flow_id"]
+        assistant = self._memory_service.append_message(
+            session_id=session_id,
+            role="assistant",
+            content=assistant_content,
+            citations=citations,
+            tool_trace=tool_trace,
+        )
+        return {"session_id": session_id, "assistant": assistant}
+
+    def list_messages(self, session_id: str) -> dict[str, Any]:
+        return self._memory_service.list_messages(session_id=session_id)
+
+    def _resolve_prompt(
+        self,
+        question: str,
+        knowledge_hint: str,
+        memory_hint: str,
+        strategy_context: dict[str, Any] | None = None,
+    ) -> dict[str, str]:
+        variables = {
+            "question": question,
+            "knowledge_hint": knowledge_hint,
+            "memory_hint": memory_hint,
+        }
+        lock_mode = self._resolve_prompt_lock_mode(strategy_context=strategy_context)
+        binding_prompt_refs = normalize_prompt_refs(strategy_context=strategy_context)
+        binding_rendered, failures = resolve_binding_prompt(
+            prompt_service=self._prompt_service,
+            prompt_refs=binding_prompt_refs,
+            variables=variables,
+            lock_mode=lock_mode,
+        )
+        if binding_rendered is not None:
+            return binding_rendered
+        if lock_mode == "strict" and binding_prompt_refs:
+            raise PromptLockError(
+                flow_id="chat_reply_v1",
+                lock_mode=lock_mode,
+                requested_prompt_refs=binding_prompt_refs,
+                failures=failures,
+            )
+
+        for prompt_id in ["prompt.chat.reply"]:
+            try:
+                rendered = self._prompt_service.render_active_prompt(
+                    prompt_id=prompt_id,
+                    variables=variables,
+                )
+                return {
+                    "prompt_ref": rendered["prompt_ref"],
+                    "rendered_prompt": rendered["rendered_prompt"],
+                }
+            except (KeyError, ValueError):
+                continue
+
+        fallback_prompt = (
+            f"Q={question}\n"
+            f"K={knowledge_hint}\n"
+            f"M={memory_hint}\n"
+            "Return concise answer with actionable next step."
+        )
+        return {
+            "prompt_ref": "builtin.chat.reply@0",
+            "rendered_prompt": fallback_prompt,
+        }
+
+    def _resolve_strategy_context(self) -> dict[str, Any] | None:
+        if self._strategy_service is None:
+            return None
+        return self._strategy_service.resolve_active_binding(flow_id="chat_reply_v1")
+
+    def _resolve_prompt_lock_mode(self, strategy_context: dict[str, Any] | None) -> str:
+        if strategy_context is None:
+            return self._default_prompt_lock_mode
+        return normalize_lock_mode(strategy_context.get("prompt_lock_mode"), self._default_prompt_lock_mode)
+
+
+def _build_citations(knowledge_hits: list[dict[str, Any]], memory_hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    citations: list[dict[str, Any]] = []
+    for item in knowledge_hits[:3]:
+        citations.append(
+            {
+                "source_type": "knowledge",
+                "doc_id": item.get("doc_id", ""),
+                "chunk_id": item.get("chunk_id", ""),
+                "section_path": item.get("section_path", ""),
+                "score": item.get("score", 0.0),
+            }
+        )
+    for item in memory_hits[:2]:
+        citations.append(
+            {
+                "source_type": "memory",
+                "entry_id": item.get("entry_id", ""),
+                "source_session_id": item.get("source_session_id", ""),
+                "topic": item.get("topic", ""),
+                "score": item.get("score", 0.0),
+            }
+        )
+    return citations

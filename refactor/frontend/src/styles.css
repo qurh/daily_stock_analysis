@@ -1,0 +1,48 @@
+:root {
+  --bg: #f2f5f7;
+  --text: #142433;
+  --panel: #ffffff;
+  --accent: #0f6a8f;
+  --border: #d8e1e8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Source Sans 3", "Segoe UI", sans-serif;
+  background: radial-gradient(circle at top right, #d9edf5, var(--bg) 40%);
+  color: var(--text);
+}
+
+.container {
+  max-width: 860px;
+  margin: 48px auto;
+  padding: 0 16px;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 32px;
+}
+
+header p {
+  margin-top: 8px;
+  color: #3f5b70;
+}
+
+.panel {
+  margin-top: 28px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+  padding: 20px;
+  box-shadow: 0 6px 16px rgba(20, 36, 51, 0.07);
+}
+
+.panel h2 {
+  margin-top: 0;
+  color: var(--accent);
+}
