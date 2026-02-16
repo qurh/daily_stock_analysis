@@ -1,0 +1,1123 @@
+openapi: 3.0.3
+info:
+  title: Daily Stock Analysis Refactor API
+  version: 0.2.2-m2-prompt-llm
+  description: M2 phase-2 draft with chat/memory plus prompt-bound LLM generation.
+servers:
+  - url: http://localhost:18000
+paths:
+  /api/v2/health:
+    get:
+      summary: Health check
+      operationId: getHealth
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /api/v2/analysis/jobs:
+    post:
+      summary: Submit analysis job
+      operationId: createAnalysisJob
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalysisJobCreateRequest"
+      responses:
+        "202":
+          description: Job accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisJobAcceptedResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v2/jobs/{job_id}:
+    get:
+      summary: Query analysis job status
+      operationId: getJobStatus
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Job status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobStatusResponse"
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v2/workflows/executions:
+    post:
+      summary: Start workflow execution
+      operationId: createWorkflowExecution
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkflowExecutionStartRequest"
+      responses:
+        "202":
+          description: Execution accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowExecutionAcceptedResponse"
+  /api/v2/workflows/executions/{execution_id}:
+    get:
+      summary: Query workflow execution details
+      operationId: getWorkflowExecution
+      parameters:
+        - name: execution_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Execution detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowExecutionResponse"
+        "404":
+          description: Execution not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v2/workflows/executions/{execution_id}/cancel:
+    post:
+      summary: Cancel workflow execution
+      operationId: cancelWorkflowExecution
+      parameters:
+        - name: execution_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Cancellation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowCancelResponse"
+        "404":
+          description: Execution not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v2/prompts/templates:
+    post:
+      summary: Create prompt template
+      operationId: createPromptTemplate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PromptTemplateCreateRequest"
+      responses:
+        "201":
+          description: Template created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptTemplateResponse"
+  /api/v2/prompts/templates/{prompt_id}/versions:
+    post:
+      summary: Create prompt template version
+      operationId: createPromptVersion
+      parameters:
+        - name: prompt_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PromptVersionCreateRequest"
+      responses:
+        "201":
+          description: Version created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptVersionResponse"
+        "404":
+          description: Template not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v2/prompts/templates/{prompt_id}/versions/{version}/publish:
+    post:
+      summary: Publish one prompt version
+      operationId: publishPromptVersion
+      parameters:
+        - name: prompt_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Publish succeeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptPublishResponse"
+        "404":
+          description: Template or version not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v2/prompts/templates/{prompt_id}/rollback:
+    post:
+      summary: Rollback prompt active version
+      operationId: rollbackPromptVersion
+      parameters:
+        - name: prompt_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Rollback result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptRollbackResponse"
+        "404":
+          description: Template not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v2/prompts/templates/{prompt_id}:
+    get:
+      summary: Query prompt template details
+      operationId: getPromptTemplate
+      parameters:
+        - name: prompt_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Prompt template detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptTemplateResponse"
+        "404":
+          description: Template not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v2/knowledge/documents/upload:
+    post:
+      summary: Upload markdown knowledge document
+      operationId: uploadKnowledgeDocument
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KnowledgeDocumentUploadRequest"
+      responses:
+        "201":
+          description: Upload succeeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeDocumentUploadResponse"
+  /api/v2/knowledge/documents/{doc_id}/optimize:
+    post:
+      summary: Normalize markdown document
+      operationId: optimizeKnowledgeDocument
+      parameters:
+        - name: doc_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Optimization succeeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeOptimizeResponse"
+        "404":
+          description: Document not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v2/knowledge/documents/{doc_id}/ingest:
+    post:
+      summary: Chunk, summarize and index knowledge document
+      operationId: ingestKnowledgeDocument
+      parameters:
+        - name: doc_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "202":
+          description: Ingestion completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeIngestResponse"
+        "404":
+          description: Document not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v2/knowledge/documents/{doc_id}:
+    get:
+      summary: Query knowledge document detail
+      operationId: getKnowledgeDocument
+      parameters:
+        - name: doc_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Document detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeDocumentResponse"
+        "404":
+          description: Document not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      summary: Delete knowledge document and indexed chunks
+      operationId: deleteKnowledgeDocument
+      parameters:
+        - name: doc_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Document deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeDeleteResponse"
+        "404":
+          description: Document not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v2/knowledge/chunks/search:
+    get:
+      summary: Search indexed knowledge chunks
+      operationId: searchKnowledgeChunks
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: top_k
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 5
+            minimum: 1
+            maximum: 20
+        - name: doc_id
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Search hits
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeSearchResponse"
+  /api/v2/chat/sessions:
+    post:
+      summary: Create chat session
+      operationId: createChatSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatSessionCreateRequest"
+      responses:
+        "201":
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSessionResponse"
+  /api/v2/chat/sessions/{session_id}/messages:
+    post:
+      summary: Send one chat message
+      operationId: createChatMessage
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatMessageCreateRequest"
+      responses:
+        "200":
+          description: Assistant response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatMessageReplyResponse"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    get:
+      summary: List chat session messages
+      operationId: listChatMessages
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Message list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatMessageListResponse"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v2/memory/sessions/{session_id}:
+    get:
+      summary: Get memory view for one session
+      operationId: getMemorySession
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Session memory detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemorySessionResponse"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      summary: Delete session memory and messages
+      operationId: deleteMemorySession
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Session deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemoryDeleteResponse"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v2/memory/sessions/{session_id}/summarize:
+    post:
+      summary: Summarize one session and write long-term memory
+      operationId: summarizeMemorySession
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Summary generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemorySummarizeResponse"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v2/memory/search:
+    post:
+      summary: Search long-term memory entries
+      operationId: searchMemoryEntries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemorySearchRequest"
+      responses:
+        "200":
+          description: Memory search hits
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemorySearchResponse"
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          type: string
+          example: ok
+        timestamp:
+          type: string
+          format: date-time
+    AnalysisJobCreateRequest:
+      type: object
+      required:
+        - symbol
+      properties:
+        symbol:
+          type: string
+          example: 600519
+        report_type:
+          type: string
+          enum: [simple, detailed]
+          default: detailed
+    AnalysisJobAcceptedResponse:
+      type: object
+      required:
+        - job_id
+        - status
+      properties:
+        job_id:
+          type: string
+        status:
+          type: string
+          enum: [pending, running, succeeded, failed, cancelled]
+    TraceNode:
+      type: object
+      required:
+        - node_id
+        - status
+      properties:
+        node_id:
+          type: string
+        status:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+        ended_at:
+          type: string
+          format: date-time
+    TracePayload:
+      type: object
+      required:
+        - flow_id
+        - nodes
+      properties:
+        flow_id:
+          type: string
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/TraceNode"
+    JobStatusResponse:
+      type: object
+      required:
+        - job_id
+        - status
+        - result
+        - trace
+      properties:
+        job_id:
+          type: string
+        status:
+          type: string
+          enum: [pending, running, succeeded, failed, cancelled]
+        result:
+          type: object
+          additionalProperties: true
+        trace:
+          $ref: "#/components/schemas/TracePayload"
+    WorkflowExecutionStartRequest:
+      type: object
+      required:
+        - flow_id
+      properties:
+        flow_id:
+          type: string
+          example: stock_analysis_v1
+        input:
+          type: object
+          additionalProperties: true
+    WorkflowExecutionAcceptedResponse:
+      type: object
+      required:
+        - execution_id
+        - status
+      properties:
+        execution_id:
+          type: string
+        status:
+          type: string
+    WorkflowExecutionResponse:
+      type: object
+      required:
+        - execution_id
+        - flow_id
+        - status
+        - trace
+      properties:
+        execution_id:
+          type: string
+        flow_id:
+          type: string
+        status:
+          type: string
+        input:
+          type: object
+          additionalProperties: true
+        output:
+          type: object
+          additionalProperties: true
+        trace:
+          $ref: "#/components/schemas/TracePayload"
+    WorkflowCancelResponse:
+      type: object
+      required:
+        - execution_id
+        - cancelled
+      properties:
+        execution_id:
+          type: string
+        cancelled:
+          type: boolean
+    PromptTemplateCreateRequest:
+      type: object
+      required:
+        - prompt_id
+        - name
+        - module
+      properties:
+        prompt_id:
+          type: string
+        name:
+          type: string
+        module:
+          type: string
+    PromptVersionCreateRequest:
+      type: object
+      required:
+        - content
+        - output_schema
+      properties:
+        content:
+          type: string
+        variables:
+          type: array
+          items:
+            type: string
+        output_schema:
+          type: string
+    PromptVersionResponse:
+      type: object
+      required:
+        - version
+        - status
+      properties:
+        version:
+          type: integer
+        status:
+          type: string
+        content:
+          type: string
+        variables:
+          type: array
+          items:
+            type: string
+        output_schema:
+          type: string
+    PromptTemplateResponse:
+      type: object
+      required:
+        - prompt_id
+        - name
+        - module
+        - versions
+      properties:
+        prompt_id:
+          type: string
+        name:
+          type: string
+        module:
+          type: string
+        active_version:
+          type: integer
+          nullable: true
+        versions:
+          type: array
+          items:
+            $ref: "#/components/schemas/PromptVersionResponse"
+    PromptPublishResponse:
+      type: object
+      required:
+        - prompt_id
+        - active_version
+      properties:
+        prompt_id:
+          type: string
+        active_version:
+          type: integer
+    PromptRollbackResponse:
+      type: object
+      required:
+        - prompt_id
+      properties:
+        prompt_id:
+          type: string
+        active_version:
+          type: integer
+          nullable: true
+    KnowledgeDocumentUploadRequest:
+      type: object
+      required:
+        - title
+        - markdown
+      properties:
+        title:
+          type: string
+        markdown:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+    KnowledgeDocumentUploadResponse:
+      type: object
+      required:
+        - doc_id
+        - title
+        - status
+      properties:
+        doc_id:
+          type: string
+        title:
+          type: string
+        status:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+    KnowledgeOptimizeResponse:
+      type: object
+      required:
+        - doc_id
+        - status
+        - optimized_markdown
+      properties:
+        doc_id:
+          type: string
+        status:
+          type: string
+        optimized_markdown:
+          type: string
+    KnowledgeIngestResponse:
+      type: object
+      required:
+        - doc_id
+        - status
+        - chunk_count
+      properties:
+        doc_id:
+          type: string
+        status:
+          type: string
+        chunk_count:
+          type: integer
+    KnowledgeDocumentResponse:
+      type: object
+      required:
+        - doc_id
+        - title
+        - source_type
+        - status
+        - tags
+        - chunk_count
+      properties:
+        doc_id:
+          type: string
+        title:
+          type: string
+        source_type:
+          type: string
+        status:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        chunk_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    KnowledgeHit:
+      type: object
+      required:
+        - chunk_id
+        - doc_id
+        - section_path
+        - summary
+        - content
+        - score
+      properties:
+        chunk_id:
+          type: string
+        doc_id:
+          type: string
+        section_path:
+          type: string
+        summary:
+          type: string
+        content:
+          type: string
+        score:
+          type: number
+    KnowledgeSearchResponse:
+      type: object
+      required:
+        - hits
+      properties:
+        hits:
+          type: array
+          items:
+            $ref: "#/components/schemas/KnowledgeHit"
+    KnowledgeDeleteResponse:
+      type: object
+      required:
+        - doc_id
+        - deleted
+      properties:
+        doc_id:
+          type: string
+        deleted:
+          type: boolean
+    ChatSessionCreateRequest:
+      type: object
+      required:
+        - user_id
+      properties:
+        user_id:
+          type: string
+        memory_policy:
+          type: string
+          default: summary_v1
+    ChatSessionResponse:
+      type: object
+      required:
+        - session_id
+        - user_id
+        - memory_policy
+        - status
+      properties:
+        session_id:
+          type: string
+        user_id:
+          type: string
+        memory_policy:
+          type: string
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    Citation:
+      type: object
+      properties:
+        source_type:
+          type: string
+        doc_id:
+          type: string
+        chunk_id:
+          type: string
+        section_path:
+          type: string
+        entry_id:
+          type: string
+        source_session_id:
+          type: string
+        topic:
+          type: string
+        score:
+          type: number
+    ChatMessage:
+      type: object
+      required:
+        - message_id
+        - session_id
+        - role
+        - content
+        - citations
+      properties:
+        message_id:
+          type: string
+        session_id:
+          type: string
+        role:
+          type: string
+        content:
+          type: string
+        citations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Citation"
+        tool_trace:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+    ChatMessageCreateRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+    ChatMessageReplyResponse:
+      type: object
+      required:
+        - session_id
+        - assistant
+      properties:
+        session_id:
+          type: string
+        assistant:
+          $ref: "#/components/schemas/ChatMessage"
+    ChatMessageListResponse:
+      type: object
+      required:
+        - session_id
+        - messages
+      properties:
+        session_id:
+          type: string
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+    MemorySummary:
+      type: object
+      required:
+        - summary_id
+        - covered_range
+        - summary_text
+      properties:
+        summary_id:
+          type: string
+        covered_range:
+          type: string
+        summary_text:
+          type: string
+        embedding_ref:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    MemorySessionResponse:
+      type: object
+      required:
+        - session_id
+        - user_id
+        - memory_policy
+        - status
+        - message_count
+        - summaries
+      properties:
+        session_id:
+          type: string
+        user_id:
+          type: string
+        memory_policy:
+          type: string
+        status:
+          type: string
+        message_count:
+          type: integer
+        summaries:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemorySummary"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    MemorySummarizeResponse:
+      type: object
+      required:
+        - session_id
+        - summary_id
+        - summary_text
+        - long_term_entry_id
+      properties:
+        session_id:
+          type: string
+        summary_id:
+          type: string
+        summary_text:
+          type: string
+        long_term_entry_id:
+          type: string
+    MemorySearchRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+        top_k:
+          type: integer
+          default: 5
+          minimum: 1
+          maximum: 20
+    MemoryHit:
+      type: object
+      required:
+        - entry_id
+        - source_session_id
+        - topic
+        - content
+        - score
+      properties:
+        entry_id:
+          type: string
+        source_session_id:
+          type: string
+        topic:
+          type: string
+        content:
+          type: string
+        score:
+          type: number
+    MemorySearchResponse:
+      type: object
+      required:
+        - hits
+      properties:
+        hits:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemoryHit"
+    MemoryDeleteResponse:
+      type: object
+      required:
+        - session_id
+        - deleted
+      properties:
+        session_id:
+          type: string
+        deleted:
+          type: boolean
+    ErrorResponse:
+      type: object
+      required:
+        - error_code
+        - message
+      properties:
+        error_code:
+          type: string
+          example: IGW-REQUEST-002
+        message:
+          type: string
+        request_id:
+          type: string
