@@ -65,6 +65,9 @@ def test_settings_reads_non_prefixed_env_vars(monkeypatch) -> None:
     assert settings.backtest_multi_window_alert_warn_threshold_unmet_windows == 2
     assert settings.backtest_multi_window_alert_critical_low_windows == 3
     assert settings.backtest_multi_window_alert_critical_threshold_unmet_windows == 4
+    assert settings.backtest_multi_window_alert_threshold_normalization_applied is False
+    assert settings.backtest_multi_window_alert_critical_low_windows_threshold_normalized is False
+    assert settings.backtest_multi_window_alert_critical_threshold_unmet_windows_threshold_normalized is False
 
 
 def test_settings_normalizes_multi_window_alert_threshold_relationship(monkeypatch) -> None:
@@ -79,3 +82,6 @@ def test_settings_normalizes_multi_window_alert_threshold_relationship(monkeypat
     assert settings.backtest_multi_window_alert_warn_threshold_unmet_windows == 4
     assert settings.backtest_multi_window_alert_critical_low_windows == 3
     assert settings.backtest_multi_window_alert_critical_threshold_unmet_windows == 4
+    assert settings.backtest_multi_window_alert_threshold_normalization_applied is True
+    assert settings.backtest_multi_window_alert_critical_low_windows_threshold_normalized is True
+    assert settings.backtest_multi_window_alert_critical_threshold_unmet_windows_threshold_normalized is True

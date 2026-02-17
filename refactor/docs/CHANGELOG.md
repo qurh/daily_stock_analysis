@@ -2,6 +2,22 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.54-m3-global-metrics-alert-threshold-normalization-flags] - 2026-02-17
+
+### Added
+
+- New normalization flag metrics in `/api/v2/metrics`:
+  - `refactor_backtest_records_return_sample_multi_window_alert_threshold_normalization_applied`
+  - `refactor_backtest_records_return_sample_multi_window_alert_critical_low_windows_threshold_normalized`
+  - `refactor_backtest_records_return_sample_multi_window_alert_critical_threshold_unmet_windows_threshold_normalized`
+- New tests:
+  - global metrics endpoint includes multi-window alert threshold normalization flags
+
+### Changed
+
+- Metrics layer now exposes whether threshold normalization was applied, improving configuration auditability.
+- Backend app version bumped to `0.3.54-m3-global-metrics-alert-threshold-normalization-flags`.
+
 ## [0.3.53-m3-global-metrics-alert-threshold-observability] - 2026-02-17
 
 ### Added
