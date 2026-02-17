@@ -1,3 +1,6 @@
+import json
+from typing import Any
+
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import PlainTextResponse
 
@@ -73,6 +76,74 @@ def _append_total_gauge_line(lines: list[str], metric_name: str, help_text: str,
     lines.append(f"{metric_name} {int(total)}")
 
 
+def _append_float_gauge_line(lines: list[str], metric_name: str, help_text: str, value: float) -> None:
+    lines.append(f"# HELP {metric_name} {help_text}")
+    lines.append(f"# TYPE {metric_name} gauge")
+    lines.append(f"{metric_name} {value}")
+
+
+def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
+    query = "SELECT outcome, return_pct, direction_correct FROM backtest_records"
+    with request.app.state.database.connection() as conn:
+        rows = conn.execute(query).fetchall()
+
+    outcome_counts: dict[str, int] = {}
+    return_values: list[float] = []
+    direction_flags: list[int] = []
+    for row in rows:
+        outcome = str(row["outcome"] if row["outcome"] is not None else "unknown")
+        outcome_counts[outcome] = outcome_counts.get(outcome, 0) + 1
+
+        if row["return_pct"] is not None:
+            return_values.append(float(row["return_pct"]))
+        if row["direction_correct"] is not None:
+            direction_flags.append(int(row["direction_correct"]))
+
+    return_avg = round(sum(return_values) / len(return_values), 4) if return_values else 0.0
+    direction_accuracy_pct = round(sum(direction_flags) / len(direction_flags) * 100.0, 2) if direction_flags else 0.0
+    return {
+        "outcome_counts": outcome_counts,
+        "return_sample_size": len(return_values),
+        "return_avg": return_avg,
+        "direction_sample_size": len(direction_flags),
+        "direction_accuracy_pct": direction_accuracy_pct,
+    }
+
+
+def _load_optimization_quality_snapshot(request: Request) -> dict[str, Any]:
+    query = "SELECT result_json FROM optimization_jobs WHERE status = 'completed'"
+    with request.app.state.database.connection() as conn:
+        rows = conn.execute(query).fetchall()
+
+    quality_scores: list[float] = []
+    recommendation_counts: dict[str, int] = {}
+    for row in rows:
+        try:
+            payload = json.loads(str(row["result_json"] or "{}"))
+        except json.JSONDecodeError:
+            payload = {}
+        if not isinstance(payload, dict):
+            payload = {}
+
+        raw_score = payload.get("quality_score")
+        if raw_score is not None:
+            try:
+                quality_scores.append(float(raw_score))
+            except (TypeError, ValueError):
+                pass
+
+        recommendation = str(payload.get("recommendation") or "").strip()
+        if recommendation:
+            recommendation_counts[recommendation] = recommendation_counts.get(recommendation, 0) + 1
+
+    quality_score_avg = round(sum(quality_scores) / len(quality_scores), 2) if quality_scores else 0.0
+    return {
+        "quality_sample_size": len(quality_scores),
+        "quality_score_avg": quality_score_avg,
+        "recommendation_counts": recommendation_counts,
+    }
+
+
 @router.get("/metrics")
 def get_global_metrics(
     request: Request,
@@ -95,6 +166,8 @@ def get_global_metrics(
     knowledge_chunks_token_total = _load_total_sum(
         request=request, table_name="knowledge_chunks", value_column="token_count"
     )
+    backtest_quality = _load_backtest_quality_snapshot(request=request)
+    optimization_quality = _load_optimization_quality_snapshot(request=request)
     lines = [
         "# HELP refactor_backend_build_info Backend build info.",
         "# TYPE refactor_backend_build_info gauge",
@@ -172,6 +245,56 @@ def get_global_metrics(
         metric_name="refactor_knowledge_chunks_token_count_total",
         help_text="Current summed token count across all knowledge chunks.",
         total=knowledge_chunks_token_total,
+    )
+    _append_labeled_gauge_lines(
+        lines=lines,
+        metric_name="refactor_backtest_records_total",
+        help_text="Current backtest record count grouped by outcome.",
+        label_name="outcome",
+        counts=backtest_quality["outcome_counts"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_sample_size",
+        help_text="Current number of backtest records with return_pct value.",
+        total=backtest_quality["return_sample_size"],
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_pct_avg",
+        help_text="Current average return_pct across backtest records with return value.",
+        value=backtest_quality["return_avg"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_direction_sample_size",
+        help_text="Current number of backtest records with direction_correct value.",
+        total=backtest_quality["direction_sample_size"],
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_direction_accuracy_pct",
+        help_text="Current direction accuracy percentage across backtest records with direction label.",
+        value=backtest_quality["direction_accuracy_pct"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_optimization_quality_score_sample_size",
+        help_text="Current number of completed optimization jobs with quality score.",
+        total=optimization_quality["quality_sample_size"],
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_optimization_quality_score_avg",
+        help_text="Current average quality score across completed optimization jobs.",
+        value=optimization_quality["quality_score_avg"],
+    )
+    _append_labeled_gauge_lines(
+        lines=lines,
+        metric_name="refactor_optimization_recommendations_total",
+        help_text="Current completed optimization recommendation count grouped by recommendation.",
+        label_name="recommendation",
+        counts=optimization_quality["recommendation_counts"],
     )
     lines.append(prompt_lock_audit_service.get_overview_metrics_prometheus().rstrip("\n"))
     return PlainTextResponse(
