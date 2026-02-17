@@ -179,6 +179,8 @@ uvicorn app.main:app --app-dir src --reload --port 18000
     - `refactor_backtest_records_return_pct_avg`
     - `refactor_backtest_records_return_pct_p50`
     - `refactor_backtest_records_return_pct_p90`
+    - `refactor_backtest_records_return_pct_p95`
+    - `refactor_backtest_records_return_pct_p99`
     - `refactor_backtest_records_return_pct_stddev`
     - `refactor_backtest_records_direction_sample_size`
     - `refactor_backtest_records_direction_accuracy_pct`
