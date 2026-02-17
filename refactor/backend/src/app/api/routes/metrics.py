@@ -158,11 +158,15 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
         min_sample_required = int(getattr(settings, "backtest_return_sample_min_size", 20))
     min_sample_required = max(min_sample_required, 1)
     sample_threshold_met = 1 if len(return_values) >= min_sample_required else 0
+    sample_size_gap = max(min_sample_required - len(return_values), 0)
+    sample_coverage_ratio_pct = round(len(return_values) / min_sample_required * 100.0, 2)
     return {
         "outcome_counts": outcome_counts,
         "return_sample_size": len(return_values),
         "return_sample_min_size_required": min_sample_required,
         "return_sample_threshold_met": sample_threshold_met,
+        "return_sample_size_gap": sample_size_gap,
+        "return_sample_coverage_ratio_pct": sample_coverage_ratio_pct,
         "return_avg": return_avg,
         "return_trimmed_mean_10pct": return_trimmed_mean_10pct,
         "return_winsorized_mean_10pct": return_winsorized_mean_10pct,
@@ -336,6 +340,18 @@ def get_global_metrics(
         metric_name="refactor_backtest_records_return_sample_size_threshold_met",
         help_text="Whether return sample size meets minimum required threshold (1 met, 0 unmet).",
         total=backtest_quality["return_sample_threshold_met"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_sample_size_gap",
+        help_text="Remaining sample count needed to meet minimum required threshold.",
+        total=backtest_quality["return_sample_size_gap"],
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_sample_coverage_ratio_pct",
+        help_text="Current return sample coverage ratio against required minimum (percentage).",
+        value=backtest_quality["return_sample_coverage_ratio_pct"],
     )
     _append_float_gauge_line(
         lines=lines,
