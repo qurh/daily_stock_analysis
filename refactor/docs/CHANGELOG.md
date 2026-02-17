@@ -2,6 +2,23 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.50-m3-global-metrics-multi-window-alert-level-score] - 2026-02-17
+
+### Added
+
+- New multi-window sample alert level score metric in `/api/v2/metrics`:
+  - `refactor_backtest_records_return_sample_multi_window_alert_level_score`
+- New tests:
+  - global metrics endpoint includes backtest return sample multi-window alert level score
+
+### Changed
+
+- Multi-window alert level now has numeric score mapping for alert threshold integration:
+  - `none -> 0.0`
+  - `warn -> 0.5`
+  - `critical -> 1.0`
+- Backend app version bumped to `0.3.50-m3-global-metrics-multi-window-alert-level-score`.
+
 ## [0.3.49-m3-global-metrics-multi-window-alert-level] - 2026-02-17
 
 ### Added
