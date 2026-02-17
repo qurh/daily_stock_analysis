@@ -173,6 +173,14 @@ def _compute_multi_window_alert_levels(
     }
 
 
+def _compute_multi_window_alert_level_score(alert_levels_onehot: dict[str, int]) -> float:
+    if int(alert_levels_onehot.get("critical", 0)) == 1:
+        return 1.0
+    if int(alert_levels_onehot.get("warn", 0)) == 1:
+        return 0.5
+    return 0.0
+
+
 def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
     query = "SELECT outcome, return_pct, direction_correct, created_at FROM backtest_records"
     with request.app.state.database.connection() as conn:
@@ -290,6 +298,9 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
         threshold_unmet_windows_total=sample_threshold_unmet_windows_total,
         low_adequacy_windows_total=sample_low_adequacy_windows_total,
     )
+    sample_multi_window_alert_level_score = _compute_multi_window_alert_level_score(
+        alert_levels_onehot=sample_multi_window_alert_levels_onehot
+    )
     return {
         "outcome_counts": outcome_counts,
         "return_sample_size": len(return_values),
@@ -318,6 +329,7 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
         "return_sample_threshold_unmet_windows_total": sample_threshold_unmet_windows_total,
         "return_sample_low_adequacy_windows_total": sample_low_adequacy_windows_total,
         "return_sample_multi_window_alert_levels_onehot": sample_multi_window_alert_levels_onehot,
+        "return_sample_multi_window_alert_level_score": sample_multi_window_alert_level_score,
         "return_avg": return_avg,
         "return_trimmed_mean_10pct": return_trimmed_mean_10pct,
         "return_winsorized_mean_10pct": return_winsorized_mean_10pct,
@@ -556,6 +568,12 @@ def get_global_metrics(
             ("warn", int(backtest_quality["return_sample_multi_window_alert_levels_onehot"]["warn"])),
             ("critical", int(backtest_quality["return_sample_multi_window_alert_levels_onehot"]["critical"])),
         ],
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_sample_multi_window_alert_level_score",
+        help_text="Current multi-window sample alert level score (none=0.0, warn=0.5, critical=1.0).",
+        value=backtest_quality["return_sample_multi_window_alert_level_score"],
     )
     _append_total_gauge_line(
         lines=lines,
