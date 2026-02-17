@@ -189,6 +189,7 @@ uvicorn app.main:app --app-dir src --reload --port 18000
     - `refactor_backtest_records_return_sample_coverage_ratio_pct_7d`
     - `refactor_backtest_records_return_sample_adequacy_level{level=low|medium|high}`
     - `refactor_backtest_records_return_sample_adequacy_level_24h{level=low|medium|high}`
+    - `refactor_backtest_records_return_sample_adequacy_level_7d{level=low|medium|high}`
     - `refactor_backtest_records_return_sample_adequacy_score`
     - `refactor_backtest_records_return_sample_adequacy_score_24h`
     - `refactor_backtest_records_return_sample_adequacy_score_7d`
