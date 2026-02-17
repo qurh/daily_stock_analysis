@@ -2,6 +2,21 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.39-m3-global-metrics-recent-sample-threshold] - 2026-02-17
+
+### Added
+
+- New recent-window sample metrics in `/api/v2/metrics`:
+  - `refactor_backtest_records_return_sample_size_24h`
+  - `refactor_backtest_records_return_sample_size_threshold_met_24h`
+- New tests:
+  - global metrics endpoint includes backtest return sample 24h threshold metrics
+
+### Changed
+
+- Backtest quality snapshot now computes sample-size readiness for the last 24 hours in addition to all-time scope.
+- Backend app version bumped to `0.3.39-m3-global-metrics-recent-sample-threshold`.
+
 ## [0.3.38-m3-global-metrics-adequacy-score] - 2026-02-17
 
 ### Added

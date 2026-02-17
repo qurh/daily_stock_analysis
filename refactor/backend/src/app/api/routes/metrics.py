@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request
@@ -132,19 +133,34 @@ def _winsorized_mean(sorted_values: list[float], trim_ratio: float) -> float:
 
 
 def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
-    query = "SELECT outcome, return_pct, direction_correct FROM backtest_records"
+    query = "SELECT outcome, return_pct, direction_correct, created_at FROM backtest_records"
     with request.app.state.database.connection() as conn:
         rows = conn.execute(query).fetchall()
 
     outcome_counts: dict[str, int] = {}
     return_values: list[float] = []
+    return_values_24h: list[float] = []
     direction_flags: list[int] = []
+    now_utc = datetime.now(timezone.utc)
+    cutoff_24h = now_utc - timedelta(hours=24)
     for row in rows:
         outcome = str(row["outcome"] if row["outcome"] is not None else "unknown")
         outcome_counts[outcome] = outcome_counts.get(outcome, 0) + 1
 
         if row["return_pct"] is not None:
-            return_values.append(float(row["return_pct"]))
+            return_value = float(row["return_pct"])
+            return_values.append(return_value)
+            created_at_raw = row["created_at"]
+            if created_at_raw is not None:
+                try:
+                    created_at = datetime.fromisoformat(str(created_at_raw))
+                    if created_at.tzinfo is None:
+                        created_at = created_at.replace(tzinfo=timezone.utc)
+                    created_at_utc = created_at.astimezone(timezone.utc)
+                    if created_at_utc >= cutoff_24h:
+                        return_values_24h.append(return_value)
+                except ValueError:
+                    pass
         if row["direction_correct"] is not None:
             direction_flags.append(int(row["direction_correct"]))
 
@@ -175,6 +191,7 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
     min_sample_required = max(min_sample_required, 1)
     medium_coverage_threshold_pct = max(min(medium_coverage_threshold_pct, 100.0), 0.0)
     sample_threshold_met = 1 if len(return_values) >= min_sample_required else 0
+    sample_threshold_met_24h = 1 if len(return_values_24h) >= min_sample_required else 0
     sample_size_gap = max(min_sample_required - len(return_values), 0)
     sample_coverage_ratio_pct = round(len(return_values) / min_sample_required * 100.0, 2)
     if sample_threshold_met == 1:
@@ -192,9 +209,11 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
     return {
         "outcome_counts": outcome_counts,
         "return_sample_size": len(return_values),
+        "return_sample_size_24h": len(return_values_24h),
         "return_sample_min_size_required": min_sample_required,
         "return_sample_medium_coverage_threshold_pct": round(medium_coverage_threshold_pct, 2),
         "return_sample_threshold_met": sample_threshold_met,
+        "return_sample_threshold_met_24h": sample_threshold_met_24h,
         "return_sample_size_gap": sample_size_gap,
         "return_sample_coverage_ratio_pct": sample_coverage_ratio_pct,
         "return_sample_adequacy_levels_onehot": sample_adequacy_levels_onehot,
@@ -363,6 +382,12 @@ def get_global_metrics(
     )
     _append_total_gauge_line(
         lines=lines,
+        metric_name="refactor_backtest_records_return_sample_size_24h",
+        help_text="Current number of backtest records with return_pct value in last 24h.",
+        total=backtest_quality["return_sample_size_24h"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
         metric_name="refactor_backtest_records_return_sample_min_size_required",
         help_text="Minimum sample size required for stable return statistics.",
         total=backtest_quality["return_sample_min_size_required"],
@@ -378,6 +403,12 @@ def get_global_metrics(
         metric_name="refactor_backtest_records_return_sample_size_threshold_met",
         help_text="Whether return sample size meets minimum required threshold (1 met, 0 unmet).",
         total=backtest_quality["return_sample_threshold_met"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_sample_size_threshold_met_24h",
+        help_text="Whether last-24h return sample size meets minimum required threshold (1 met, 0 unmet).",
+        total=backtest_quality["return_sample_threshold_met_24h"],
     )
     _append_total_gauge_line(
         lines=lines,
