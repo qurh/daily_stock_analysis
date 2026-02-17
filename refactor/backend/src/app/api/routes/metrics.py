@@ -251,12 +251,14 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
     sample_coverage_ratio_pct = float(adequacy_all["coverage_ratio_pct"])
     sample_coverage_ratio_pct_24h = float(adequacy_24h["coverage_ratio_pct"])
     sample_coverage_ratio_pct_7d = float(adequacy_7d["coverage_ratio_pct"])
+    sample_coverage_ratio_pct_30d = float(adequacy_30d["coverage_ratio_pct"])
     sample_adequacy_levels_onehot = dict(adequacy_all["adequacy_levels_onehot"])
     sample_adequacy_levels_onehot_24h = dict(adequacy_24h["adequacy_levels_onehot"])
     sample_adequacy_levels_onehot_7d = dict(adequacy_7d["adequacy_levels_onehot"])
     sample_adequacy_score = float(adequacy_all["adequacy_score"])
     sample_adequacy_score_24h = float(adequacy_24h["adequacy_score"])
     sample_adequacy_score_7d = float(adequacy_7d["adequacy_score"])
+    sample_adequacy_score_30d = float(adequacy_30d["adequacy_score"])
     return {
         "outcome_counts": outcome_counts,
         "return_sample_size": len(return_values),
@@ -273,12 +275,14 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
         "return_sample_coverage_ratio_pct": sample_coverage_ratio_pct,
         "return_sample_coverage_ratio_pct_24h": sample_coverage_ratio_pct_24h,
         "return_sample_coverage_ratio_pct_7d": sample_coverage_ratio_pct_7d,
+        "return_sample_coverage_ratio_pct_30d": sample_coverage_ratio_pct_30d,
         "return_sample_adequacy_levels_onehot": sample_adequacy_levels_onehot,
         "return_sample_adequacy_levels_onehot_24h": sample_adequacy_levels_onehot_24h,
         "return_sample_adequacy_levels_onehot_7d": sample_adequacy_levels_onehot_7d,
         "return_sample_adequacy_score": sample_adequacy_score,
         "return_sample_adequacy_score_24h": sample_adequacy_score_24h,
         "return_sample_adequacy_score_7d": sample_adequacy_score_7d,
+        "return_sample_adequacy_score_30d": sample_adequacy_score_30d,
         "return_avg": return_avg,
         "return_trimmed_mean_10pct": return_trimmed_mean_10pct,
         "return_winsorized_mean_10pct": return_winsorized_mean_10pct,
@@ -519,6 +523,12 @@ def get_global_metrics(
         help_text="Last-7d return sample coverage ratio against required minimum (percentage).",
         value=backtest_quality["return_sample_coverage_ratio_pct_7d"],
     )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_sample_coverage_ratio_pct_30d",
+        help_text="Last-30d return sample coverage ratio against required minimum (percentage).",
+        value=backtest_quality["return_sample_coverage_ratio_pct_30d"],
+    )
     _append_labeled_gauge_lines_ordered(
         lines=lines,
         metric_name="refactor_backtest_records_return_sample_adequacy_level",
@@ -569,6 +579,12 @@ def get_global_metrics(
         metric_name="refactor_backtest_records_return_sample_adequacy_score_7d",
         help_text="Last-7d return sample adequacy score (low=0.0, medium=0.5, high=1.0).",
         value=backtest_quality["return_sample_adequacy_score_7d"],
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_sample_adequacy_score_30d",
+        help_text="Last-30d return sample adequacy score (low=0.0, medium=0.5, high=1.0).",
+        value=backtest_quality["return_sample_adequacy_score_30d"],
     )
     _append_float_gauge_line(
         lines=lines,
