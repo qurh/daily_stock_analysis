@@ -1645,3 +1645,121 @@ def test_global_metrics_endpoint_includes_message_and_chunk_metrics() -> None:
     assert 'refactor_conversation_messages_by_role_total{role="user"} 1' in body
     assert "refactor_knowledge_chunks_total 2" in body
     assert "refactor_knowledge_chunks_token_count_total 55" in body
+
+
+def test_global_metrics_endpoint_includes_backtest_and_optimization_quality_metrics() -> None:
+    client = TestClient(create_app())
+    now = datetime.now(timezone.utc).isoformat()
+    backtest_job_id = str(uuid4())
+    analysis_job_ids = [str(uuid4()), str(uuid4()), str(uuid4())]
+
+    with client.app.state.database.connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO backtest_jobs (
+                job_id, scope, symbol, eval_window_days, status, progress, metrics_json,
+                engine_version, started_at, ended_at, created_at, updated_at
+            ) VALUES (?, 'market', NULL, 10, 'completed', 100, ?, 'v1', ?, ?, ?, ?)
+            """,
+            (
+                backtest_job_id,
+                json.dumps({"sample_size": 3, "win_rate_pct": 66.67}, ensure_ascii=False),
+                now,
+                now,
+                now,
+                now,
+            ),
+        )
+        for index, analysis_job_id in enumerate(analysis_job_ids):
+            conn.execute(
+                """
+                INSERT INTO analysis_jobs (
+                    job_id, symbol, report_type, status, result_json, execution_id, created_at, updated_at
+                ) VALUES (?, ?, 'detailed', 'succeeded', ?, NULL, ?, ?)
+                """,
+                (
+                    analysis_job_id,
+                    ["600519", "000001", "300750"][index],
+                    json.dumps({"report": {"meta": {"stock_code": "x"}}}, ensure_ascii=False),
+                    now,
+                    now,
+                ),
+            )
+        conn.execute(
+            """
+            INSERT INTO backtest_records (
+                record_id, job_id, analysis_job_id, symbol, direction,
+                outcome, return_pct, direction_correct, flags_json, created_at
+            ) VALUES (?, ?, ?, '600519', 'long', 'win', 5.0, 1, ?, ?)
+            """,
+            (str(uuid4()), backtest_job_id, analysis_job_ids[0], json.dumps([], ensure_ascii=False), now),
+        )
+        conn.execute(
+            """
+            INSERT INTO backtest_records (
+                record_id, job_id, analysis_job_id, symbol, direction,
+                outcome, return_pct, direction_correct, flags_json, created_at
+            ) VALUES (?, ?, ?, '000001', 'short', 'loss', -2.0, 0, ?, ?)
+            """,
+            (str(uuid4()), backtest_job_id, analysis_job_ids[1], json.dumps([], ensure_ascii=False), now),
+        )
+        conn.execute(
+            """
+            INSERT INTO backtest_records (
+                record_id, job_id, analysis_job_id, symbol, direction,
+                outcome, return_pct, direction_correct, flags_json, created_at
+            ) VALUES (?, ?, ?, '300750', 'hold', 'insufficient_data', NULL, NULL, ?, ?)
+            """,
+            (
+                str(uuid4()),
+                backtest_job_id,
+                analysis_job_ids[2],
+                json.dumps(["insufficient_data"], ensure_ascii=False),
+                now,
+            ),
+        )
+        conn.execute(
+            """
+            INSERT INTO optimization_jobs (
+                job_id, trigger_source, reason, backtest_job_id, status,
+                feature_set_json, result_json, created_at, updated_at
+            ) VALUES (?, 'manual', 'weekly review', ?, 'completed', ?, ?, ?, ?)
+            """,
+            (
+                str(uuid4()),
+                backtest_job_id,
+                json.dumps({}, ensure_ascii=False),
+                json.dumps({"quality_score": 82.5, "recommendation": "promote_candidate"}, ensure_ascii=False),
+                now,
+                now,
+            ),
+        )
+        conn.execute(
+            """
+            INSERT INTO optimization_jobs (
+                job_id, trigger_source, reason, backtest_job_id, status,
+                feature_set_json, result_json, created_at, updated_at
+            ) VALUES (?, 'event', 'feedback low', ?, 'completed', ?, ?, ?, ?)
+            """,
+            (
+                str(uuid4()),
+                backtest_job_id,
+                json.dumps({}, ensure_ascii=False),
+                json.dumps({"quality_score": 66.5, "recommendation": "optimize_prompt_or_flow"}, ensure_ascii=False),
+                now,
+                now,
+            ),
+        )
+
+    response = client.get("/api/v2/metrics")
+    assert response.status_code == 200
+    body = response.text
+    assert 'refactor_backtest_records_total{outcome="win"} 1' in body
+    assert 'refactor_backtest_records_total{outcome="loss"} 1' in body
+    assert 'refactor_backtest_records_total{outcome="insufficient_data"} 1' in body
+    assert "refactor_backtest_records_return_pct_avg 1.5" in body
+    assert "refactor_backtest_records_direction_accuracy_pct 50.0" in body
+    assert "refactor_optimization_quality_score_sample_size 2" in body
+    assert "refactor_optimization_quality_score_avg 74.5" in body
+    assert 'refactor_optimization_recommendations_total{recommendation="promote_candidate"} 1' in body
+    assert 'refactor_optimization_recommendations_total{recommendation="optimize_prompt_or_flow"} 1' in body
