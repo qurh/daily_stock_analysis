@@ -2,6 +2,23 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.38-m3-global-metrics-adequacy-score] - 2026-02-17
+
+### Added
+
+- New backtest sample adequacy score metric in `/api/v2/metrics`:
+  - `refactor_backtest_records_return_sample_adequacy_score`
+- New tests:
+  - global metrics endpoint includes backtest return sample adequacy score
+
+### Changed
+
+- Adequacy level now has a numeric score mapping for easier alert threshold usage:
+  - `low -> 0.0`
+  - `medium -> 0.5`
+  - `high -> 1.0`
+- Backend app version bumped to `0.3.38-m3-global-metrics-adequacy-score`.
+
 ## [0.3.37-m3-global-metrics-adequacy-threshold-config] - 2026-02-17
 
 ### Added

@@ -182,6 +182,7 @@ uvicorn app.main:app --app-dir src --reload --port 18000
     - `refactor_backtest_records_return_sample_size_gap`
     - `refactor_backtest_records_return_sample_coverage_ratio_pct`
     - `refactor_backtest_records_return_sample_adequacy_level{level=low|medium|high}`
+    - `refactor_backtest_records_return_sample_adequacy_score`
     - `refactor_backtest_records_return_pct_avg`
     - `refactor_backtest_records_return_pct_trimmed_mean_10pct`
     - `refactor_backtest_records_return_pct_winsorized_mean_10pct`
