@@ -142,6 +142,8 @@ uvicorn app.main:app --app-dir src --reload --port 18000
   - `strategy_id`
   - `strategy_binding_id`
   - `strategy_flow_id`
+- Strategy rollback behavior:
+  - rolling back an active strategy automatically deactivates its active bindings
 - Chat prompt selection order:
   - strategy binding `prompt_refs` (first resolvable prompt)
   - fallback to `prompt.chat.reply`
@@ -198,6 +200,13 @@ cd refactor/backend
 ```bash
 cd refactor/backend
 ./scripts/smoke-real-llm.sh
+```
+
+## Run M3 Acceptance Rehearsal
+
+```bash
+cd refactor/backend
+./scripts/rehearse-m3-loop.sh
 ```
 
 Notes:

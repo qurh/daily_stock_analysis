@@ -2,6 +2,25 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.29-m3-acceptance-rehearsal-loop] - 2026-02-17
+
+### Added
+
+- New M3 acceptance integration test:
+  - `tests/integration/test_m3_acceptance_loop.py`
+  - covers: cognition distill -> review approve -> strategy extract -> backtest -> proposal approve -> publish -> bind -> rollback -> post-rollback verification
+- New rehearsal script:
+  - `refactor/backend/scripts/rehearse-m3-loop.sh`
+  - default test target: `test_m3_strategy_backtest_publish_rollback_rehearsal_loop`
+- New script guard tests:
+  - rehearsal script defaults to `refactor/backend/.env`
+  - rehearsal script uses env key whitelist loader
+
+### Changed
+
+- `StrategyService.rollback_strategy(...)` now deactivates active bindings for the rolled-back strategy to avoid stale active bindings.
+- Backend app version bumped to `0.3.29-m3-acceptance-rehearsal-loop`.
+
 ## [0.3.28-m3-global-metrics-message-chunk] - 2026-02-16
 
 ### Added
