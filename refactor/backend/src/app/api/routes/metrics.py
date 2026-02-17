@@ -94,6 +94,29 @@ def _percentile_linear(sorted_values: list[float], p: float) -> float:
     return sorted_values[lower_idx] + weight * (sorted_values[upper_idx] - sorted_values[lower_idx])
 
 
+def _trimmed_mean(sorted_values: list[float], trim_ratio: float) -> float:
+    if not sorted_values:
+        return 0.0
+    trim_count = int(len(sorted_values) * trim_ratio)
+    if trim_count <= 0 or (len(sorted_values) - trim_count * 2) <= 0:
+        return sum(sorted_values) / len(sorted_values)
+    trimmed_values = sorted_values[trim_count : len(sorted_values) - trim_count]
+    return sum(trimmed_values) / len(trimmed_values)
+
+
+def _winsorized_mean(sorted_values: list[float], trim_ratio: float) -> float:
+    if not sorted_values:
+        return 0.0
+    trim_count = int(len(sorted_values) * trim_ratio)
+    if trim_count <= 0 or (len(sorted_values) - trim_count * 2) <= 0:
+        return sum(sorted_values) / len(sorted_values)
+
+    lower_bound = sorted_values[trim_count]
+    upper_bound = sorted_values[len(sorted_values) - trim_count - 1]
+    winsorized_values = [min(max(value, lower_bound), upper_bound) for value in sorted_values]
+    return sum(winsorized_values) / len(winsorized_values)
+
+
 def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
     query = "SELECT outcome, return_pct, direction_correct FROM backtest_records"
     with request.app.state.database.connection() as conn:
@@ -112,7 +135,12 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
             direction_flags.append(int(row["direction_correct"]))
 
     sorted_returns = sorted(return_values)
+    trim_ratio_10pct = 0.1
     return_avg = round(sum(return_values) / len(return_values), 4) if return_values else 0.0
+    return_trimmed_mean_10pct = round(_trimmed_mean(sorted_returns, trim_ratio_10pct), 4) if sorted_returns else 0.0
+    return_winsorized_mean_10pct = (
+        round(_winsorized_mean(sorted_returns, trim_ratio_10pct), 4) if sorted_returns else 0.0
+    )
     return_p50 = round(_percentile_linear(sorted_returns, 0.5), 4) if sorted_returns else 0.0
     return_p90 = round(_percentile_linear(sorted_returns, 0.9), 4) if sorted_returns else 0.0
     return_p95 = round(_percentile_linear(sorted_returns, 0.95), 4) if sorted_returns else 0.0
@@ -128,6 +156,8 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
         "outcome_counts": outcome_counts,
         "return_sample_size": len(return_values),
         "return_avg": return_avg,
+        "return_trimmed_mean_10pct": return_trimmed_mean_10pct,
+        "return_winsorized_mean_10pct": return_winsorized_mean_10pct,
         "return_p50": return_p50,
         "return_p90": return_p90,
         "return_p95": return_p95,
@@ -292,6 +322,18 @@ def get_global_metrics(
         metric_name="refactor_backtest_records_return_pct_avg",
         help_text="Current average return_pct across backtest records with return value.",
         value=backtest_quality["return_avg"],
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_pct_trimmed_mean_10pct",
+        help_text="Current 10pct trimmed mean return_pct across backtest records with return value.",
+        value=backtest_quality["return_trimmed_mean_10pct"],
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_pct_winsorized_mean_10pct",
+        help_text="Current 10pct winsorized mean return_pct across backtest records with return value.",
+        value=backtest_quality["return_winsorized_mean_10pct"],
     )
     _append_float_gauge_line(
         lines=lines,
