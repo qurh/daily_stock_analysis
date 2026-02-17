@@ -1763,3 +1763,69 @@ def test_global_metrics_endpoint_includes_backtest_and_optimization_quality_metr
     assert "refactor_optimization_quality_score_avg 74.5" in body
     assert 'refactor_optimization_recommendations_total{recommendation="promote_candidate"} 1' in body
     assert 'refactor_optimization_recommendations_total{recommendation="optimize_prompt_or_flow"} 1' in body
+
+
+def test_global_metrics_endpoint_includes_backtest_return_quantiles_and_stddev() -> None:
+    client = TestClient(create_app())
+    now = datetime.now(timezone.utc).isoformat()
+    backtest_job_id = str(uuid4())
+    symbols = ["600519", "000001", "300750", "601318", "002594"]
+    returns = [1.0, 2.0, 3.0, 4.0, 5.0]
+
+    with client.app.state.database.connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO backtest_jobs (
+                job_id, scope, symbol, eval_window_days, status, progress, metrics_json,
+                engine_version, started_at, ended_at, created_at, updated_at
+            ) VALUES (?, 'market', NULL, 10, 'completed', 100, ?, 'v1', ?, ?, ?, ?)
+            """,
+            (
+                backtest_job_id,
+                json.dumps({"sample_size": 5, "win_rate_pct": 100.0}, ensure_ascii=False),
+                now,
+                now,
+                now,
+                now,
+            ),
+        )
+        for idx, symbol in enumerate(symbols):
+            analysis_job_id = str(uuid4())
+            conn.execute(
+                """
+                INSERT INTO analysis_jobs (
+                    job_id, symbol, report_type, status, result_json, execution_id, created_at, updated_at
+                ) VALUES (?, ?, 'detailed', 'succeeded', ?, NULL, ?, ?)
+                """,
+                (
+                    analysis_job_id,
+                    symbol,
+                    json.dumps({"report": {"meta": {"stock_code": symbol}}}, ensure_ascii=False),
+                    now,
+                    now,
+                ),
+            )
+            conn.execute(
+                """
+                INSERT INTO backtest_records (
+                    record_id, job_id, analysis_job_id, symbol, direction,
+                    outcome, return_pct, direction_correct, flags_json, created_at
+                ) VALUES (?, ?, ?, ?, 'long', 'win', ?, 1, ?, ?)
+                """,
+                (
+                    str(uuid4()),
+                    backtest_job_id,
+                    analysis_job_id,
+                    symbol,
+                    returns[idx],
+                    json.dumps([], ensure_ascii=False),
+                    now,
+                ),
+            )
+
+    response = client.get("/api/v2/metrics")
+    assert response.status_code == 200
+    body = response.text
+    assert "refactor_backtest_records_return_pct_p50 3.0" in body
+    assert "refactor_backtest_records_return_pct_p90 4.6" in body
+    assert "refactor_backtest_records_return_pct_stddev 1.4142" in body
