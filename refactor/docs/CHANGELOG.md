@@ -2,6 +2,20 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.47-m3-global-metrics-30d-adequacy-level] - 2026-02-17
+
+### Added
+
+- New 30-day adequacy level metric in `/api/v2/metrics`:
+  - `refactor_backtest_records_return_sample_adequacy_level_30d{level=low|medium|high}`
+- New tests:
+  - global metrics endpoint includes backtest return sample 30d adequacy level
+
+### Changed
+
+- Backtest quality snapshot now exposes one-hot adequacy level for 30d window, aligned with all-time/24h/7d level semantics.
+- Backend app version bumped to `0.3.47-m3-global-metrics-30d-adequacy-level`.
+
 ## [0.3.46-m3-global-metrics-30d-sample-coverage-score] - 2026-02-17
 
 ### Added
