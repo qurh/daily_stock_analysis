@@ -2,6 +2,21 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.45-m3-global-metrics-30d-sample-threshold] - 2026-02-17
+
+### Added
+
+- New 30-day sample threshold metrics in `/api/v2/metrics`:
+  - `refactor_backtest_records_return_sample_size_30d`
+  - `refactor_backtest_records_return_sample_size_threshold_met_30d`
+- New tests:
+  - global metrics endpoint includes backtest return sample 30d threshold metrics
+
+### Changed
+
+- Backtest quality snapshot now computes last-30d sample size and threshold readiness, extending multi-window quality observability.
+- Backend app version bumped to `0.3.45-m3-global-metrics-30d-sample-threshold`.
+
 ## [0.3.44-m3-global-metrics-7d-adequacy-level] - 2026-02-17
 
 ### Added
