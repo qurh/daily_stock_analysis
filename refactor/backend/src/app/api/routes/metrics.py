@@ -165,9 +165,11 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
     outcome_counts: dict[str, int] = {}
     return_values: list[float] = []
     return_values_24h: list[float] = []
+    return_values_7d: list[float] = []
     direction_flags: list[int] = []
     now_utc = datetime.now(timezone.utc)
     cutoff_24h = now_utc - timedelta(hours=24)
+    cutoff_7d = now_utc - timedelta(days=7)
     for row in rows:
         outcome = str(row["outcome"] if row["outcome"] is not None else "unknown")
         outcome_counts[outcome] = outcome_counts.get(outcome, 0) + 1
@@ -184,6 +186,8 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
                     created_at_utc = created_at.astimezone(timezone.utc)
                     if created_at_utc >= cutoff_24h:
                         return_values_24h.append(return_value)
+                    if created_at_utc >= cutoff_7d:
+                        return_values_7d.append(return_value)
                 except ValueError:
                     pass
         if row["direction_correct"] is not None:
@@ -225,8 +229,14 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
         min_sample_required=min_sample_required,
         medium_coverage_threshold_pct=medium_coverage_threshold_pct,
     )
+    adequacy_7d = _compute_sample_adequacy(
+        sample_size=len(return_values_7d),
+        min_sample_required=min_sample_required,
+        medium_coverage_threshold_pct=medium_coverage_threshold_pct,
+    )
     sample_threshold_met = int(adequacy_all["threshold_met"])
     sample_threshold_met_24h = int(adequacy_24h["threshold_met"])
+    sample_threshold_met_7d = int(adequacy_7d["threshold_met"])
     sample_size_gap = max(min_sample_required - len(return_values), 0)
     sample_coverage_ratio_pct = float(adequacy_all["coverage_ratio_pct"])
     sample_coverage_ratio_pct_24h = float(adequacy_24h["coverage_ratio_pct"])
@@ -238,10 +248,12 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
         "outcome_counts": outcome_counts,
         "return_sample_size": len(return_values),
         "return_sample_size_24h": len(return_values_24h),
+        "return_sample_size_7d": len(return_values_7d),
         "return_sample_min_size_required": min_sample_required,
         "return_sample_medium_coverage_threshold_pct": round(medium_coverage_threshold_pct, 2),
         "return_sample_threshold_met": sample_threshold_met,
         "return_sample_threshold_met_24h": sample_threshold_met_24h,
+        "return_sample_threshold_met_7d": sample_threshold_met_7d,
         "return_sample_size_gap": sample_size_gap,
         "return_sample_coverage_ratio_pct": sample_coverage_ratio_pct,
         "return_sample_coverage_ratio_pct_24h": sample_coverage_ratio_pct_24h,
@@ -419,6 +431,12 @@ def get_global_metrics(
     )
     _append_total_gauge_line(
         lines=lines,
+        metric_name="refactor_backtest_records_return_sample_size_7d",
+        help_text="Current number of backtest records with return_pct value in last 7 days.",
+        total=backtest_quality["return_sample_size_7d"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
         metric_name="refactor_backtest_records_return_sample_min_size_required",
         help_text="Minimum sample size required for stable return statistics.",
         total=backtest_quality["return_sample_min_size_required"],
@@ -440,6 +458,12 @@ def get_global_metrics(
         metric_name="refactor_backtest_records_return_sample_size_threshold_met_24h",
         help_text="Whether last-24h return sample size meets minimum required threshold (1 met, 0 unmet).",
         total=backtest_quality["return_sample_threshold_met_24h"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_sample_size_threshold_met_7d",
+        help_text="Whether last-7d return sample size meets minimum required threshold (1 met, 0 unmet).",
+        total=backtest_quality["return_sample_threshold_met_7d"],
     )
     _append_total_gauge_line(
         lines=lines,
