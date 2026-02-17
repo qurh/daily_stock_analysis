@@ -450,13 +450,22 @@ class StrategyService:
             gate_result = self._database.json_load(row["gate_result_json"], {})
             gate_result["rollback_reason"] = reason
             gate_result["rolled_back_at"] = _utc_now()
+            now = _utc_now()
             conn.execute(
                 """
                 UPDATE strategy_artifacts
                 SET status = 'rolled_back', gate_result_json = ?, updated_at = ?
                 WHERE strategy_id = ?
                 """,
-                (self._database.json_dump(gate_result), _utc_now(), strategy_id),
+                (self._database.json_dump(gate_result), now, strategy_id),
+            )
+            conn.execute(
+                """
+                UPDATE strategy_bindings
+                SET status = 'inactive', updated_at = ?
+                WHERE strategy_id = ? AND status = 'active'
+                """,
+                (now, strategy_id),
             )
         return self.get_strategy(strategy_id=strategy_id)
 
