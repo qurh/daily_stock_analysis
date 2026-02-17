@@ -82,6 +82,18 @@ def _append_float_gauge_line(lines: list[str], metric_name: str, help_text: str,
     lines.append(f"{metric_name} {value}")
 
 
+def _percentile_linear(sorted_values: list[float], p: float) -> float:
+    if not sorted_values:
+        return 0.0
+    if len(sorted_values) == 1:
+        return sorted_values[0]
+    rank = (len(sorted_values) - 1) * p
+    lower_idx = int(rank)
+    upper_idx = min(lower_idx + 1, len(sorted_values) - 1)
+    weight = rank - lower_idx
+    return sorted_values[lower_idx] + weight * (sorted_values[upper_idx] - sorted_values[lower_idx])
+
+
 def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
     query = "SELECT outcome, return_pct, direction_correct FROM backtest_records"
     with request.app.state.database.connection() as conn:
@@ -99,12 +111,24 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
         if row["direction_correct"] is not None:
             direction_flags.append(int(row["direction_correct"]))
 
+    sorted_returns = sorted(return_values)
     return_avg = round(sum(return_values) / len(return_values), 4) if return_values else 0.0
+    return_p50 = round(_percentile_linear(sorted_returns, 0.5), 4) if sorted_returns else 0.0
+    return_p90 = round(_percentile_linear(sorted_returns, 0.9), 4) if sorted_returns else 0.0
+    if return_values:
+        mean = sum(return_values) / len(return_values)
+        variance = sum((value - mean) ** 2 for value in return_values) / len(return_values)
+        return_stddev = round(variance**0.5, 4)
+    else:
+        return_stddev = 0.0
     direction_accuracy_pct = round(sum(direction_flags) / len(direction_flags) * 100.0, 2) if direction_flags else 0.0
     return {
         "outcome_counts": outcome_counts,
         "return_sample_size": len(return_values),
         "return_avg": return_avg,
+        "return_p50": return_p50,
+        "return_p90": return_p90,
+        "return_stddev": return_stddev,
         "direction_sample_size": len(direction_flags),
         "direction_accuracy_pct": direction_accuracy_pct,
     }
@@ -264,6 +288,24 @@ def get_global_metrics(
         metric_name="refactor_backtest_records_return_pct_avg",
         help_text="Current average return_pct across backtest records with return value.",
         value=backtest_quality["return_avg"],
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_pct_p50",
+        help_text="Current p50 return_pct across backtest records with return value.",
+        value=backtest_quality["return_p50"],
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_pct_p90",
+        help_text="Current p90 return_pct across backtest records with return value.",
+        value=backtest_quality["return_p90"],
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_pct_stddev",
+        help_text="Current standard deviation of return_pct across backtest records with return value.",
+        value=backtest_quality["return_stddev"],
     )
     _append_total_gauge_line(
         lines=lines,
