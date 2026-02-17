@@ -2,6 +2,21 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.32-m3-global-metrics-return-tail-quantiles] - 2026-02-17
+
+### Added
+
+- New backtest return tail quantile metrics in `/api/v2/metrics`:
+  - `refactor_backtest_records_return_pct_p95`
+  - `refactor_backtest_records_return_pct_p99`
+- New tests:
+  - global metrics endpoint includes backtest return p95 and p99 quantiles
+
+### Changed
+
+- Backtest return distribution snapshot now includes p95/p99 metrics in addition to p50/p90/stddev.
+- Backend app version bumped to `0.3.32-m3-global-metrics-return-tail-quantiles`.
+
 ## [0.3.31-m3-global-metrics-return-distribution] - 2026-02-17
 
 ### Added

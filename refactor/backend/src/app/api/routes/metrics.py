@@ -115,6 +115,8 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
     return_avg = round(sum(return_values) / len(return_values), 4) if return_values else 0.0
     return_p50 = round(_percentile_linear(sorted_returns, 0.5), 4) if sorted_returns else 0.0
     return_p90 = round(_percentile_linear(sorted_returns, 0.9), 4) if sorted_returns else 0.0
+    return_p95 = round(_percentile_linear(sorted_returns, 0.95), 4) if sorted_returns else 0.0
+    return_p99 = round(_percentile_linear(sorted_returns, 0.99), 4) if sorted_returns else 0.0
     if return_values:
         mean = sum(return_values) / len(return_values)
         variance = sum((value - mean) ** 2 for value in return_values) / len(return_values)
@@ -128,6 +130,8 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
         "return_avg": return_avg,
         "return_p50": return_p50,
         "return_p90": return_p90,
+        "return_p95": return_p95,
+        "return_p99": return_p99,
         "return_stddev": return_stddev,
         "direction_sample_size": len(direction_flags),
         "direction_accuracy_pct": direction_accuracy_pct,
@@ -300,6 +304,18 @@ def get_global_metrics(
         metric_name="refactor_backtest_records_return_pct_p90",
         help_text="Current p90 return_pct across backtest records with return value.",
         value=backtest_quality["return_p90"],
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_pct_p95",
+        help_text="Current p95 return_pct across backtest records with return value.",
+        value=backtest_quality["return_p95"],
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_pct_p99",
+        help_text="Current p99 return_pct across backtest records with return value.",
+        value=backtest_quality["return_p99"],
     )
     _append_float_gauge_line(
         lines=lines,
