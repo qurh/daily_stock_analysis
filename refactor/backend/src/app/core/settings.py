@@ -128,6 +128,17 @@ def load_settings() -> AppSettings:
     backtest_multi_window_alert_critical_threshold_unmet_windows = _read_int_env(
         "BACKTEST_MULTI_WINDOW_ALERT_CRITICAL_THRESHOLD_UNMET_WINDOWS", 3
     )
+    backtest_multi_window_alert_warn_low_windows = max(backtest_multi_window_alert_warn_low_windows, 0)
+    backtest_multi_window_alert_warn_threshold_unmet_windows = max(
+        backtest_multi_window_alert_warn_threshold_unmet_windows, 0
+    )
+    backtest_multi_window_alert_critical_low_windows = max(
+        backtest_multi_window_alert_critical_low_windows, backtest_multi_window_alert_warn_low_windows
+    )
+    backtest_multi_window_alert_critical_threshold_unmet_windows = max(
+        backtest_multi_window_alert_critical_threshold_unmet_windows,
+        backtest_multi_window_alert_warn_threshold_unmet_windows,
+    )
     return AppSettings(
         database_url=database_url,
         queue_auto_process=queue_auto_process,
