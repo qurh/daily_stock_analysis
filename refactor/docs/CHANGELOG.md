@@ -2,6 +2,22 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.31-m3-global-metrics-return-distribution] - 2026-02-17
+
+### Added
+
+- New backtest return distribution metrics in `/api/v2/metrics`:
+  - `refactor_backtest_records_return_pct_p50`
+  - `refactor_backtest_records_return_pct_p90`
+  - `refactor_backtest_records_return_pct_stddev`
+- New tests:
+  - global metrics endpoint includes backtest return quantiles and stddev
+
+### Changed
+
+- Backtest quality snapshot now includes percentile and volatility statistics based on linear interpolation percentile and population stddev.
+- Backend app version bumped to `0.3.31-m3-global-metrics-return-distribution`.
+
 ## [0.3.30-m3-global-metrics-quality-snapshots] - 2026-02-17
 
 ### Added
