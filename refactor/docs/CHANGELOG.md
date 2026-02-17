@@ -2,6 +2,21 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.43-m3-global-metrics-7d-sample-coverage-score] - 2026-02-17
+
+### Added
+
+- New 7-day sample quality metrics in `/api/v2/metrics`:
+  - `refactor_backtest_records_return_sample_coverage_ratio_pct_7d`
+  - `refactor_backtest_records_return_sample_adequacy_score_7d`
+- New tests:
+  - global metrics endpoint includes backtest return sample 7d coverage and adequacy score
+
+### Changed
+
+- Backtest quality snapshot now computes 7d coverage ratio and adequacy score using the same threshold and medium-boundary logic as all-time/24h windows.
+- Backend app version bumped to `0.3.43-m3-global-metrics-7d-sample-coverage-score`.
+
 ## [0.3.42-m3-global-metrics-7d-sample-threshold] - 2026-02-17
 
 ### Added
