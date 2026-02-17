@@ -27,6 +27,7 @@ def test_settings_reads_non_prefixed_env_vars(monkeypatch) -> None:
     monkeypatch.setenv("PROMPT_LOCK_OVERVIEW_TIMEOUT_GROUPED_SEC", "0.4")
     monkeypatch.setenv("PROMPT_LOCK_OVERVIEW_TIMEOUT_TRENDS_SEC", "0.5")
     monkeypatch.setenv("BACKTEST_RETURN_SAMPLE_MIN_SIZE", "12")
+    monkeypatch.setenv("BACKTEST_RETURN_SAMPLE_MEDIUM_COVERAGE_PCT", "65")
 
     settings = load_settings()
 
@@ -55,3 +56,4 @@ def test_settings_reads_non_prefixed_env_vars(monkeypatch) -> None:
     assert settings.prompt_lock_overview_timeout_grouped_sec == 0.4
     assert settings.prompt_lock_overview_timeout_trends_sec == 0.5
     assert settings.backtest_return_sample_min_size == 12
+    assert settings.backtest_return_sample_medium_coverage_pct == 65.0

@@ -2,6 +2,23 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.37-m3-global-metrics-adequacy-threshold-config] - 2026-02-17
+
+### Added
+
+- New runtime setting:
+  - `BACKTEST_RETURN_SAMPLE_MEDIUM_COVERAGE_PCT` (default `50`)
+- New global metrics series in `/api/v2/metrics`:
+  - `refactor_backtest_records_return_sample_medium_coverage_threshold_pct`
+- New tests:
+  - sample adequacy level supports medium coverage threshold override
+  - settings loader reads medium coverage threshold env
+
+### Changed
+
+- Sample adequacy level boundary for `medium` is now configurable instead of hard-coded at `50%`.
+- Backend app version bumped to `0.3.37-m3-global-metrics-adequacy-threshold-config`.
+
 ## [0.3.36-m3-global-metrics-sample-adequacy-level] - 2026-02-17
 
 ### Added

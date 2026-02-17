@@ -80,6 +80,7 @@ class AppSettings:
     prompt_lock_overview_timeout_grouped_sec: float
     prompt_lock_overview_timeout_trends_sec: float
     backtest_return_sample_min_size: int
+    backtest_return_sample_medium_coverage_pct: float
 
 
 def load_settings() -> AppSettings:
@@ -112,6 +113,7 @@ def load_settings() -> AppSettings:
     prompt_lock_overview_timeout_grouped_sec = _read_float_env("PROMPT_LOCK_OVERVIEW_TIMEOUT_GROUPED_SEC", 0.0)
     prompt_lock_overview_timeout_trends_sec = _read_float_env("PROMPT_LOCK_OVERVIEW_TIMEOUT_TRENDS_SEC", 0.0)
     backtest_return_sample_min_size = _read_int_env("BACKTEST_RETURN_SAMPLE_MIN_SIZE", 20)
+    backtest_return_sample_medium_coverage_pct = _read_float_env("BACKTEST_RETURN_SAMPLE_MEDIUM_COVERAGE_PCT", 50.0)
     return AppSettings(
         database_url=database_url,
         queue_auto_process=queue_auto_process,
@@ -138,4 +140,5 @@ def load_settings() -> AppSettings:
         prompt_lock_overview_timeout_grouped_sec=prompt_lock_overview_timeout_grouped_sec,
         prompt_lock_overview_timeout_trends_sec=prompt_lock_overview_timeout_trends_sec,
         backtest_return_sample_min_size=backtest_return_sample_min_size,
+        backtest_return_sample_medium_coverage_pct=backtest_return_sample_medium_coverage_pct,
     )
