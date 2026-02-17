@@ -2807,3 +2807,75 @@ def test_global_metrics_endpoint_includes_backtest_return_sample_30d_coverage_an
     body = response.text
     assert "refactor_backtest_records_return_sample_coverage_ratio_pct_30d 50.0" in body
     assert "refactor_backtest_records_return_sample_adequacy_score_30d 0.0" in body
+
+
+def test_global_metrics_endpoint_includes_backtest_return_sample_30d_adequacy_level(monkeypatch) -> None:
+    monkeypatch.setenv("BACKTEST_RETURN_SAMPLE_MIN_SIZE", "4")
+    monkeypatch.setenv("BACKTEST_RETURN_SAMPLE_MEDIUM_COVERAGE_PCT", "60")
+    client = TestClient(create_app())
+    now = datetime.now(timezone.utc)
+    backtest_job_id = str(uuid4())
+
+    with client.app.state.database.connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO backtest_jobs (
+                job_id, scope, symbol, eval_window_days, status, progress, metrics_json,
+                engine_version, started_at, ended_at, created_at, updated_at
+            ) VALUES (?, 'market', NULL, 10, 'completed', 100, ?, 'v1', ?, ?, ?, ?)
+            """,
+            (
+                backtest_job_id,
+                json.dumps({"sample_size": 3, "win_rate_pct": 100.0}, ensure_ascii=False),
+                now.isoformat(),
+                now.isoformat(),
+                now.isoformat(),
+                now.isoformat(),
+            ),
+        )
+
+        records = [
+            ("600519", 1.0, (now - timedelta(days=40)).isoformat()),
+            ("000001", 2.0, (now - timedelta(days=20)).isoformat()),
+            ("300750", 3.0, (now - timedelta(days=2)).isoformat()),
+        ]
+        for symbol, value, created_at in records:
+            analysis_job_id = str(uuid4())
+            conn.execute(
+                """
+                INSERT INTO analysis_jobs (
+                    job_id, symbol, report_type, status, result_json, execution_id, created_at, updated_at
+                ) VALUES (?, ?, 'detailed', 'succeeded', ?, NULL, ?, ?)
+                """,
+                (
+                    analysis_job_id,
+                    symbol,
+                    json.dumps({"report": {"meta": {"stock_code": symbol}}}, ensure_ascii=False),
+                    now.isoformat(),
+                    now.isoformat(),
+                ),
+            )
+            conn.execute(
+                """
+                INSERT INTO backtest_records (
+                    record_id, job_id, analysis_job_id, symbol, direction,
+                    outcome, return_pct, direction_correct, flags_json, created_at
+                ) VALUES (?, ?, ?, ?, 'long', 'win', ?, 1, ?, ?)
+                """,
+                (
+                    str(uuid4()),
+                    backtest_job_id,
+                    analysis_job_id,
+                    symbol,
+                    value,
+                    json.dumps([], ensure_ascii=False),
+                    created_at,
+                ),
+            )
+
+    response = client.get("/api/v2/metrics")
+    assert response.status_code == 200
+    body = response.text
+    assert 'refactor_backtest_records_return_sample_adequacy_level_30d{level="low"} 1' in body
+    assert 'refactor_backtest_records_return_sample_adequacy_level_30d{level="medium"} 0' in body
+    assert 'refactor_backtest_records_return_sample_adequacy_level_30d{level="high"} 0' in body
