@@ -2,6 +2,24 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.51-m3-global-metrics-multi-window-alert-threshold-config] - 2026-02-17
+
+### Added
+
+- New runtime settings for multi-window alert level thresholds:
+  - `BACKTEST_MULTI_WINDOW_ALERT_WARN_LOW_WINDOWS` (default `1`)
+  - `BACKTEST_MULTI_WINDOW_ALERT_WARN_THRESHOLD_UNMET_WINDOWS` (default `1`)
+  - `BACKTEST_MULTI_WINDOW_ALERT_CRITICAL_LOW_WINDOWS` (default `2`)
+  - `BACKTEST_MULTI_WINDOW_ALERT_CRITICAL_THRESHOLD_UNMET_WINDOWS` (default `3`)
+- New tests:
+  - global metrics endpoint supports multi-window alert threshold overrides
+  - settings loader reads multi-window alert threshold env vars
+
+### Changed
+
+- Multi-window alert level classification now reads threshold values from runtime env settings.
+- Backend app version bumped to `0.3.51-m3-global-metrics-multi-window-alert-threshold-config`.
+
 ## [0.3.50-m3-global-metrics-multi-window-alert-level-score] - 2026-02-17
 
 ### Added

@@ -37,6 +37,12 @@ uvicorn app.main:app --app-dir src --reload --port 18000
 - Prompt lock overview summary timeout override seconds: `PROMPT_LOCK_OVERVIEW_TIMEOUT_SUMMARY_SEC` (default `0`, module override)
 - Prompt lock overview grouped timeout override seconds: `PROMPT_LOCK_OVERVIEW_TIMEOUT_GROUPED_SEC` (default `0`, module override)
 - Prompt lock overview trends timeout override seconds: `PROMPT_LOCK_OVERVIEW_TIMEOUT_TRENDS_SEC` (default `0`, module override)
+- Return sample min size: `BACKTEST_RETURN_SAMPLE_MIN_SIZE` (default `20`)
+- Return sample medium coverage pct: `BACKTEST_RETURN_SAMPLE_MEDIUM_COVERAGE_PCT` (default `50`)
+- Multi-window alert warn low windows threshold: `BACKTEST_MULTI_WINDOW_ALERT_WARN_LOW_WINDOWS` (default `1`)
+- Multi-window alert warn threshold-unmet windows threshold: `BACKTEST_MULTI_WINDOW_ALERT_WARN_THRESHOLD_UNMET_WINDOWS` (default `1`)
+- Multi-window alert critical low windows threshold: `BACKTEST_MULTI_WINDOW_ALERT_CRITICAL_LOW_WINDOWS` (default `2`)
+- Multi-window alert critical threshold-unmet windows threshold: `BACKTEST_MULTI_WINDOW_ALERT_CRITICAL_THRESHOLD_UNMET_WINDOWS` (default `3`)
 - Real smoke switch: `ENABLE_REAL_LLM_SMOKE` (`1` to run integration smoke)
 
 Example:
