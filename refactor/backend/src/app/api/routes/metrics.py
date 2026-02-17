@@ -158,11 +158,22 @@ def _compute_sample_adequacy(
 
 
 def _compute_multi_window_alert_levels(
-    threshold_unmet_windows_total: int, low_adequacy_windows_total: int
+    threshold_unmet_windows_total: int,
+    low_adequacy_windows_total: int,
+    warn_low_windows_threshold: int,
+    warn_threshold_unmet_windows_threshold: int,
+    critical_low_windows_threshold: int,
+    critical_threshold_unmet_windows_threshold: int,
 ) -> dict[str, int]:
-    if low_adequacy_windows_total >= 2 or threshold_unmet_windows_total >= 3:
+    if (
+        low_adequacy_windows_total >= critical_low_windows_threshold
+        or threshold_unmet_windows_total >= critical_threshold_unmet_windows_threshold
+    ):
         alert_level = "critical"
-    elif low_adequacy_windows_total >= 1 or threshold_unmet_windows_total >= 1:
+    elif (
+        low_adequacy_windows_total >= warn_low_windows_threshold
+        or threshold_unmet_windows_total >= warn_threshold_unmet_windows_threshold
+    ):
         alert_level = "warn"
     else:
         alert_level = "none"
@@ -242,11 +253,35 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
     settings = getattr(request.app.state, "settings", None)
     min_sample_required = 20
     medium_coverage_threshold_pct = 50.0
+    multi_window_alert_warn_low_windows_threshold = 1
+    multi_window_alert_warn_threshold_unmet_windows_threshold = 1
+    multi_window_alert_critical_low_windows_threshold = 2
+    multi_window_alert_critical_threshold_unmet_windows_threshold = 3
     if settings is not None:
         min_sample_required = int(getattr(settings, "backtest_return_sample_min_size", 20))
         medium_coverage_threshold_pct = float(getattr(settings, "backtest_return_sample_medium_coverage_pct", 50.0))
+        multi_window_alert_warn_low_windows_threshold = int(
+            getattr(settings, "backtest_multi_window_alert_warn_low_windows", 1)
+        )
+        multi_window_alert_warn_threshold_unmet_windows_threshold = int(
+            getattr(settings, "backtest_multi_window_alert_warn_threshold_unmet_windows", 1)
+        )
+        multi_window_alert_critical_low_windows_threshold = int(
+            getattr(settings, "backtest_multi_window_alert_critical_low_windows", 2)
+        )
+        multi_window_alert_critical_threshold_unmet_windows_threshold = int(
+            getattr(settings, "backtest_multi_window_alert_critical_threshold_unmet_windows", 3)
+        )
     min_sample_required = max(min_sample_required, 1)
     medium_coverage_threshold_pct = max(min(medium_coverage_threshold_pct, 100.0), 0.0)
+    multi_window_alert_warn_low_windows_threshold = max(multi_window_alert_warn_low_windows_threshold, 0)
+    multi_window_alert_warn_threshold_unmet_windows_threshold = max(
+        multi_window_alert_warn_threshold_unmet_windows_threshold, 0
+    )
+    multi_window_alert_critical_low_windows_threshold = max(multi_window_alert_critical_low_windows_threshold, 0)
+    multi_window_alert_critical_threshold_unmet_windows_threshold = max(
+        multi_window_alert_critical_threshold_unmet_windows_threshold, 0
+    )
     adequacy_all = _compute_sample_adequacy(
         sample_size=len(return_values),
         min_sample_required=min_sample_required,
@@ -297,6 +332,10 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
     sample_multi_window_alert_levels_onehot = _compute_multi_window_alert_levels(
         threshold_unmet_windows_total=sample_threshold_unmet_windows_total,
         low_adequacy_windows_total=sample_low_adequacy_windows_total,
+        warn_low_windows_threshold=multi_window_alert_warn_low_windows_threshold,
+        warn_threshold_unmet_windows_threshold=multi_window_alert_warn_threshold_unmet_windows_threshold,
+        critical_low_windows_threshold=multi_window_alert_critical_low_windows_threshold,
+        critical_threshold_unmet_windows_threshold=multi_window_alert_critical_threshold_unmet_windows_threshold,
     )
     sample_multi_window_alert_level_score = _compute_multi_window_alert_level_score(
         alert_levels_onehot=sample_multi_window_alert_levels_onehot

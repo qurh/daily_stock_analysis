@@ -28,6 +28,10 @@ def test_settings_reads_non_prefixed_env_vars(monkeypatch) -> None:
     monkeypatch.setenv("PROMPT_LOCK_OVERVIEW_TIMEOUT_TRENDS_SEC", "0.5")
     monkeypatch.setenv("BACKTEST_RETURN_SAMPLE_MIN_SIZE", "12")
     monkeypatch.setenv("BACKTEST_RETURN_SAMPLE_MEDIUM_COVERAGE_PCT", "65")
+    monkeypatch.setenv("BACKTEST_MULTI_WINDOW_ALERT_WARN_LOW_WINDOWS", "1")
+    monkeypatch.setenv("BACKTEST_MULTI_WINDOW_ALERT_WARN_THRESHOLD_UNMET_WINDOWS", "2")
+    monkeypatch.setenv("BACKTEST_MULTI_WINDOW_ALERT_CRITICAL_LOW_WINDOWS", "3")
+    monkeypatch.setenv("BACKTEST_MULTI_WINDOW_ALERT_CRITICAL_THRESHOLD_UNMET_WINDOWS", "4")
 
     settings = load_settings()
 
@@ -57,3 +61,7 @@ def test_settings_reads_non_prefixed_env_vars(monkeypatch) -> None:
     assert settings.prompt_lock_overview_timeout_trends_sec == 0.5
     assert settings.backtest_return_sample_min_size == 12
     assert settings.backtest_return_sample_medium_coverage_pct == 65.0
+    assert settings.backtest_multi_window_alert_warn_low_windows == 1
+    assert settings.backtest_multi_window_alert_warn_threshold_unmet_windows == 2
+    assert settings.backtest_multi_window_alert_critical_low_windows == 3
+    assert settings.backtest_multi_window_alert_critical_threshold_unmet_windows == 4
