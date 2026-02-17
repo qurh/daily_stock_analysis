@@ -257,6 +257,9 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
     multi_window_alert_warn_threshold_unmet_windows_threshold = 1
     multi_window_alert_critical_low_windows_threshold = 2
     multi_window_alert_critical_threshold_unmet_windows_threshold = 3
+    multi_window_alert_threshold_normalization_applied = False
+    multi_window_alert_critical_low_windows_threshold_normalized = False
+    multi_window_alert_critical_threshold_unmet_windows_threshold_normalized = False
     if settings is not None:
         min_sample_required = int(getattr(settings, "backtest_return_sample_min_size", 20))
         medium_coverage_threshold_pct = float(getattr(settings, "backtest_return_sample_medium_coverage_pct", 50.0))
@@ -271,6 +274,19 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
         )
         multi_window_alert_critical_threshold_unmet_windows_threshold = int(
             getattr(settings, "backtest_multi_window_alert_critical_threshold_unmet_windows", 3)
+        )
+        multi_window_alert_threshold_normalization_applied = bool(
+            getattr(settings, "backtest_multi_window_alert_threshold_normalization_applied", False)
+        )
+        multi_window_alert_critical_low_windows_threshold_normalized = bool(
+            getattr(settings, "backtest_multi_window_alert_critical_low_windows_threshold_normalized", False)
+        )
+        multi_window_alert_critical_threshold_unmet_windows_threshold_normalized = bool(
+            getattr(
+                settings,
+                "backtest_multi_window_alert_critical_threshold_unmet_windows_threshold_normalized",
+                False,
+            )
         )
     min_sample_required = max(min_sample_required, 1)
     medium_coverage_threshold_pct = max(min(medium_coverage_threshold_pct, 100.0), 0.0)
@@ -378,6 +394,15 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
         ),
         "return_sample_multi_window_alert_critical_threshold_unmet_windows_threshold": (
             multi_window_alert_critical_threshold_unmet_windows_threshold
+        ),
+        "return_sample_multi_window_alert_threshold_normalization_applied": (
+            int(multi_window_alert_threshold_normalization_applied)
+        ),
+        "return_sample_multi_window_alert_critical_low_windows_threshold_normalized": (
+            int(multi_window_alert_critical_low_windows_threshold_normalized)
+        ),
+        "return_sample_multi_window_alert_critical_threshold_unmet_windows_threshold_normalized": (
+            int(multi_window_alert_critical_threshold_unmet_windows_threshold_normalized)
         ),
         "return_avg": return_avg,
         "return_trimmed_mean_10pct": return_trimmed_mean_10pct,
@@ -632,6 +657,33 @@ def get_global_metrics(
         ),
         help_text="Configured critical threshold for threshold-unmet windows (24h/7d/30d), normalized.",
         total=backtest_quality["return_sample_multi_window_alert_critical_threshold_unmet_windows_threshold"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_sample_multi_window_alert_threshold_normalization_applied",
+        help_text="Whether multi-window alert thresholds were normalized from configured values (1 yes, 0 no).",
+        total=backtest_quality["return_sample_multi_window_alert_threshold_normalization_applied"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name=(
+            "refactor_backtest_records_return_sample_multi_window_alert_critical_low_windows_threshold_normalized"
+        ),
+        help_text="Whether critical low-windows threshold was normalized to satisfy critical>=warn (1 yes, 0 no).",
+        total=backtest_quality["return_sample_multi_window_alert_critical_low_windows_threshold_normalized"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name=(
+            "refactor_backtest_records_return_sample_multi_window_alert_critical_threshold_unmet_windows_"
+            "threshold_normalized"
+        ),
+        help_text=(
+            "Whether critical threshold-unmet-windows threshold was normalized to satisfy critical>=warn (1 yes, 0 no)."
+        ),
+        total=backtest_quality[
+            "return_sample_multi_window_alert_critical_threshold_unmet_windows_threshold_normalized"
+        ],
     )
     _append_labeled_gauge_lines_ordered(
         lines=lines,
