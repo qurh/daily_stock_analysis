@@ -2,6 +2,23 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.34-m3-global-metrics-sample-threshold] - 2026-02-17
+
+### Added
+
+- New backtest sample threshold metrics in `/api/v2/metrics`:
+  - `refactor_backtest_records_return_sample_min_size_required`
+  - `refactor_backtest_records_return_sample_size_threshold_met`
+- New runtime setting:
+  - `BACKTEST_RETURN_SAMPLE_MIN_SIZE` (default `20`)
+- New tests:
+  - global metrics endpoint includes configurable backtest return sample threshold metrics
+
+### Changed
+
+- Backtest quality snapshot now exposes threshold gate state for return sample size, supporting alert rules that combine quantiles and sample adequacy.
+- Backend app version bumped to `0.3.34-m3-global-metrics-sample-threshold`.
+
 ## [0.3.33-m3-global-metrics-return-robust-mean] - 2026-02-17
 
 ### Added
