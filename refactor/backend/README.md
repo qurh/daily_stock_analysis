@@ -185,6 +185,8 @@ uvicorn app.main:app --app-dir src --reload --port 18000
     - `refactor_backtest_records_return_sample_size_threshold_met_24h`
     - `refactor_backtest_records_return_sample_size_threshold_met_7d`
     - `refactor_backtest_records_return_sample_size_threshold_met_30d`
+    - `refactor_backtest_records_return_sample_threshold_unmet_windows_total`
+    - `refactor_backtest_records_return_sample_low_adequacy_windows_total`
     - `refactor_backtest_records_return_sample_size_gap`
     - `refactor_backtest_records_return_sample_coverage_ratio_pct`
     - `refactor_backtest_records_return_sample_coverage_ratio_pct_24h`
