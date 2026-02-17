@@ -257,6 +257,10 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
     multi_window_alert_warn_threshold_unmet_windows_threshold = 1
     multi_window_alert_critical_low_windows_threshold = 2
     multi_window_alert_critical_threshold_unmet_windows_threshold = 3
+    multi_window_alert_warn_low_windows_threshold_raw = 1
+    multi_window_alert_warn_threshold_unmet_windows_threshold_raw = 1
+    multi_window_alert_critical_low_windows_threshold_raw = 2
+    multi_window_alert_critical_threshold_unmet_windows_threshold_raw = 3
     multi_window_alert_threshold_normalization_applied = False
     multi_window_alert_critical_low_windows_threshold_normalized = False
     multi_window_alert_critical_threshold_unmet_windows_threshold_normalized = False
@@ -274,6 +278,18 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
         )
         multi_window_alert_critical_threshold_unmet_windows_threshold = int(
             getattr(settings, "backtest_multi_window_alert_critical_threshold_unmet_windows", 3)
+        )
+        multi_window_alert_warn_low_windows_threshold_raw = int(
+            getattr(settings, "backtest_multi_window_alert_warn_low_windows_raw", 1)
+        )
+        multi_window_alert_warn_threshold_unmet_windows_threshold_raw = int(
+            getattr(settings, "backtest_multi_window_alert_warn_threshold_unmet_windows_raw", 1)
+        )
+        multi_window_alert_critical_low_windows_threshold_raw = int(
+            getattr(settings, "backtest_multi_window_alert_critical_low_windows_raw", 2)
+        )
+        multi_window_alert_critical_threshold_unmet_windows_threshold_raw = int(
+            getattr(settings, "backtest_multi_window_alert_critical_threshold_unmet_windows_raw", 3)
         )
         multi_window_alert_threshold_normalization_applied = bool(
             getattr(settings, "backtest_multi_window_alert_threshold_normalization_applied", False)
@@ -394,6 +410,18 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
         ),
         "return_sample_multi_window_alert_critical_threshold_unmet_windows_threshold": (
             multi_window_alert_critical_threshold_unmet_windows_threshold
+        ),
+        "return_sample_multi_window_alert_warn_low_windows_threshold_raw": (
+            multi_window_alert_warn_low_windows_threshold_raw
+        ),
+        "return_sample_multi_window_alert_warn_threshold_unmet_windows_threshold_raw": (
+            multi_window_alert_warn_threshold_unmet_windows_threshold_raw
+        ),
+        "return_sample_multi_window_alert_critical_low_windows_threshold_raw": (
+            multi_window_alert_critical_low_windows_threshold_raw
+        ),
+        "return_sample_multi_window_alert_critical_threshold_unmet_windows_threshold_raw": (
+            multi_window_alert_critical_threshold_unmet_windows_threshold_raw
         ),
         "return_sample_multi_window_alert_threshold_normalization_applied": (
             int(multi_window_alert_threshold_normalization_applied)
@@ -657,6 +685,34 @@ def get_global_metrics(
         ),
         help_text="Configured critical threshold for threshold-unmet windows (24h/7d/30d), normalized.",
         total=backtest_quality["return_sample_multi_window_alert_critical_threshold_unmet_windows_threshold"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_sample_multi_window_alert_warn_low_windows_threshold_raw",
+        help_text="Configured warn threshold for low adequacy windows (24h/7d/30d), raw before normalization.",
+        total=backtest_quality["return_sample_multi_window_alert_warn_low_windows_threshold_raw"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name=(
+            "refactor_backtest_records_return_sample_multi_window_alert_warn_threshold_unmet_windows_threshold_raw"
+        ),
+        help_text="Configured warn threshold for threshold-unmet windows (24h/7d/30d), raw before normalization.",
+        total=backtest_quality["return_sample_multi_window_alert_warn_threshold_unmet_windows_threshold_raw"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name=("refactor_backtest_records_return_sample_multi_window_alert_critical_low_windows_threshold_raw"),
+        help_text="Configured critical threshold for low adequacy windows (24h/7d/30d), raw before normalization.",
+        total=backtest_quality["return_sample_multi_window_alert_critical_low_windows_threshold_raw"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name=(
+            "refactor_backtest_records_return_sample_multi_window_alert_critical_threshold_unmet_windows_threshold_raw"
+        ),
+        help_text=("Configured critical threshold for threshold-unmet windows (24h/7d/30d), raw before normalization."),
+        total=backtest_quality["return_sample_multi_window_alert_critical_threshold_unmet_windows_threshold_raw"],
     )
     _append_total_gauge_line(
         lines=lines,
