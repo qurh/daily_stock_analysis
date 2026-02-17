@@ -168,15 +168,18 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
     direction_accuracy_pct = round(sum(direction_flags) / len(direction_flags) * 100.0, 2) if direction_flags else 0.0
     settings = getattr(request.app.state, "settings", None)
     min_sample_required = 20
+    medium_coverage_threshold_pct = 50.0
     if settings is not None:
         min_sample_required = int(getattr(settings, "backtest_return_sample_min_size", 20))
+        medium_coverage_threshold_pct = float(getattr(settings, "backtest_return_sample_medium_coverage_pct", 50.0))
     min_sample_required = max(min_sample_required, 1)
+    medium_coverage_threshold_pct = max(min(medium_coverage_threshold_pct, 100.0), 0.0)
     sample_threshold_met = 1 if len(return_values) >= min_sample_required else 0
     sample_size_gap = max(min_sample_required - len(return_values), 0)
     sample_coverage_ratio_pct = round(len(return_values) / min_sample_required * 100.0, 2)
     if sample_threshold_met == 1:
         sample_adequacy_level = "high"
-    elif sample_coverage_ratio_pct >= 50.0:
+    elif sample_coverage_ratio_pct >= medium_coverage_threshold_pct:
         sample_adequacy_level = "medium"
     else:
         sample_adequacy_level = "low"
@@ -189,6 +192,7 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
         "outcome_counts": outcome_counts,
         "return_sample_size": len(return_values),
         "return_sample_min_size_required": min_sample_required,
+        "return_sample_medium_coverage_threshold_pct": round(medium_coverage_threshold_pct, 2),
         "return_sample_threshold_met": sample_threshold_met,
         "return_sample_size_gap": sample_size_gap,
         "return_sample_coverage_ratio_pct": sample_coverage_ratio_pct,
@@ -360,6 +364,12 @@ def get_global_metrics(
         metric_name="refactor_backtest_records_return_sample_min_size_required",
         help_text="Minimum sample size required for stable return statistics.",
         total=backtest_quality["return_sample_min_size_required"],
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_sample_medium_coverage_threshold_pct",
+        help_text="Coverage ratio threshold used to classify medium sample adequacy level.",
+        value=backtest_quality["return_sample_medium_coverage_threshold_pct"],
     )
     _append_total_gauge_line(
         lines=lines,
