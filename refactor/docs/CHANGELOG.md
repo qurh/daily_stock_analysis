@@ -2,6 +2,20 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.41-m3-global-metrics-recent-adequacy-level] - 2026-02-17
+
+### Added
+
+- New recent-window adequacy level metric in `/api/v2/metrics`:
+  - `refactor_backtest_records_return_sample_adequacy_level_24h{level=low|medium|high}`
+- New tests:
+  - global metrics endpoint includes backtest return sample 24h adequacy level
+
+### Changed
+
+- Backtest quality snapshot now exposes one-hot adequacy level for last-24h samples, aligned with existing all-time level/score logic.
+- Backend app version bumped to `0.3.41-m3-global-metrics-recent-adequacy-level`.
+
 ## [0.3.40-m3-global-metrics-recent-sample-coverage-score] - 2026-02-17
 
 ### Added
