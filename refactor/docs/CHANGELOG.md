@@ -2,6 +2,21 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.46-m3-global-metrics-30d-sample-coverage-score] - 2026-02-17
+
+### Added
+
+- New 30-day sample quality metrics in `/api/v2/metrics`:
+  - `refactor_backtest_records_return_sample_coverage_ratio_pct_30d`
+  - `refactor_backtest_records_return_sample_adequacy_score_30d`
+- New tests:
+  - global metrics endpoint includes backtest return sample 30d coverage and adequacy score
+
+### Changed
+
+- Backtest quality snapshot now computes 30d coverage ratio and adequacy score, aligned with all-time/24h/7d windows.
+- Backend app version bumped to `0.3.46-m3-global-metrics-30d-sample-coverage-score`.
+
 ## [0.3.45-m3-global-metrics-30d-sample-threshold] - 2026-02-17
 
 ### Added
