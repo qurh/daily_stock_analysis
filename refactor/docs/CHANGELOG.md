@@ -2,6 +2,24 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.55-m3-global-metrics-alert-threshold-raw-values] - 2026-02-17
+
+### Added
+
+- New raw threshold metrics in `/api/v2/metrics`:
+  - `refactor_backtest_records_return_sample_multi_window_alert_warn_low_windows_threshold_raw`
+  - `refactor_backtest_records_return_sample_multi_window_alert_warn_threshold_unmet_windows_threshold_raw`
+  - `refactor_backtest_records_return_sample_multi_window_alert_critical_low_windows_threshold_raw`
+  - `refactor_backtest_records_return_sample_multi_window_alert_critical_threshold_unmet_windows_threshold_raw`
+- New tests:
+  - global metrics endpoint includes raw multi-window alert thresholds
+  - settings loader exposes raw threshold values
+
+### Changed
+
+- Settings now preserve configured raw threshold values alongside normalized effective thresholds.
+- Backend app version bumped to `0.3.55-m3-global-metrics-alert-threshold-raw-values`.
+
 ## [0.3.54-m3-global-metrics-alert-threshold-normalization-flags] - 2026-02-17
 
 ### Added
