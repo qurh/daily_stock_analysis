@@ -2,6 +2,29 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.30-m3-global-metrics-quality-snapshots] - 2026-02-17
+
+### Added
+
+- New global metrics series in `/api/v2/metrics`:
+  - `refactor_backtest_records_total{outcome=...}`
+  - `refactor_backtest_records_return_sample_size`
+  - `refactor_backtest_records_return_pct_avg`
+  - `refactor_backtest_records_direction_sample_size`
+  - `refactor_backtest_records_direction_accuracy_pct`
+  - `refactor_optimization_quality_score_sample_size`
+  - `refactor_optimization_quality_score_avg`
+  - `refactor_optimization_recommendations_total{recommendation=...}`
+- New tests:
+  - global metrics endpoint includes backtest and optimization quality metrics
+
+### Changed
+
+- Global metrics endpoint now aggregates quality snapshots from:
+  - `backtest_records`
+  - completed `optimization_jobs.result_json`
+- Backend app version bumped to `0.3.30-m3-global-metrics-quality-snapshots`.
+
 ## [0.3.29-m3-acceptance-rehearsal-loop] - 2026-02-17
 
 ### Added

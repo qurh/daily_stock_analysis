@@ -173,6 +173,15 @@ uvicorn app.main:app --app-dir src --reload --port 18000
     - `refactor_conversation_messages_by_role_total{role=...}`
     - `refactor_knowledge_chunks_total`
     - `refactor_knowledge_chunks_token_count_total`
+  - global metrics endpoint includes backtest/optimization quality metrics:
+    - `refactor_backtest_records_total{outcome=...}`
+    - `refactor_backtest_records_return_sample_size`
+    - `refactor_backtest_records_return_pct_avg`
+    - `refactor_backtest_records_direction_sample_size`
+    - `refactor_backtest_records_direction_accuracy_pct`
+    - `refactor_optimization_quality_score_sample_size`
+    - `refactor_optimization_quality_score_avg`
+    - `refactor_optimization_recommendations_total{recommendation=...}`
   - aggregated failure reasons available via `/api/v2/prompt-lock/failures/summary`
   - grouped failure stats available via `/api/v2/prompt-lock/failures/grouped`
   - time-bucket trend stats available via `/api/v2/prompt-lock/failures/trends` (`granularity=hour|day`)
