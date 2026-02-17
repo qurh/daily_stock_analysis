@@ -85,6 +85,10 @@ class AppSettings:
     backtest_multi_window_alert_warn_threshold_unmet_windows: int
     backtest_multi_window_alert_critical_low_windows: int
     backtest_multi_window_alert_critical_threshold_unmet_windows: int
+    backtest_multi_window_alert_warn_low_windows_raw: int
+    backtest_multi_window_alert_warn_threshold_unmet_windows_raw: int
+    backtest_multi_window_alert_critical_low_windows_raw: int
+    backtest_multi_window_alert_critical_threshold_unmet_windows_raw: int
     backtest_multi_window_alert_threshold_normalization_applied: bool
     backtest_multi_window_alert_critical_low_windows_threshold_normalized: bool
     backtest_multi_window_alert_critical_threshold_unmet_windows_threshold_normalized: bool
@@ -121,15 +125,23 @@ def load_settings() -> AppSettings:
     prompt_lock_overview_timeout_trends_sec = _read_float_env("PROMPT_LOCK_OVERVIEW_TIMEOUT_TRENDS_SEC", 0.0)
     backtest_return_sample_min_size = _read_int_env("BACKTEST_RETURN_SAMPLE_MIN_SIZE", 20)
     backtest_return_sample_medium_coverage_pct = _read_float_env("BACKTEST_RETURN_SAMPLE_MEDIUM_COVERAGE_PCT", 50.0)
-    backtest_multi_window_alert_warn_low_windows = _read_int_env("BACKTEST_MULTI_WINDOW_ALERT_WARN_LOW_WINDOWS", 1)
-    backtest_multi_window_alert_warn_threshold_unmet_windows = _read_int_env(
+    backtest_multi_window_alert_warn_low_windows_raw = _read_int_env("BACKTEST_MULTI_WINDOW_ALERT_WARN_LOW_WINDOWS", 1)
+    backtest_multi_window_alert_warn_threshold_unmet_windows_raw = _read_int_env(
         "BACKTEST_MULTI_WINDOW_ALERT_WARN_THRESHOLD_UNMET_WINDOWS", 1
     )
-    backtest_multi_window_alert_critical_low_windows = _read_int_env(
+    backtest_multi_window_alert_critical_low_windows_raw = _read_int_env(
         "BACKTEST_MULTI_WINDOW_ALERT_CRITICAL_LOW_WINDOWS", 2
     )
-    backtest_multi_window_alert_critical_threshold_unmet_windows = _read_int_env(
+    backtest_multi_window_alert_critical_threshold_unmet_windows_raw = _read_int_env(
         "BACKTEST_MULTI_WINDOW_ALERT_CRITICAL_THRESHOLD_UNMET_WINDOWS", 3
+    )
+    backtest_multi_window_alert_warn_low_windows = backtest_multi_window_alert_warn_low_windows_raw
+    backtest_multi_window_alert_warn_threshold_unmet_windows = (
+        backtest_multi_window_alert_warn_threshold_unmet_windows_raw
+    )
+    backtest_multi_window_alert_critical_low_windows = backtest_multi_window_alert_critical_low_windows_raw
+    backtest_multi_window_alert_critical_threshold_unmet_windows = (
+        backtest_multi_window_alert_critical_threshold_unmet_windows_raw
     )
     backtest_multi_window_alert_warn_low_windows = max(backtest_multi_window_alert_warn_low_windows, 0)
     backtest_multi_window_alert_warn_threshold_unmet_windows = max(
@@ -187,6 +199,14 @@ def load_settings() -> AppSettings:
         backtest_multi_window_alert_critical_low_windows=backtest_multi_window_alert_critical_low_windows,
         backtest_multi_window_alert_critical_threshold_unmet_windows=(
             backtest_multi_window_alert_critical_threshold_unmet_windows
+        ),
+        backtest_multi_window_alert_warn_low_windows_raw=backtest_multi_window_alert_warn_low_windows_raw,
+        backtest_multi_window_alert_warn_threshold_unmet_windows_raw=(
+            backtest_multi_window_alert_warn_threshold_unmet_windows_raw
+        ),
+        backtest_multi_window_alert_critical_low_windows_raw=backtest_multi_window_alert_critical_low_windows_raw,
+        backtest_multi_window_alert_critical_threshold_unmet_windows_raw=(
+            backtest_multi_window_alert_critical_threshold_unmet_windows_raw
         ),
         backtest_multi_window_alert_threshold_normalization_applied=(
             backtest_multi_window_alert_threshold_normalization_applied
