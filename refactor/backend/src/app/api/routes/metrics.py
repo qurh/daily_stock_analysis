@@ -157,6 +157,22 @@ def _compute_sample_adequacy(
     }
 
 
+def _compute_multi_window_alert_levels(
+    threshold_unmet_windows_total: int, low_adequacy_windows_total: int
+) -> dict[str, int]:
+    if low_adequacy_windows_total >= 2 or threshold_unmet_windows_total >= 3:
+        alert_level = "critical"
+    elif low_adequacy_windows_total >= 1 or threshold_unmet_windows_total >= 1:
+        alert_level = "warn"
+    else:
+        alert_level = "none"
+    return {
+        "none": 1 if alert_level == "none" else 0,
+        "warn": 1 if alert_level == "warn" else 0,
+        "critical": 1 if alert_level == "critical" else 0,
+    }
+
+
 def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
     query = "SELECT outcome, return_pct, direction_correct, created_at FROM backtest_records"
     with request.app.state.database.connection() as conn:
@@ -270,6 +286,10 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
         + int(adequacy_7d["adequacy_levels_onehot"]["low"])
         + int(adequacy_30d["adequacy_levels_onehot"]["low"])
     )
+    sample_multi_window_alert_levels_onehot = _compute_multi_window_alert_levels(
+        threshold_unmet_windows_total=sample_threshold_unmet_windows_total,
+        low_adequacy_windows_total=sample_low_adequacy_windows_total,
+    )
     return {
         "outcome_counts": outcome_counts,
         "return_sample_size": len(return_values),
@@ -297,6 +317,7 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
         "return_sample_adequacy_score_30d": sample_adequacy_score_30d,
         "return_sample_threshold_unmet_windows_total": sample_threshold_unmet_windows_total,
         "return_sample_low_adequacy_windows_total": sample_low_adequacy_windows_total,
+        "return_sample_multi_window_alert_levels_onehot": sample_multi_window_alert_levels_onehot,
         "return_avg": return_avg,
         "return_trimmed_mean_10pct": return_trimmed_mean_10pct,
         "return_winsorized_mean_10pct": return_winsorized_mean_10pct,
@@ -524,6 +545,17 @@ def get_global_metrics(
         metric_name="refactor_backtest_records_return_sample_low_adequacy_windows_total",
         help_text="Current number of recent windows (24h/7d/30d) classified as low return sample adequacy.",
         total=backtest_quality["return_sample_low_adequacy_windows_total"],
+    )
+    _append_labeled_gauge_lines_ordered(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_sample_multi_window_alert_level",
+        help_text="Current multi-window sample alert level one-hot gauge (none/warn/critical).",
+        label_name="level",
+        ordered_items=[
+            ("none", int(backtest_quality["return_sample_multi_window_alert_levels_onehot"]["none"])),
+            ("warn", int(backtest_quality["return_sample_multi_window_alert_levels_onehot"]["warn"])),
+            ("critical", int(backtest_quality["return_sample_multi_window_alert_levels_onehot"]["critical"])),
+        ],
     )
     _append_total_gauge_line(
         lines=lines,
