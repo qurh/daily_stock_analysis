@@ -2,6 +2,20 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.52-m3-global-metrics-alert-threshold-validation] - 2026-02-17
+
+### Added
+
+- New threshold validation behavior for multi-window alert settings:
+  - `critical` thresholds are normalized to be no smaller than corresponding `warn` thresholds.
+- New tests:
+  - settings loader normalizes multi-window alert threshold relationship
+
+### Changed
+
+- Settings loader now applies non-negative and ordering constraints for multi-window alert thresholds.
+- Backend app version bumped to `0.3.52-m3-global-metrics-alert-threshold-validation`.
+
 ## [0.3.51-m3-global-metrics-multi-window-alert-threshold-config] - 2026-02-17
 
 ### Added
