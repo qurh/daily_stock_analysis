@@ -188,6 +188,7 @@ uvicorn app.main:app --app-dir src --reload --port 18000
     - `refactor_backtest_records_return_sample_threshold_unmet_windows_total`
     - `refactor_backtest_records_return_sample_low_adequacy_windows_total`
     - `refactor_backtest_records_return_sample_multi_window_alert_level{level=none|warn|critical}`
+    - `refactor_backtest_records_return_sample_multi_window_alert_level_score`
     - `refactor_backtest_records_return_sample_size_gap`
     - `refactor_backtest_records_return_sample_coverage_ratio_pct`
     - `refactor_backtest_records_return_sample_coverage_ratio_pct_24h`
