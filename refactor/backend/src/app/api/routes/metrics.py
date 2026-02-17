@@ -188,6 +188,7 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
         "medium": 1 if sample_adequacy_level == "medium" else 0,
         "high": 1 if sample_adequacy_level == "high" else 0,
     }
+    sample_adequacy_score = {"low": 0.0, "medium": 0.5, "high": 1.0}[sample_adequacy_level]
     return {
         "outcome_counts": outcome_counts,
         "return_sample_size": len(return_values),
@@ -197,6 +198,7 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
         "return_sample_size_gap": sample_size_gap,
         "return_sample_coverage_ratio_pct": sample_coverage_ratio_pct,
         "return_sample_adequacy_levels_onehot": sample_adequacy_levels_onehot,
+        "return_sample_adequacy_score": sample_adequacy_score,
         "return_avg": return_avg,
         "return_trimmed_mean_10pct": return_trimmed_mean_10pct,
         "return_winsorized_mean_10pct": return_winsorized_mean_10pct,
@@ -399,6 +401,12 @@ def get_global_metrics(
             ("medium", int(backtest_quality["return_sample_adequacy_levels_onehot"]["medium"])),
             ("high", int(backtest_quality["return_sample_adequacy_levels_onehot"]["high"])),
         ],
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_sample_adequacy_score",
+        help_text="Current return sample adequacy score (low=0.0, medium=0.5, high=1.0).",
+        value=backtest_quality["return_sample_adequacy_score"],
     )
     _append_float_gauge_line(
         lines=lines,
