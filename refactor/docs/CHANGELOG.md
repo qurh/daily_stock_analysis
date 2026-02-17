@@ -2,6 +2,20 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.44-m3-global-metrics-7d-adequacy-level] - 2026-02-17
+
+### Added
+
+- New 7-day adequacy level metric in `/api/v2/metrics`:
+  - `refactor_backtest_records_return_sample_adequacy_level_7d{level=low|medium|high}`
+- New tests:
+  - global metrics endpoint includes backtest return sample 7d adequacy level
+
+### Changed
+
+- Backtest quality snapshot now includes one-hot adequacy level for 7d window, aligned with existing all-time/24h/7d score logic.
+- Backend app version bumped to `0.3.44-m3-global-metrics-7d-adequacy-level`.
+
 ## [0.3.43-m3-global-metrics-7d-sample-coverage-score] - 2026-02-17
 
 ### Added

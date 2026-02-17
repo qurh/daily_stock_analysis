@@ -243,6 +243,7 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
     sample_coverage_ratio_pct_7d = float(adequacy_7d["coverage_ratio_pct"])
     sample_adequacy_levels_onehot = dict(adequacy_all["adequacy_levels_onehot"])
     sample_adequacy_levels_onehot_24h = dict(adequacy_24h["adequacy_levels_onehot"])
+    sample_adequacy_levels_onehot_7d = dict(adequacy_7d["adequacy_levels_onehot"])
     sample_adequacy_score = float(adequacy_all["adequacy_score"])
     sample_adequacy_score_24h = float(adequacy_24h["adequacy_score"])
     sample_adequacy_score_7d = float(adequacy_7d["adequacy_score"])
@@ -262,6 +263,7 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
         "return_sample_coverage_ratio_pct_7d": sample_coverage_ratio_pct_7d,
         "return_sample_adequacy_levels_onehot": sample_adequacy_levels_onehot,
         "return_sample_adequacy_levels_onehot_24h": sample_adequacy_levels_onehot_24h,
+        "return_sample_adequacy_levels_onehot_7d": sample_adequacy_levels_onehot_7d,
         "return_sample_adequacy_score": sample_adequacy_score,
         "return_sample_adequacy_score_24h": sample_adequacy_score_24h,
         "return_sample_adequacy_score_7d": sample_adequacy_score_7d,
@@ -513,6 +515,17 @@ def get_global_metrics(
             ("low", int(backtest_quality["return_sample_adequacy_levels_onehot_24h"]["low"])),
             ("medium", int(backtest_quality["return_sample_adequacy_levels_onehot_24h"]["medium"])),
             ("high", int(backtest_quality["return_sample_adequacy_levels_onehot_24h"]["high"])),
+        ],
+    )
+    _append_labeled_gauge_lines_ordered(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_sample_adequacy_level_7d",
+        help_text="Last-7d return sample adequacy level one-hot gauge (low/medium/high).",
+        label_name="level",
+        ordered_items=[
+            ("low", int(backtest_quality["return_sample_adequacy_levels_onehot_7d"]["low"])),
+            ("medium", int(backtest_quality["return_sample_adequacy_levels_onehot_7d"]["medium"])),
+            ("high", int(backtest_quality["return_sample_adequacy_levels_onehot_7d"]["high"])),
         ],
     )
     _append_float_gauge_line(
