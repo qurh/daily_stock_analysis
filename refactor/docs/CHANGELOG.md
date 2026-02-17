@@ -2,6 +2,21 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.40-m3-global-metrics-recent-sample-coverage-score] - 2026-02-17
+
+### Added
+
+- New recent-window sample quality metrics in `/api/v2/metrics`:
+  - `refactor_backtest_records_return_sample_coverage_ratio_pct_24h`
+  - `refactor_backtest_records_return_sample_adequacy_score_24h`
+- New tests:
+  - global metrics endpoint includes backtest return sample 24h coverage and adequacy score
+
+### Changed
+
+- Backtest quality snapshot now computes last-24h coverage ratio and adequacy score using the same threshold and medium boundary rules as all-time scope.
+- Backend app version bumped to `0.3.40-m3-global-metrics-recent-sample-coverage-score`.
+
 ## [0.3.39-m3-global-metrics-recent-sample-threshold] - 2026-02-17
 
 ### Added
