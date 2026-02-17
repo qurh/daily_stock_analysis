@@ -52,6 +52,20 @@ def _append_labeled_gauge_lines(
         lines.append(f'{metric_name}{{{label_name}="{escaped_value}"}} {counts[label_value]}')
 
 
+def _append_labeled_gauge_lines_ordered(
+    lines: list[str],
+    metric_name: str,
+    help_text: str,
+    label_name: str,
+    ordered_items: list[tuple[str, int]],
+) -> None:
+    lines.append(f"# HELP {metric_name} {help_text}")
+    lines.append(f"# TYPE {metric_name} gauge")
+    for label_value, metric_value in ordered_items:
+        escaped_value = _escape_prometheus_label_value(label_value)
+        lines.append(f'{metric_name}{{{label_name}="{escaped_value}"}} {metric_value}')
+
+
 def _load_total_count(request: Request, table_name: str) -> int:
     query = f"SELECT COUNT(1) AS cnt FROM {table_name}"
     with request.app.state.database.connection() as conn:
@@ -160,6 +174,17 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
     sample_threshold_met = 1 if len(return_values) >= min_sample_required else 0
     sample_size_gap = max(min_sample_required - len(return_values), 0)
     sample_coverage_ratio_pct = round(len(return_values) / min_sample_required * 100.0, 2)
+    if sample_threshold_met == 1:
+        sample_adequacy_level = "high"
+    elif sample_coverage_ratio_pct >= 50.0:
+        sample_adequacy_level = "medium"
+    else:
+        sample_adequacy_level = "low"
+    sample_adequacy_levels_onehot = {
+        "low": 1 if sample_adequacy_level == "low" else 0,
+        "medium": 1 if sample_adequacy_level == "medium" else 0,
+        "high": 1 if sample_adequacy_level == "high" else 0,
+    }
     return {
         "outcome_counts": outcome_counts,
         "return_sample_size": len(return_values),
@@ -167,6 +192,7 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
         "return_sample_threshold_met": sample_threshold_met,
         "return_sample_size_gap": sample_size_gap,
         "return_sample_coverage_ratio_pct": sample_coverage_ratio_pct,
+        "return_sample_adequacy_levels_onehot": sample_adequacy_levels_onehot,
         "return_avg": return_avg,
         "return_trimmed_mean_10pct": return_trimmed_mean_10pct,
         "return_winsorized_mean_10pct": return_winsorized_mean_10pct,
@@ -352,6 +378,17 @@ def get_global_metrics(
         metric_name="refactor_backtest_records_return_sample_coverage_ratio_pct",
         help_text="Current return sample coverage ratio against required minimum (percentage).",
         value=backtest_quality["return_sample_coverage_ratio_pct"],
+    )
+    _append_labeled_gauge_lines_ordered(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_sample_adequacy_level",
+        help_text="Current return sample adequacy level one-hot gauge (low/medium/high).",
+        label_name="level",
+        ordered_items=[
+            ("low", int(backtest_quality["return_sample_adequacy_levels_onehot"]["low"])),
+            ("medium", int(backtest_quality["return_sample_adequacy_levels_onehot"]["medium"])),
+            ("high", int(backtest_quality["return_sample_adequacy_levels_onehot"]["high"])),
+        ],
     )
     _append_float_gauge_line(
         lines=lines,
