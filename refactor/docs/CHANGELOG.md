@@ -2,6 +2,23 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.36-m3-global-metrics-sample-adequacy-level] - 2026-02-17
+
+### Added
+
+- New one-hot adequacy level metric in `/api/v2/metrics`:
+  - `refactor_backtest_records_return_sample_adequacy_level{level=low|medium|high}`
+- New tests:
+  - global metrics endpoint includes backtest return sample adequacy level
+
+### Changed
+
+- Backtest sample adequacy is now classified into `low/medium/high` using threshold and coverage ratio:
+  - `high`: sample size meets minimum threshold
+  - `medium`: threshold unmet but coverage >= 50%
+  - `low`: threshold unmet and coverage < 50%
+- Backend app version bumped to `0.3.36-m3-global-metrics-sample-adequacy-level`.
+
 ## [0.3.35-m3-global-metrics-sample-coverage] - 2026-02-17
 
 ### Added
