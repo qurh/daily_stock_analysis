@@ -1828,4 +1828,6 @@ def test_global_metrics_endpoint_includes_backtest_return_quantiles_and_stddev()
     body = response.text
     assert "refactor_backtest_records_return_pct_p50 3.0" in body
     assert "refactor_backtest_records_return_pct_p90 4.6" in body
+    assert "refactor_backtest_records_return_pct_p95 4.8" in body
+    assert "refactor_backtest_records_return_pct_p99 4.96" in body
     assert "refactor_backtest_records_return_pct_stddev 1.4142" in body
