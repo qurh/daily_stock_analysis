@@ -260,6 +260,16 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
     sample_adequacy_score_24h = float(adequacy_24h["adequacy_score"])
     sample_adequacy_score_7d = float(adequacy_7d["adequacy_score"])
     sample_adequacy_score_30d = float(adequacy_30d["adequacy_score"])
+    sample_threshold_unmet_windows_total = (
+        int(not bool(adequacy_24h["threshold_met"]))
+        + int(not bool(adequacy_7d["threshold_met"]))
+        + int(not bool(adequacy_30d["threshold_met"]))
+    )
+    sample_low_adequacy_windows_total = (
+        int(adequacy_24h["adequacy_levels_onehot"]["low"])
+        + int(adequacy_7d["adequacy_levels_onehot"]["low"])
+        + int(adequacy_30d["adequacy_levels_onehot"]["low"])
+    )
     return {
         "outcome_counts": outcome_counts,
         "return_sample_size": len(return_values),
@@ -285,6 +295,8 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
         "return_sample_adequacy_score_24h": sample_adequacy_score_24h,
         "return_sample_adequacy_score_7d": sample_adequacy_score_7d,
         "return_sample_adequacy_score_30d": sample_adequacy_score_30d,
+        "return_sample_threshold_unmet_windows_total": sample_threshold_unmet_windows_total,
+        "return_sample_low_adequacy_windows_total": sample_low_adequacy_windows_total,
         "return_avg": return_avg,
         "return_trimmed_mean_10pct": return_trimmed_mean_10pct,
         "return_winsorized_mean_10pct": return_winsorized_mean_10pct,
@@ -500,6 +512,18 @@ def get_global_metrics(
         metric_name="refactor_backtest_records_return_sample_size_threshold_met_30d",
         help_text="Whether last-30d return sample size meets minimum required threshold (1 met, 0 unmet).",
         total=backtest_quality["return_sample_threshold_met_30d"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_sample_threshold_unmet_windows_total",
+        help_text="Current number of recent windows (24h/7d/30d) with unmet minimum return sample threshold.",
+        total=backtest_quality["return_sample_threshold_unmet_windows_total"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_sample_low_adequacy_windows_total",
+        help_text="Current number of recent windows (24h/7d/30d) classified as low return sample adequacy.",
+        total=backtest_quality["return_sample_low_adequacy_windows_total"],
     )
     _append_total_gauge_line(
         lines=lines,

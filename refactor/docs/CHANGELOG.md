@@ -2,6 +2,21 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.48-m3-global-metrics-multi-window-alert-counts] - 2026-02-17
+
+### Added
+
+- New multi-window sample alert count metrics in `/api/v2/metrics`:
+  - `refactor_backtest_records_return_sample_threshold_unmet_windows_total`
+  - `refactor_backtest_records_return_sample_low_adequacy_windows_total`
+- New tests:
+  - global metrics endpoint includes backtest return sample multi-window alert counts
+
+### Changed
+
+- Backtest quality snapshot now aggregates 24h/7d/30d window adequacy into alert-friendly counts.
+- Backend app version bumped to `0.3.48-m3-global-metrics-multi-window-alert-counts`.
+
 ## [0.3.47-m3-global-metrics-30d-adequacy-level] - 2026-02-17
 
 ### Added
