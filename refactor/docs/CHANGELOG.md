@@ -2,6 +2,21 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.33-m3-global-metrics-return-robust-mean] - 2026-02-17
+
+### Added
+
+- New robust backtest return metrics in `/api/v2/metrics`:
+  - `refactor_backtest_records_return_pct_trimmed_mean_10pct`
+  - `refactor_backtest_records_return_pct_winsorized_mean_10pct`
+- New tests:
+  - global metrics endpoint includes backtest robust return means
+
+### Changed
+
+- Backtest return quality snapshot now includes 10pct trimmed mean and 10pct winsorized mean.
+- Backend app version bumped to `0.3.33-m3-global-metrics-return-robust-mean`.
+
 ## [0.3.32-m3-global-metrics-return-tail-quantiles] - 2026-02-17
 
 ### Added
