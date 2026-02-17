@@ -2,6 +2,23 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.49-m3-global-metrics-multi-window-alert-level] - 2026-02-17
+
+### Added
+
+- New multi-window sample alert level metric in `/api/v2/metrics`:
+  - `refactor_backtest_records_return_sample_multi_window_alert_level{level=none|warn|critical}`
+- New tests:
+  - global metrics endpoint includes backtest return sample multi-window alert level
+
+### Changed
+
+- Backtest quality snapshot now classifies multi-window sample quality into alert levels:
+  - `critical`: low adequacy windows >= 2, or threshold-unmet windows >= 3
+  - `warn`: at least one low adequacy or threshold-unmet window
+  - `none`: no alert condition matched
+- Backend app version bumped to `0.3.49-m3-global-metrics-multi-window-alert-level`.
+
 ## [0.3.48-m3-global-metrics-multi-window-alert-counts] - 2026-02-17
 
 ### Added
