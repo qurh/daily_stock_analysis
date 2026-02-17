@@ -104,7 +104,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Daily Stock Analysis Refactor API",
-        version="0.3.53-m3-global-metrics-alert-threshold-observability",
+        version="0.3.54-m3-global-metrics-alert-threshold-normalization-flags",
     )
     app.state.workflow_service = workflow_service
     app.state.analysis_service = analysis_service

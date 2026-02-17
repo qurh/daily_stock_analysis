@@ -198,6 +198,9 @@ uvicorn app.main:app --app-dir src --reload --port 18000
     - `refactor_backtest_records_return_sample_multi_window_alert_warn_threshold_unmet_windows_threshold`
     - `refactor_backtest_records_return_sample_multi_window_alert_critical_low_windows_threshold`
     - `refactor_backtest_records_return_sample_multi_window_alert_critical_threshold_unmet_windows_threshold`
+    - `refactor_backtest_records_return_sample_multi_window_alert_threshold_normalization_applied`
+    - `refactor_backtest_records_return_sample_multi_window_alert_critical_low_windows_threshold_normalized`
+    - `refactor_backtest_records_return_sample_multi_window_alert_critical_threshold_unmet_windows_threshold_normalized`
     - `refactor_backtest_records_return_sample_multi_window_alert_level{level=none|warn|critical}`
     - `refactor_backtest_records_return_sample_multi_window_alert_level_score`
     - `refactor_backtest_records_return_sample_size_gap`

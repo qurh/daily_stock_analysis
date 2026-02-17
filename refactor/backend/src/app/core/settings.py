@@ -85,6 +85,9 @@ class AppSettings:
     backtest_multi_window_alert_warn_threshold_unmet_windows: int
     backtest_multi_window_alert_critical_low_windows: int
     backtest_multi_window_alert_critical_threshold_unmet_windows: int
+    backtest_multi_window_alert_threshold_normalization_applied: bool
+    backtest_multi_window_alert_critical_low_windows_threshold_normalized: bool
+    backtest_multi_window_alert_critical_threshold_unmet_windows_threshold_normalized: bool
 
 
 def load_settings() -> AppSettings:
@@ -132,12 +135,23 @@ def load_settings() -> AppSettings:
     backtest_multi_window_alert_warn_threshold_unmet_windows = max(
         backtest_multi_window_alert_warn_threshold_unmet_windows, 0
     )
+    backtest_multi_window_alert_critical_low_windows_threshold_normalized = (
+        backtest_multi_window_alert_critical_low_windows < backtest_multi_window_alert_warn_low_windows
+    )
+    backtest_multi_window_alert_critical_threshold_unmet_windows_threshold_normalized = (
+        backtest_multi_window_alert_critical_threshold_unmet_windows
+        < backtest_multi_window_alert_warn_threshold_unmet_windows
+    )
     backtest_multi_window_alert_critical_low_windows = max(
         backtest_multi_window_alert_critical_low_windows, backtest_multi_window_alert_warn_low_windows
     )
     backtest_multi_window_alert_critical_threshold_unmet_windows = max(
         backtest_multi_window_alert_critical_threshold_unmet_windows,
         backtest_multi_window_alert_warn_threshold_unmet_windows,
+    )
+    backtest_multi_window_alert_threshold_normalization_applied = (
+        backtest_multi_window_alert_critical_low_windows_threshold_normalized
+        or backtest_multi_window_alert_critical_threshold_unmet_windows_threshold_normalized
     )
     return AppSettings(
         database_url=database_url,
@@ -173,5 +187,14 @@ def load_settings() -> AppSettings:
         backtest_multi_window_alert_critical_low_windows=backtest_multi_window_alert_critical_low_windows,
         backtest_multi_window_alert_critical_threshold_unmet_windows=(
             backtest_multi_window_alert_critical_threshold_unmet_windows
+        ),
+        backtest_multi_window_alert_threshold_normalization_applied=(
+            backtest_multi_window_alert_threshold_normalization_applied
+        ),
+        backtest_multi_window_alert_critical_low_windows_threshold_normalized=(
+            backtest_multi_window_alert_critical_low_windows_threshold_normalized
+        ),
+        backtest_multi_window_alert_critical_threshold_unmet_windows_threshold_normalized=(
+            backtest_multi_window_alert_critical_threshold_unmet_windows_threshold_normalized
         ),
     )
