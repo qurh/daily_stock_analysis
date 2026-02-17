@@ -132,6 +132,31 @@ def _winsorized_mean(sorted_values: list[float], trim_ratio: float) -> float:
     return sum(winsorized_values) / len(winsorized_values)
 
 
+def _compute_sample_adequacy(
+    sample_size: int, min_sample_required: int, medium_coverage_threshold_pct: float
+) -> dict[str, Any]:
+    threshold_met = 1 if sample_size >= min_sample_required else 0
+    coverage_ratio_pct = round(sample_size / min_sample_required * 100.0, 2)
+    if threshold_met == 1:
+        adequacy_level = "high"
+    elif coverage_ratio_pct >= medium_coverage_threshold_pct:
+        adequacy_level = "medium"
+    else:
+        adequacy_level = "low"
+    adequacy_levels_onehot = {
+        "low": 1 if adequacy_level == "low" else 0,
+        "medium": 1 if adequacy_level == "medium" else 0,
+        "high": 1 if adequacy_level == "high" else 0,
+    }
+    adequacy_score = {"low": 0.0, "medium": 0.5, "high": 1.0}[adequacy_level]
+    return {
+        "threshold_met": threshold_met,
+        "coverage_ratio_pct": coverage_ratio_pct,
+        "adequacy_levels_onehot": adequacy_levels_onehot,
+        "adequacy_score": adequacy_score,
+    }
+
+
 def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
     query = "SELECT outcome, return_pct, direction_correct, created_at FROM backtest_records"
     with request.app.state.database.connection() as conn:
@@ -190,22 +215,24 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
         medium_coverage_threshold_pct = float(getattr(settings, "backtest_return_sample_medium_coverage_pct", 50.0))
     min_sample_required = max(min_sample_required, 1)
     medium_coverage_threshold_pct = max(min(medium_coverage_threshold_pct, 100.0), 0.0)
-    sample_threshold_met = 1 if len(return_values) >= min_sample_required else 0
-    sample_threshold_met_24h = 1 if len(return_values_24h) >= min_sample_required else 0
+    adequacy_all = _compute_sample_adequacy(
+        sample_size=len(return_values),
+        min_sample_required=min_sample_required,
+        medium_coverage_threshold_pct=medium_coverage_threshold_pct,
+    )
+    adequacy_24h = _compute_sample_adequacy(
+        sample_size=len(return_values_24h),
+        min_sample_required=min_sample_required,
+        medium_coverage_threshold_pct=medium_coverage_threshold_pct,
+    )
+    sample_threshold_met = int(adequacy_all["threshold_met"])
+    sample_threshold_met_24h = int(adequacy_24h["threshold_met"])
     sample_size_gap = max(min_sample_required - len(return_values), 0)
-    sample_coverage_ratio_pct = round(len(return_values) / min_sample_required * 100.0, 2)
-    if sample_threshold_met == 1:
-        sample_adequacy_level = "high"
-    elif sample_coverage_ratio_pct >= medium_coverage_threshold_pct:
-        sample_adequacy_level = "medium"
-    else:
-        sample_adequacy_level = "low"
-    sample_adequacy_levels_onehot = {
-        "low": 1 if sample_adequacy_level == "low" else 0,
-        "medium": 1 if sample_adequacy_level == "medium" else 0,
-        "high": 1 if sample_adequacy_level == "high" else 0,
-    }
-    sample_adequacy_score = {"low": 0.0, "medium": 0.5, "high": 1.0}[sample_adequacy_level]
+    sample_coverage_ratio_pct = float(adequacy_all["coverage_ratio_pct"])
+    sample_coverage_ratio_pct_24h = float(adequacy_24h["coverage_ratio_pct"])
+    sample_adequacy_levels_onehot = dict(adequacy_all["adequacy_levels_onehot"])
+    sample_adequacy_score = float(adequacy_all["adequacy_score"])
+    sample_adequacy_score_24h = float(adequacy_24h["adequacy_score"])
     return {
         "outcome_counts": outcome_counts,
         "return_sample_size": len(return_values),
@@ -216,8 +243,10 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
         "return_sample_threshold_met_24h": sample_threshold_met_24h,
         "return_sample_size_gap": sample_size_gap,
         "return_sample_coverage_ratio_pct": sample_coverage_ratio_pct,
+        "return_sample_coverage_ratio_pct_24h": sample_coverage_ratio_pct_24h,
         "return_sample_adequacy_levels_onehot": sample_adequacy_levels_onehot,
         "return_sample_adequacy_score": sample_adequacy_score,
+        "return_sample_adequacy_score_24h": sample_adequacy_score_24h,
         "return_avg": return_avg,
         "return_trimmed_mean_10pct": return_trimmed_mean_10pct,
         "return_winsorized_mean_10pct": return_winsorized_mean_10pct,
@@ -422,6 +451,12 @@ def get_global_metrics(
         help_text="Current return sample coverage ratio against required minimum (percentage).",
         value=backtest_quality["return_sample_coverage_ratio_pct"],
     )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_sample_coverage_ratio_pct_24h",
+        help_text="Last-24h return sample coverage ratio against required minimum (percentage).",
+        value=backtest_quality["return_sample_coverage_ratio_pct_24h"],
+    )
     _append_labeled_gauge_lines_ordered(
         lines=lines,
         metric_name="refactor_backtest_records_return_sample_adequacy_level",
@@ -438,6 +473,12 @@ def get_global_metrics(
         metric_name="refactor_backtest_records_return_sample_adequacy_score",
         help_text="Current return sample adequacy score (low=0.0, medium=0.5, high=1.0).",
         value=backtest_quality["return_sample_adequacy_score"],
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_sample_adequacy_score_24h",
+        help_text="Last-24h return sample adequacy score (low=0.0, medium=0.5, high=1.0).",
+        value=backtest_quality["return_sample_adequacy_score_24h"],
     )
     _append_float_gauge_line(
         lines=lines,
