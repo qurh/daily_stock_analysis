@@ -1973,3 +1973,69 @@ def test_global_metrics_endpoint_includes_backtest_return_sample_threshold(monke
     body = response.text
     assert "refactor_backtest_records_return_sample_min_size_required 6" in body
     assert "refactor_backtest_records_return_sample_size_threshold_met 0" in body
+
+
+def test_global_metrics_endpoint_includes_backtest_return_sample_gap_and_coverage(monkeypatch) -> None:
+    monkeypatch.setenv("BACKTEST_RETURN_SAMPLE_MIN_SIZE", "8")
+    client = TestClient(create_app())
+    now = datetime.now(timezone.utc).isoformat()
+    backtest_job_id = str(uuid4())
+    symbols = ["600519", "000001", "300750", "601318", "002594"]
+    returns = [1.0, 2.0, 3.0, 4.0, 5.0]
+
+    with client.app.state.database.connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO backtest_jobs (
+                job_id, scope, symbol, eval_window_days, status, progress, metrics_json,
+                engine_version, started_at, ended_at, created_at, updated_at
+            ) VALUES (?, 'market', NULL, 10, 'completed', 100, ?, 'v1', ?, ?, ?, ?)
+            """,
+            (
+                backtest_job_id,
+                json.dumps({"sample_size": 5, "win_rate_pct": 100.0}, ensure_ascii=False),
+                now,
+                now,
+                now,
+                now,
+            ),
+        )
+        for idx, symbol in enumerate(symbols):
+            analysis_job_id = str(uuid4())
+            conn.execute(
+                """
+                INSERT INTO analysis_jobs (
+                    job_id, symbol, report_type, status, result_json, execution_id, created_at, updated_at
+                ) VALUES (?, ?, 'detailed', 'succeeded', ?, NULL, ?, ?)
+                """,
+                (
+                    analysis_job_id,
+                    symbol,
+                    json.dumps({"report": {"meta": {"stock_code": symbol}}}, ensure_ascii=False),
+                    now,
+                    now,
+                ),
+            )
+            conn.execute(
+                """
+                INSERT INTO backtest_records (
+                    record_id, job_id, analysis_job_id, symbol, direction,
+                    outcome, return_pct, direction_correct, flags_json, created_at
+                ) VALUES (?, ?, ?, ?, 'long', 'win', ?, 1, ?, ?)
+                """,
+                (
+                    str(uuid4()),
+                    backtest_job_id,
+                    analysis_job_id,
+                    symbol,
+                    returns[idx],
+                    json.dumps([], ensure_ascii=False),
+                    now,
+                ),
+            )
+
+    response = client.get("/api/v2/metrics")
+    assert response.status_code == 200
+    body = response.text
+    assert "refactor_backtest_records_return_sample_size_gap 3" in body
+    assert "refactor_backtest_records_return_sample_coverage_ratio_pct 62.5" in body

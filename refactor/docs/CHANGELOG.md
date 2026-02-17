@@ -2,6 +2,21 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.35-m3-global-metrics-sample-coverage] - 2026-02-17
+
+### Added
+
+- New backtest sample adequacy metrics in `/api/v2/metrics`:
+  - `refactor_backtest_records_return_sample_size_gap`
+  - `refactor_backtest_records_return_sample_coverage_ratio_pct`
+- New tests:
+  - global metrics endpoint includes backtest return sample gap and coverage
+
+### Changed
+
+- Backtest quality snapshot now provides sample gap and coverage percentage to support threshold-tuning and alert interpretation.
+- Backend app version bumped to `0.3.35-m3-global-metrics-sample-coverage`.
+
 ## [0.3.34-m3-global-metrics-sample-threshold] - 2026-02-17
 
 ### Added
