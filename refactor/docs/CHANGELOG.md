@@ -2,6 +2,23 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.53-m3-global-metrics-alert-threshold-observability] - 2026-02-17
+
+### Added
+
+- New normalized threshold metrics in `/api/v2/metrics`:
+  - `refactor_backtest_records_return_sample_multi_window_alert_warn_low_windows_threshold`
+  - `refactor_backtest_records_return_sample_multi_window_alert_warn_threshold_unmet_windows_threshold`
+  - `refactor_backtest_records_return_sample_multi_window_alert_critical_low_windows_threshold`
+  - `refactor_backtest_records_return_sample_multi_window_alert_critical_threshold_unmet_windows_threshold`
+- New tests:
+  - global metrics endpoint includes normalized multi-window alert thresholds
+
+### Changed
+
+- Multi-window alert threshold observability now exposes effective (normalized) runtime values for governance and audit.
+- Backend app version bumped to `0.3.53-m3-global-metrics-alert-threshold-observability`.
+
 ## [0.3.52-m3-global-metrics-alert-threshold-validation] - 2026-02-17
 
 ### Added

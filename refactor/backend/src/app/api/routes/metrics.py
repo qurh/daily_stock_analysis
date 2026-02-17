@@ -369,6 +369,16 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
         "return_sample_low_adequacy_windows_total": sample_low_adequacy_windows_total,
         "return_sample_multi_window_alert_levels_onehot": sample_multi_window_alert_levels_onehot,
         "return_sample_multi_window_alert_level_score": sample_multi_window_alert_level_score,
+        "return_sample_multi_window_alert_warn_low_windows_threshold": multi_window_alert_warn_low_windows_threshold,
+        "return_sample_multi_window_alert_warn_threshold_unmet_windows_threshold": (
+            multi_window_alert_warn_threshold_unmet_windows_threshold
+        ),
+        "return_sample_multi_window_alert_critical_low_windows_threshold": (
+            multi_window_alert_critical_low_windows_threshold
+        ),
+        "return_sample_multi_window_alert_critical_threshold_unmet_windows_threshold": (
+            multi_window_alert_critical_threshold_unmet_windows_threshold
+        ),
         "return_avg": return_avg,
         "return_trimmed_mean_10pct": return_trimmed_mean_10pct,
         "return_winsorized_mean_10pct": return_winsorized_mean_10pct,
@@ -596,6 +606,32 @@ def get_global_metrics(
         metric_name="refactor_backtest_records_return_sample_low_adequacy_windows_total",
         help_text="Current number of recent windows (24h/7d/30d) classified as low return sample adequacy.",
         total=backtest_quality["return_sample_low_adequacy_windows_total"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_sample_multi_window_alert_warn_low_windows_threshold",
+        help_text="Configured warn threshold for low adequacy windows (24h/7d/30d), normalized.",
+        total=backtest_quality["return_sample_multi_window_alert_warn_low_windows_threshold"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_sample_multi_window_alert_warn_threshold_unmet_windows_threshold",
+        help_text="Configured warn threshold for threshold-unmet windows (24h/7d/30d), normalized.",
+        total=backtest_quality["return_sample_multi_window_alert_warn_threshold_unmet_windows_threshold"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_sample_multi_window_alert_critical_low_windows_threshold",
+        help_text="Configured critical threshold for low adequacy windows (24h/7d/30d), normalized.",
+        total=backtest_quality["return_sample_multi_window_alert_critical_low_windows_threshold"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name=(
+            "refactor_backtest_records_return_sample_multi_window_alert_critical_threshold_unmet_windows_threshold"
+        ),
+        help_text="Configured critical threshold for threshold-unmet windows (24h/7d/30d), normalized.",
+        total=backtest_quality["return_sample_multi_window_alert_critical_threshold_unmet_windows_threshold"],
     )
     _append_labeled_gauge_lines_ordered(
         lines=lines,
