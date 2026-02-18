@@ -104,7 +104,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Daily Stock Analysis Refactor API",
-        version="0.3.61-m3-governance-threshold-ratio-config",
+        version="0.3.62-m3-governance-ratio-normalization-flags",
     )
     app.state.workflow_service = workflow_service
     app.state.analysis_service = analysis_service
