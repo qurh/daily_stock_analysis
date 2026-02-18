@@ -272,6 +272,7 @@ cd refactor/backend
 - If `promtool` is unavailable, rule validation is skipped with a warning.
 - Override binary path with `PROMTOOL_BIN` when needed.
 - Set `PROMTOOL_REQUIRED=1` to fail immediately when `promtool` is missing.
+- In CI (`CI` env is set), `ci.sh` defaults `PROMTOOL_REQUIRED=1` unless explicitly overridden.
 
 ## Prometheus Alert Rule Template
 
