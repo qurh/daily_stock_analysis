@@ -11,6 +11,8 @@ from app.services.prompt_lock_audit_service import PromptLockAuditService
 router = APIRouter()
 
 MULTI_WINDOW_ALERT_THRESHOLD_DIMENSIONS_TOTAL = 4
+THRESHOLD_MISMATCH_GOVERNANCE_WARN_RATIO = 0.25
+THRESHOLD_MISMATCH_GOVERNANCE_CRITICAL_RATIO = 0.5
 
 
 def _escape_prometheus_label_value(value: str) -> str:
@@ -187,6 +189,30 @@ def _compute_multi_window_alert_levels(
 
 
 def _compute_multi_window_alert_level_score(alert_levels_onehot: dict[str, int]) -> float:
+    if int(alert_levels_onehot.get("critical", 0)) == 1:
+        return 1.0
+    if int(alert_levels_onehot.get("warn", 0)) == 1:
+        return 0.5
+    return 0.0
+
+
+def _compute_threshold_mismatch_governance_levels(
+    mismatch_ratio: float, warn_ratio: float, critical_ratio: float
+) -> dict[str, int]:
+    if mismatch_ratio >= critical_ratio:
+        alert_level = "critical"
+    elif mismatch_ratio >= warn_ratio:
+        alert_level = "warn"
+    else:
+        alert_level = "none"
+    return {
+        "none": 1 if alert_level == "none" else 0,
+        "warn": 1 if alert_level == "warn" else 0,
+        "critical": 1 if alert_level == "critical" else 0,
+    }
+
+
+def _compute_threshold_mismatch_governance_level_score(alert_levels_onehot: dict[str, int]) -> float:
     if int(alert_levels_onehot.get("critical", 0)) == 1:
         return 1.0
     if int(alert_levels_onehot.get("warn", 0)) == 1:
@@ -396,6 +422,14 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
         ),
         4,
     )
+    sample_multi_window_alert_threshold_governance_levels_onehot = _compute_threshold_mismatch_governance_levels(
+        mismatch_ratio=sample_multi_window_alert_threshold_raw_normalized_mismatch_ratio,
+        warn_ratio=THRESHOLD_MISMATCH_GOVERNANCE_WARN_RATIO,
+        critical_ratio=THRESHOLD_MISMATCH_GOVERNANCE_CRITICAL_RATIO,
+    )
+    sample_multi_window_alert_threshold_governance_level_score = _compute_threshold_mismatch_governance_level_score(
+        alert_levels_onehot=sample_multi_window_alert_threshold_governance_levels_onehot
+    )
     return {
         "outcome_counts": outcome_counts,
         "return_sample_size": len(return_values),
@@ -455,6 +489,12 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
         ),
         "return_sample_multi_window_alert_threshold_dimensions_total": (
             sample_multi_window_alert_threshold_raw_normalized_dimensions_total
+        ),
+        "return_sample_multi_window_alert_threshold_governance_levels_onehot": (
+            sample_multi_window_alert_threshold_governance_levels_onehot
+        ),
+        "return_sample_multi_window_alert_threshold_governance_level_score": (
+            sample_multi_window_alert_threshold_governance_level_score
         ),
         "return_sample_multi_window_alert_threshold_normalization_applied": (
             int(multi_window_alert_threshold_normalization_applied)
@@ -768,6 +808,34 @@ def get_global_metrics(
         metric_name="refactor_backtest_records_return_sample_multi_window_alert_threshold_dimensions_total",
         help_text="Current number of threshold dimensions included in raw-normalized mismatch governance.",
         total=backtest_quality["return_sample_multi_window_alert_threshold_dimensions_total"],
+    )
+    _append_labeled_gauge_lines_ordered(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_level",
+        help_text="Current threshold mismatch governance level one-hot gauge (none/warn/critical).",
+        label_name="level",
+        ordered_items=[
+            (
+                "none",
+                int(backtest_quality["return_sample_multi_window_alert_threshold_governance_levels_onehot"]["none"]),
+            ),
+            (
+                "warn",
+                int(backtest_quality["return_sample_multi_window_alert_threshold_governance_levels_onehot"]["warn"]),
+            ),
+            (
+                "critical",
+                int(
+                    backtest_quality["return_sample_multi_window_alert_threshold_governance_levels_onehot"]["critical"]
+                ),
+            ),
+        ],
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_level_score",
+        help_text="Current threshold mismatch governance level score (none=0.0, warn=0.5, critical=1.0).",
+        value=backtest_quality["return_sample_multi_window_alert_threshold_governance_level_score"],
     )
     _append_total_gauge_line(
         lines=lines,

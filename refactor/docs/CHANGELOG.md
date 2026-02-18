@@ -2,6 +2,24 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.60-m3-global-metrics-threshold-governance-level] - 2026-02-18
+
+### Added
+
+- New threshold governance metrics in `/api/v2/metrics`:
+  - `refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_level{level=none|warn|critical}`
+  - `refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_level_score`
+- New tests:
+  - global metrics endpoint includes threshold governance alert levels and score
+
+### Changed
+
+- Metrics snapshot now derives threshold-governance alert level from mismatch ratio:
+  - `none` when ratio < 0.25
+  - `warn` when ratio >= 0.25 and < 0.5
+  - `critical` when ratio >= 0.5
+- Backend app version bumped to `0.3.60-m3-global-metrics-threshold-governance-level`.
+
 ## [0.3.59-m3-global-metrics-threshold-dimensions-constant] - 2026-02-18
 
 ### Added
