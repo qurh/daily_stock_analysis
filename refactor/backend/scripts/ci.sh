@@ -15,6 +15,9 @@ $PYTHON_BIN -m isort --check-only src tests
 $PYTHON_BIN -m flake8 src tests --max-line-length=120
 
 # Prometheus rule validation
+if [[ -n "${CI:-}" ]]; then
+  export PROMTOOL_REQUIRED="${PROMTOOL_REQUIRED:-1}"
+fi
 ./scripts/check-prometheus-rules.sh
 
 # Unit tests
