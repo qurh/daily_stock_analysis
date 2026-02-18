@@ -386,6 +386,14 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
             != multi_window_alert_critical_threshold_unmet_windows_threshold
         )
     )
+    sample_multi_window_alert_threshold_raw_normalized_dimensions_total = 4
+    sample_multi_window_alert_threshold_raw_normalized_mismatch_ratio = round(
+        (
+            sample_multi_window_alert_threshold_raw_normalized_mismatch_count
+            / sample_multi_window_alert_threshold_raw_normalized_dimensions_total
+        ),
+        4,
+    )
     return {
         "outcome_counts": outcome_counts,
         "return_sample_size": len(return_values),
@@ -439,6 +447,9 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
         ),
         "return_sample_multi_window_alert_threshold_raw_normalized_mismatch_count": (
             sample_multi_window_alert_threshold_raw_normalized_mismatch_count
+        ),
+        "return_sample_multi_window_alert_threshold_raw_normalized_mismatch_ratio": (
+            sample_multi_window_alert_threshold_raw_normalized_mismatch_ratio
         ),
         "return_sample_multi_window_alert_threshold_normalization_applied": (
             int(multi_window_alert_threshold_normalization_applied)
@@ -738,6 +749,14 @@ def get_global_metrics(
         ),
         help_text="Current number of threshold dimensions where raw and normalized values differ.",
         total=backtest_quality["return_sample_multi_window_alert_threshold_raw_normalized_mismatch_count"],
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name=(
+            "refactor_backtest_records_return_sample_multi_window_alert_threshold_raw_normalized_mismatch_ratio"
+        ),
+        help_text="Current ratio of threshold dimensions where raw and normalized values differ (0.0-1.0).",
+        value=backtest_quality["return_sample_multi_window_alert_threshold_raw_normalized_mismatch_ratio"],
     )
     _append_total_gauge_line(
         lines=lines,

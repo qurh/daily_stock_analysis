@@ -104,7 +104,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Daily Stock Analysis Refactor API",
-        version="0.3.56-m3-global-metrics-threshold-mismatch-count",
+        version="0.3.57-m3-global-metrics-threshold-mismatch-ratio",
     )
     app.state.workflow_service = workflow_service
     app.state.analysis_service = analysis_service
