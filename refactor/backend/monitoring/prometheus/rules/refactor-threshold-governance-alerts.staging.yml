@@ -1,0 +1,35 @@
+groups:
+  - name: refactor-threshold-governance-alerts-staging
+    rules:
+      - alert: RefactorThresholdGovernanceWarn
+        expr: refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_level{level="warn"} == 1
+        for: 10m
+        labels:
+          severity: warning
+          scope: backtest
+          domain: threshold-governance
+        annotations:
+          summary: "Threshold governance level is warn"
+          description: "Raw-normalized threshold mismatch governance level has stayed at warn for 10m."
+
+      - alert: RefactorThresholdGovernanceCritical
+        expr: refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_level{level="critical"} == 1
+        for: 5m
+        labels:
+          severity: critical
+          scope: backtest
+          domain: threshold-governance
+        annotations:
+          summary: "Threshold governance level is critical"
+          description: "Raw-normalized threshold mismatch governance level has stayed at critical for 5m."
+
+      - alert: RefactorThresholdGovernanceNormalizationApplied
+        expr: refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_ratio_normalization_applied > 0
+        for: 20m
+        labels:
+          severity: warning
+          scope: backtest
+          domain: threshold-governance
+        annotations:
+          summary: "Threshold governance ratio normalization applied"
+          description: "Governance warn/critical ratio configuration has been normalized for at least 20m."

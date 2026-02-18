@@ -2,6 +2,22 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.64-m3-threshold-governance-alert-profiles] - 2026-02-18
+
+### Added
+
+- New environment-tiered Prometheus alert templates:
+  - `refactor/backend/monitoring/prometheus/rules/refactor-threshold-governance-alerts.dev.yml`
+  - `refactor/backend/monitoring/prometheus/rules/refactor-threshold-governance-alerts.staging.yml`
+  - `refactor/backend/monitoring/prometheus/rules/refactor-threshold-governance-alerts.prod.yml`
+- New tests:
+  - threshold governance alert rule profile templates exist
+
+### Changed
+
+- Profile-specific durations and severities are now preconfigured for dev/staging/prod alert sensitivity.
+- Backend app version bumped to `0.3.64-m3-threshold-governance-alert-profiles`.
+
 ## [0.3.63-m3-threshold-governance-alert-template] - 2026-02-18
 
 ### Added

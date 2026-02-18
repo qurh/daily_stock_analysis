@@ -271,6 +271,10 @@ cd refactor/backend
 ## Prometheus Alert Rule Template
 
 - Template file: `monitoring/prometheus/rules/refactor-threshold-governance-alerts.yml`
+- Profile templates:
+  - `monitoring/prometheus/rules/refactor-threshold-governance-alerts.dev.yml`
+  - `monitoring/prometheus/rules/refactor-threshold-governance-alerts.staging.yml`
+  - `monitoring/prometheus/rules/refactor-threshold-governance-alerts.prod.yml`
 - Includes three baseline rules:
   - `RefactorThresholdGovernanceWarn`
   - `RefactorThresholdGovernanceCritical`
