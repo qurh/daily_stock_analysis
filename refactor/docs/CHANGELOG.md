@@ -2,6 +2,24 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.62-m3-governance-ratio-normalization-flags] - 2026-02-18
+
+### Added
+
+- New governance ratio normalization flag metrics in `/api/v2/metrics`:
+  - `refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_warn_ratio_normalized`
+  - `refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_critical_ratio_normalized`
+  - `refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_ratio_normalization_applied`
+- New tests:
+  - settings loader exposes governance ratio normalization flags
+  - global metrics endpoint includes governance ratio normalization flags
+
+### Changed
+
+- Settings now track whether governance warn/critical ratio values were normalized.
+- Governance ratio normalization states are exported for observability and alert governance debugging.
+- Backend app version bumped to `0.3.62-m3-governance-ratio-normalization-flags`.
+
 ## [0.3.61-m3-governance-threshold-ratio-config] - 2026-02-18
 
 ### Added

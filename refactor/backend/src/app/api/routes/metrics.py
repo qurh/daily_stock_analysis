@@ -294,6 +294,9 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
     multi_window_alert_critical_threshold_unmet_windows_threshold_normalized = False
     threshold_governance_warn_ratio = THRESHOLD_MISMATCH_GOVERNANCE_WARN_RATIO
     threshold_governance_critical_ratio = THRESHOLD_MISMATCH_GOVERNANCE_CRITICAL_RATIO
+    threshold_governance_warn_ratio_normalized = False
+    threshold_governance_critical_ratio_normalized = False
+    threshold_governance_ratio_normalization_applied = False
     if settings is not None:
         min_sample_required = int(getattr(settings, "backtest_return_sample_min_size", 20))
         medium_coverage_threshold_pct = float(getattr(settings, "backtest_return_sample_medium_coverage_pct", 50.0))
@@ -346,6 +349,27 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
                 settings,
                 "backtest_multi_window_alert_threshold_governance_critical_ratio",
                 THRESHOLD_MISMATCH_GOVERNANCE_CRITICAL_RATIO,
+            )
+        )
+        threshold_governance_warn_ratio_normalized = bool(
+            getattr(
+                settings,
+                "backtest_multi_window_alert_threshold_governance_warn_ratio_normalized",
+                False,
+            )
+        )
+        threshold_governance_critical_ratio_normalized = bool(
+            getattr(
+                settings,
+                "backtest_multi_window_alert_threshold_governance_critical_ratio_normalized",
+                False,
+            )
+        )
+        threshold_governance_ratio_normalization_applied = bool(
+            getattr(
+                settings,
+                "backtest_multi_window_alert_threshold_governance_ratio_normalization_applied",
+                False,
             )
         )
     min_sample_required = max(min_sample_required, 1)
@@ -511,6 +535,15 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
         ),
         "return_sample_multi_window_alert_threshold_governance_warn_ratio": threshold_governance_warn_ratio,
         "return_sample_multi_window_alert_threshold_governance_critical_ratio": threshold_governance_critical_ratio,
+        "return_sample_multi_window_alert_threshold_governance_warn_ratio_normalized": (
+            int(threshold_governance_warn_ratio_normalized)
+        ),
+        "return_sample_multi_window_alert_threshold_governance_critical_ratio_normalized": (
+            int(threshold_governance_critical_ratio_normalized)
+        ),
+        "return_sample_multi_window_alert_threshold_governance_ratio_normalization_applied": (
+            int(threshold_governance_ratio_normalization_applied)
+        ),
         "return_sample_multi_window_alert_threshold_governance_levels_onehot": (
             sample_multi_window_alert_threshold_governance_levels_onehot
         ),
@@ -841,6 +874,32 @@ def get_global_metrics(
         metric_name="refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_critical_ratio",
         help_text="Configured mismatch-ratio threshold for governance critical level (0.0-1.0).",
         value=backtest_quality["return_sample_multi_window_alert_threshold_governance_critical_ratio"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name=(
+            "refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_warn_ratio_" "normalized"
+        ),
+        help_text="Whether governance warn ratio was normalized (1 yes, 0 no).",
+        total=backtest_quality["return_sample_multi_window_alert_threshold_governance_warn_ratio_normalized"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name=(
+            "refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_critical_ratio_"
+            "normalized"
+        ),
+        help_text="Whether governance critical ratio was normalized (1 yes, 0 no).",
+        total=backtest_quality["return_sample_multi_window_alert_threshold_governance_critical_ratio_normalized"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name=(
+            "refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_ratio_"
+            "normalization_applied"
+        ),
+        help_text="Whether governance ratio normalization was applied (1 yes, 0 no).",
+        total=backtest_quality["return_sample_multi_window_alert_threshold_governance_ratio_normalization_applied"],
     )
     _append_labeled_gauge_lines_ordered(
         lines=lines,
