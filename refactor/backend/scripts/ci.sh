@@ -14,5 +14,8 @@ $PYTHON_BIN -m black --check src tests
 $PYTHON_BIN -m isort --check-only src tests
 $PYTHON_BIN -m flake8 src tests --max-line-length=120
 
+# Prometheus rule validation
+./scripts/check-prometheus-rules.sh
+
 # Unit tests
 PYTHONPATH=src $PYTHON_BIN -m pytest tests/unit -q

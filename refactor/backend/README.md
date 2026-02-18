@@ -268,6 +268,10 @@ cd refactor/backend
 ./scripts/ci.sh
 ```
 
+- `ci.sh` now runs `./scripts/check-prometheus-rules.sh`.
+- If `promtool` is unavailable, rule validation is skipped with a warning.
+- Override binary path with `PROMTOOL_BIN` when needed.
+
 ## Prometheus Alert Rule Template
 
 - Template file: `monitoring/prometheus/rules/refactor-threshold-governance-alerts.yml`
