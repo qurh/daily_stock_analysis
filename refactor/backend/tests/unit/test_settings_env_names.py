@@ -32,6 +32,8 @@ def test_settings_reads_non_prefixed_env_vars(monkeypatch) -> None:
     monkeypatch.setenv("BACKTEST_MULTI_WINDOW_ALERT_WARN_THRESHOLD_UNMET_WINDOWS", "2")
     monkeypatch.setenv("BACKTEST_MULTI_WINDOW_ALERT_CRITICAL_LOW_WINDOWS", "3")
     monkeypatch.setenv("BACKTEST_MULTI_WINDOW_ALERT_CRITICAL_THRESHOLD_UNMET_WINDOWS", "4")
+    monkeypatch.setenv("BACKTEST_MULTI_WINDOW_ALERT_THRESHOLD_GOVERNANCE_WARN_RATIO", "0.3")
+    monkeypatch.setenv("BACKTEST_MULTI_WINDOW_ALERT_THRESHOLD_GOVERNANCE_CRITICAL_RATIO", "0.7")
 
     settings = load_settings()
 
@@ -72,6 +74,8 @@ def test_settings_reads_non_prefixed_env_vars(monkeypatch) -> None:
     assert settings.backtest_multi_window_alert_threshold_normalization_applied is False
     assert settings.backtest_multi_window_alert_critical_low_windows_threshold_normalized is False
     assert settings.backtest_multi_window_alert_critical_threshold_unmet_windows_threshold_normalized is False
+    assert settings.backtest_multi_window_alert_threshold_governance_warn_ratio == 0.3
+    assert settings.backtest_multi_window_alert_threshold_governance_critical_ratio == 0.7
 
 
 def test_settings_normalizes_multi_window_alert_threshold_relationship(monkeypatch) -> None:
@@ -79,6 +83,8 @@ def test_settings_normalizes_multi_window_alert_threshold_relationship(monkeypat
     monkeypatch.setenv("BACKTEST_MULTI_WINDOW_ALERT_WARN_THRESHOLD_UNMET_WINDOWS", "4")
     monkeypatch.setenv("BACKTEST_MULTI_WINDOW_ALERT_CRITICAL_LOW_WINDOWS", "1")
     monkeypatch.setenv("BACKTEST_MULTI_WINDOW_ALERT_CRITICAL_THRESHOLD_UNMET_WINDOWS", "2")
+    monkeypatch.setenv("BACKTEST_MULTI_WINDOW_ALERT_THRESHOLD_GOVERNANCE_WARN_RATIO", "0.8")
+    monkeypatch.setenv("BACKTEST_MULTI_WINDOW_ALERT_THRESHOLD_GOVERNANCE_CRITICAL_RATIO", "0.2")
 
     settings = load_settings()
 
@@ -93,3 +99,5 @@ def test_settings_normalizes_multi_window_alert_threshold_relationship(monkeypat
     assert settings.backtest_multi_window_alert_threshold_normalization_applied is True
     assert settings.backtest_multi_window_alert_critical_low_windows_threshold_normalized is True
     assert settings.backtest_multi_window_alert_critical_threshold_unmet_windows_threshold_normalized is True
+    assert settings.backtest_multi_window_alert_threshold_governance_warn_ratio == 0.8
+    assert settings.backtest_multi_window_alert_threshold_governance_critical_ratio == 0.8

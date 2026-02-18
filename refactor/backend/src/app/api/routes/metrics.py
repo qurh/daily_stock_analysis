@@ -292,6 +292,8 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
     multi_window_alert_threshold_normalization_applied = False
     multi_window_alert_critical_low_windows_threshold_normalized = False
     multi_window_alert_critical_threshold_unmet_windows_threshold_normalized = False
+    threshold_governance_warn_ratio = THRESHOLD_MISMATCH_GOVERNANCE_WARN_RATIO
+    threshold_governance_critical_ratio = THRESHOLD_MISMATCH_GOVERNANCE_CRITICAL_RATIO
     if settings is not None:
         min_sample_required = int(getattr(settings, "backtest_return_sample_min_size", 20))
         medium_coverage_threshold_pct = float(getattr(settings, "backtest_return_sample_medium_coverage_pct", 50.0))
@@ -332,6 +334,20 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
                 False,
             )
         )
+        threshold_governance_warn_ratio = float(
+            getattr(
+                settings,
+                "backtest_multi_window_alert_threshold_governance_warn_ratio",
+                THRESHOLD_MISMATCH_GOVERNANCE_WARN_RATIO,
+            )
+        )
+        threshold_governance_critical_ratio = float(
+            getattr(
+                settings,
+                "backtest_multi_window_alert_threshold_governance_critical_ratio",
+                THRESHOLD_MISMATCH_GOVERNANCE_CRITICAL_RATIO,
+            )
+        )
     min_sample_required = max(min_sample_required, 1)
     medium_coverage_threshold_pct = max(min(medium_coverage_threshold_pct, 100.0), 0.0)
     multi_window_alert_warn_low_windows_threshold = max(multi_window_alert_warn_low_windows_threshold, 0)
@@ -342,6 +358,9 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
     multi_window_alert_critical_threshold_unmet_windows_threshold = max(
         multi_window_alert_critical_threshold_unmet_windows_threshold, 0
     )
+    threshold_governance_warn_ratio = max(min(threshold_governance_warn_ratio, 1.0), 0.0)
+    threshold_governance_critical_ratio = max(min(threshold_governance_critical_ratio, 1.0), 0.0)
+    threshold_governance_critical_ratio = max(threshold_governance_critical_ratio, threshold_governance_warn_ratio)
     adequacy_all = _compute_sample_adequacy(
         sample_size=len(return_values),
         min_sample_required=min_sample_required,
@@ -424,8 +443,8 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
     )
     sample_multi_window_alert_threshold_governance_levels_onehot = _compute_threshold_mismatch_governance_levels(
         mismatch_ratio=sample_multi_window_alert_threshold_raw_normalized_mismatch_ratio,
-        warn_ratio=THRESHOLD_MISMATCH_GOVERNANCE_WARN_RATIO,
-        critical_ratio=THRESHOLD_MISMATCH_GOVERNANCE_CRITICAL_RATIO,
+        warn_ratio=threshold_governance_warn_ratio,
+        critical_ratio=threshold_governance_critical_ratio,
     )
     sample_multi_window_alert_threshold_governance_level_score = _compute_threshold_mismatch_governance_level_score(
         alert_levels_onehot=sample_multi_window_alert_threshold_governance_levels_onehot
@@ -490,6 +509,8 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
         "return_sample_multi_window_alert_threshold_dimensions_total": (
             sample_multi_window_alert_threshold_raw_normalized_dimensions_total
         ),
+        "return_sample_multi_window_alert_threshold_governance_warn_ratio": threshold_governance_warn_ratio,
+        "return_sample_multi_window_alert_threshold_governance_critical_ratio": threshold_governance_critical_ratio,
         "return_sample_multi_window_alert_threshold_governance_levels_onehot": (
             sample_multi_window_alert_threshold_governance_levels_onehot
         ),
@@ -808,6 +829,18 @@ def get_global_metrics(
         metric_name="refactor_backtest_records_return_sample_multi_window_alert_threshold_dimensions_total",
         help_text="Current number of threshold dimensions included in raw-normalized mismatch governance.",
         total=backtest_quality["return_sample_multi_window_alert_threshold_dimensions_total"],
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_warn_ratio",
+        help_text="Configured mismatch-ratio threshold for governance warn level (0.0-1.0).",
+        value=backtest_quality["return_sample_multi_window_alert_threshold_governance_warn_ratio"],
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_critical_ratio",
+        help_text="Configured mismatch-ratio threshold for governance critical level (0.0-1.0).",
+        value=backtest_quality["return_sample_multi_window_alert_threshold_governance_critical_ratio"],
     )
     _append_labeled_gauge_lines_ordered(
         lines=lines,
