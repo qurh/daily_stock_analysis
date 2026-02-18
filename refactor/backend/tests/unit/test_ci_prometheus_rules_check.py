@@ -16,6 +16,8 @@ def test_ci_script_invokes_prometheus_rules_check() -> None:
 
     assert "./scripts/check-prometheus-rules.sh" in ci_content
     assert "promtool check rules" in check_content
+    assert "PROMTOOL_REQUIRED" in ci_content
+    assert "CI" in ci_content
 
 
 def test_prometheus_rules_check_fails_in_strict_mode_when_promtool_missing() -> None:

@@ -2,6 +2,20 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.67-m3-ci-default-promtool-strict] - 2026-02-18
+
+### Added
+
+- New CI default behavior:
+  - `scripts/ci.sh` sets `PROMTOOL_REQUIRED=1` when `CI` env is present (unless already overridden).
+- New tests:
+  - ci script contains CI-aware strict mode setup for Prometheus rule checks
+
+### Changed
+
+- CI pipeline now enforces stricter Prometheus rule validation by default.
+- Backend app version bumped to `0.3.67-m3-ci-default-promtool-strict`.
+
 ## [0.3.66-m3-promtool-strict-mode] - 2026-02-18
 
 ### Added
