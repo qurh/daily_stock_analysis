@@ -2,6 +2,24 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.63-m3-threshold-governance-alert-template] - 2026-02-18
+
+### Added
+
+- New Prometheus alert rule template file:
+  - `refactor/backend/monitoring/prometheus/rules/refactor-threshold-governance-alerts.yml`
+- New baseline alert rules:
+  - `RefactorThresholdGovernanceWarn`
+  - `RefactorThresholdGovernanceCritical`
+  - `RefactorThresholdGovernanceNormalizationApplied`
+- New tests:
+  - threshold governance alert rule template exists with required alerts and expressions
+
+### Changed
+
+- README now documents alert template path and `promtool check rules` validation command.
+- Backend app version bumped to `0.3.63-m3-threshold-governance-alert-template`.
+
 ## [0.3.62-m3-governance-ratio-normalization-flags] - 2026-02-18
 
 ### Added
