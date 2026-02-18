@@ -92,6 +92,8 @@ class AppSettings:
     backtest_multi_window_alert_threshold_normalization_applied: bool
     backtest_multi_window_alert_critical_low_windows_threshold_normalized: bool
     backtest_multi_window_alert_critical_threshold_unmet_windows_threshold_normalized: bool
+    backtest_multi_window_alert_threshold_governance_warn_ratio: float
+    backtest_multi_window_alert_threshold_governance_critical_ratio: float
 
 
 def load_settings() -> AppSettings:
@@ -165,6 +167,22 @@ def load_settings() -> AppSettings:
         backtest_multi_window_alert_critical_low_windows_threshold_normalized
         or backtest_multi_window_alert_critical_threshold_unmet_windows_threshold_normalized
     )
+    backtest_multi_window_alert_threshold_governance_warn_ratio = _read_float_env(
+        "BACKTEST_MULTI_WINDOW_ALERT_THRESHOLD_GOVERNANCE_WARN_RATIO", 0.25
+    )
+    backtest_multi_window_alert_threshold_governance_critical_ratio = _read_float_env(
+        "BACKTEST_MULTI_WINDOW_ALERT_THRESHOLD_GOVERNANCE_CRITICAL_RATIO", 0.5
+    )
+    backtest_multi_window_alert_threshold_governance_warn_ratio = max(
+        min(backtest_multi_window_alert_threshold_governance_warn_ratio, 1.0), 0.0
+    )
+    backtest_multi_window_alert_threshold_governance_critical_ratio = max(
+        min(backtest_multi_window_alert_threshold_governance_critical_ratio, 1.0), 0.0
+    )
+    backtest_multi_window_alert_threshold_governance_critical_ratio = max(
+        backtest_multi_window_alert_threshold_governance_critical_ratio,
+        backtest_multi_window_alert_threshold_governance_warn_ratio,
+    )
     return AppSettings(
         database_url=database_url,
         queue_auto_process=queue_auto_process,
@@ -216,5 +234,11 @@ def load_settings() -> AppSettings:
         ),
         backtest_multi_window_alert_critical_threshold_unmet_windows_threshold_normalized=(
             backtest_multi_window_alert_critical_threshold_unmet_windows_threshold_normalized
+        ),
+        backtest_multi_window_alert_threshold_governance_warn_ratio=(
+            backtest_multi_window_alert_threshold_governance_warn_ratio
+        ),
+        backtest_multi_window_alert_threshold_governance_critical_ratio=(
+            backtest_multi_window_alert_threshold_governance_critical_ratio
         ),
     )
