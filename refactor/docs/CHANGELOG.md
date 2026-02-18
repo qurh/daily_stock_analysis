@@ -2,6 +2,19 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.59-m3-global-metrics-threshold-dimensions-constant] - 2026-02-18
+
+### Added
+
+- New tests:
+  - global metrics endpoint threshold dimensions total metric is validated against module constant
+
+### Changed
+
+- Replaced threshold mismatch ratio denominator magic number with unified module constant:
+  - `app.api.routes.metrics.MULTI_WINDOW_ALERT_THRESHOLD_DIMENSIONS_TOTAL`
+- Backend app version bumped to `0.3.59-m3-global-metrics-threshold-dimensions-constant`.
+
 ## [0.3.58-m3-global-metrics-threshold-dimensions-total] - 2026-02-18
 
 ### Added

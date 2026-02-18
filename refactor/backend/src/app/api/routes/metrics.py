@@ -10,6 +10,8 @@ from app.services.prompt_lock_audit_service import PromptLockAuditService
 
 router = APIRouter()
 
+MULTI_WINDOW_ALERT_THRESHOLD_DIMENSIONS_TOTAL = 4
+
 
 def _escape_prometheus_label_value(value: str) -> str:
     escaped = value.replace("\\", "\\\\")
@@ -386,7 +388,7 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
             != multi_window_alert_critical_threshold_unmet_windows_threshold
         )
     )
-    sample_multi_window_alert_threshold_raw_normalized_dimensions_total = 4
+    sample_multi_window_alert_threshold_raw_normalized_dimensions_total = MULTI_WINDOW_ALERT_THRESHOLD_DIMENSIONS_TOTAL
     sample_multi_window_alert_threshold_raw_normalized_mismatch_ratio = round(
         (
             sample_multi_window_alert_threshold_raw_normalized_mismatch_count
