@@ -2,6 +2,20 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.57-m3-global-metrics-threshold-mismatch-ratio] - 2026-02-18
+
+### Added
+
+- New threshold mismatch ratio metric in `/api/v2/metrics`:
+  - `refactor_backtest_records_return_sample_multi_window_alert_threshold_raw_normalized_mismatch_ratio`
+- New tests:
+  - global metrics endpoint includes raw-normalized mismatch ratio
+
+### Changed
+
+- Metrics snapshot now exposes mismatch ratio (`mismatch_count / 4`) for raw-vs-normalized threshold governance.
+- Backend app version bumped to `0.3.57-m3-global-metrics-threshold-mismatch-ratio`.
+
 ## [0.3.56-m3-global-metrics-threshold-mismatch-count] - 2026-02-18
 
 ### Added
