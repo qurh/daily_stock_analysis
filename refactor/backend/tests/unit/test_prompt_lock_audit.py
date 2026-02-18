@@ -3510,3 +3510,93 @@ def test_global_metrics_endpoint_includes_raw_normalized_mismatch_count(monkeypa
         '{level="critical"} 1' in body
     )
     assert "refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_level_score 1.0" in body
+
+
+def test_global_metrics_endpoint_threshold_governance_levels_support_env_ratio_overrides(monkeypatch) -> None:
+    monkeypatch.setenv("BACKTEST_RETURN_SAMPLE_MIN_SIZE", "4")
+    monkeypatch.setenv("BACKTEST_RETURN_SAMPLE_MEDIUM_COVERAGE_PCT", "60")
+    monkeypatch.setenv("BACKTEST_MULTI_WINDOW_ALERT_WARN_LOW_WINDOWS", "3")
+    monkeypatch.setenv("BACKTEST_MULTI_WINDOW_ALERT_WARN_THRESHOLD_UNMET_WINDOWS", "4")
+    monkeypatch.setenv("BACKTEST_MULTI_WINDOW_ALERT_CRITICAL_LOW_WINDOWS", "1")
+    monkeypatch.setenv("BACKTEST_MULTI_WINDOW_ALERT_CRITICAL_THRESHOLD_UNMET_WINDOWS", "2")
+    monkeypatch.setenv("BACKTEST_MULTI_WINDOW_ALERT_THRESHOLD_GOVERNANCE_WARN_RATIO", "0.4")
+    monkeypatch.setenv("BACKTEST_MULTI_WINDOW_ALERT_THRESHOLD_GOVERNANCE_CRITICAL_RATIO", "0.8")
+    client = TestClient(create_app())
+    now = datetime.now(timezone.utc)
+    backtest_job_id = str(uuid4())
+
+    with client.app.state.database.connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO backtest_jobs (
+                job_id, scope, symbol, eval_window_days, status, progress, metrics_json,
+                engine_version, started_at, ended_at, created_at, updated_at
+            ) VALUES (?, 'market', NULL, 10, 'completed', 100, ?, 'v1', ?, ?, ?, ?)
+            """,
+            (
+                backtest_job_id,
+                json.dumps({"sample_size": 3, "win_rate_pct": 100.0}, ensure_ascii=False),
+                now.isoformat(),
+                now.isoformat(),
+                now.isoformat(),
+                now.isoformat(),
+            ),
+        )
+
+        records = [
+            ("600519", 1.0, (now - timedelta(hours=2)).isoformat()),
+            ("000001", 2.0, (now - timedelta(days=3)).isoformat()),
+            ("300750", 3.0, (now - timedelta(days=20)).isoformat()),
+        ]
+        for symbol, value, created_at in records:
+            analysis_job_id = str(uuid4())
+            conn.execute(
+                """
+                INSERT INTO analysis_jobs (
+                    job_id, symbol, report_type, status, result_json, execution_id, created_at, updated_at
+                ) VALUES (?, ?, 'detailed', 'succeeded', ?, NULL, ?, ?)
+                """,
+                (
+                    analysis_job_id,
+                    symbol,
+                    json.dumps({"report": {"meta": {"stock_code": symbol}}}, ensure_ascii=False),
+                    now.isoformat(),
+                    now.isoformat(),
+                ),
+            )
+            conn.execute(
+                """
+                INSERT INTO backtest_records (
+                    record_id, job_id, analysis_job_id, symbol, direction,
+                    outcome, return_pct, direction_correct, flags_json, created_at
+                ) VALUES (?, ?, ?, ?, 'long', 'win', ?, 1, ?, ?)
+                """,
+                (
+                    str(uuid4()),
+                    backtest_job_id,
+                    analysis_job_id,
+                    symbol,
+                    value,
+                    json.dumps([], ensure_ascii=False),
+                    created_at,
+                ),
+            )
+
+    response = client.get("/api/v2/metrics")
+    assert response.status_code == 200
+    body = response.text
+    assert "refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_warn_ratio 0.4" in body
+    assert "refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_critical_ratio 0.8" in body
+    assert (
+        "refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_level"
+        '{level="none"} 0' in body
+    )
+    assert (
+        "refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_level"
+        '{level="warn"} 1' in body
+    )
+    assert (
+        "refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_level"
+        '{level="critical"} 0' in body
+    )
+    assert "refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_level_score 0.5" in body

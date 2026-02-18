@@ -43,6 +43,8 @@ uvicorn app.main:app --app-dir src --reload --port 18000
 - Multi-window alert warn threshold-unmet windows threshold: `BACKTEST_MULTI_WINDOW_ALERT_WARN_THRESHOLD_UNMET_WINDOWS` (default `1`)
 - Multi-window alert critical low windows threshold: `BACKTEST_MULTI_WINDOW_ALERT_CRITICAL_LOW_WINDOWS` (default `2`)
 - Multi-window alert critical threshold-unmet windows threshold: `BACKTEST_MULTI_WINDOW_ALERT_CRITICAL_THRESHOLD_UNMET_WINDOWS` (default `3`)
+- Threshold governance warn ratio: `BACKTEST_MULTI_WINDOW_ALERT_THRESHOLD_GOVERNANCE_WARN_RATIO` (default `0.25`)
+- Threshold governance critical ratio: `BACKTEST_MULTI_WINDOW_ALERT_THRESHOLD_GOVERNANCE_CRITICAL_RATIO` (default `0.5`, auto-raised to warn ratio when configured lower)
 - Threshold normalization rule: `critical` thresholds are auto-adjusted to be no smaller than corresponding `warn` thresholds.
 - Real smoke switch: `ENABLE_REAL_LLM_SMOKE` (`1` to run integration smoke)
 
@@ -206,6 +208,8 @@ uvicorn app.main:app --app-dir src --reload --port 18000
     - `refactor_backtest_records_return_sample_multi_window_alert_threshold_raw_normalized_mismatch_ratio`
     - `refactor_backtest_records_return_sample_multi_window_alert_threshold_dimensions_total`
     - mismatch ratio denominator is aligned with threshold dimensions total via one backend constant.
+    - `refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_warn_ratio`
+    - `refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_critical_ratio`
     - `refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_level{level=none|warn|critical}`
     - `refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_level_score`
     - `refactor_backtest_records_return_sample_multi_window_alert_threshold_normalization_applied`

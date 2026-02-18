@@ -2,6 +2,26 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.61-m3-governance-threshold-ratio-config] - 2026-02-18
+
+### Added
+
+- New configurable env vars for threshold-governance ratios:
+  - `BACKTEST_MULTI_WINDOW_ALERT_THRESHOLD_GOVERNANCE_WARN_RATIO`
+  - `BACKTEST_MULTI_WINDOW_ALERT_THRESHOLD_GOVERNANCE_CRITICAL_RATIO`
+- New governance ratio metrics in `/api/v2/metrics`:
+  - `refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_warn_ratio`
+  - `refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_critical_ratio`
+- New tests:
+  - settings loader reads and normalizes governance ratio env vars
+  - global metrics endpoint governance levels support env ratio overrides
+
+### Changed
+
+- Threshold-governance level computation now uses runtime-configured warn/critical ratios from settings.
+- Governance critical ratio is normalized to be no smaller than warn ratio.
+- Backend app version bumped to `0.3.61-m3-governance-threshold-ratio-config`.
+
 ## [0.3.60-m3-global-metrics-threshold-governance-level] - 2026-02-18
 
 ### Added
