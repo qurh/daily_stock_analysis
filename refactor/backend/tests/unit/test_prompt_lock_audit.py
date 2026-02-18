@@ -3497,3 +3497,16 @@ def test_global_metrics_endpoint_includes_raw_normalized_mismatch_count(monkeypa
         "refactor_backtest_records_return_sample_multi_window_alert_threshold_dimensions_total "
         f"{MULTI_WINDOW_ALERT_THRESHOLD_DIMENSIONS_TOTAL}" in body
     )
+    assert (
+        "refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_level"
+        '{level="none"} 0' in body
+    )
+    assert (
+        "refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_level"
+        '{level="warn"} 0' in body
+    )
+    assert (
+        "refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_level"
+        '{level="critical"} 1' in body
+    )
+    assert "refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_level_score 1.0" in body
