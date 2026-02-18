@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
+from app.api.routes.metrics import MULTI_WINDOW_ALERT_THRESHOLD_DIMENSIONS_TOTAL
 from app.main import create_app
 from app.persistence.sqlite_db import SQLiteDatabase
 from app.services.prompt_lock_audit_service import PromptLockAuditService
@@ -3492,4 +3493,7 @@ def test_global_metrics_endpoint_includes_raw_normalized_mismatch_count(monkeypa
     assert (
         "refactor_backtest_records_return_sample_multi_window_alert_threshold_raw_normalized_mismatch_ratio 0.5" in body
     )
-    assert "refactor_backtest_records_return_sample_multi_window_alert_threshold_dimensions_total 4" in body
+    assert (
+        "refactor_backtest_records_return_sample_multi_window_alert_threshold_dimensions_total "
+        f"{MULTI_WINDOW_ALERT_THRESHOLD_DIMENSIONS_TOTAL}" in body
+    )
