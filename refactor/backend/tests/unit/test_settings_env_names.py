@@ -76,6 +76,9 @@ def test_settings_reads_non_prefixed_env_vars(monkeypatch) -> None:
     assert settings.backtest_multi_window_alert_critical_threshold_unmet_windows_threshold_normalized is False
     assert settings.backtest_multi_window_alert_threshold_governance_warn_ratio == 0.3
     assert settings.backtest_multi_window_alert_threshold_governance_critical_ratio == 0.7
+    assert settings.backtest_multi_window_alert_threshold_governance_warn_ratio_normalized is False
+    assert settings.backtest_multi_window_alert_threshold_governance_critical_ratio_normalized is False
+    assert settings.backtest_multi_window_alert_threshold_governance_ratio_normalization_applied is False
 
 
 def test_settings_normalizes_multi_window_alert_threshold_relationship(monkeypatch) -> None:
@@ -101,3 +104,19 @@ def test_settings_normalizes_multi_window_alert_threshold_relationship(monkeypat
     assert settings.backtest_multi_window_alert_critical_threshold_unmet_windows_threshold_normalized is True
     assert settings.backtest_multi_window_alert_threshold_governance_warn_ratio == 0.8
     assert settings.backtest_multi_window_alert_threshold_governance_critical_ratio == 0.8
+    assert settings.backtest_multi_window_alert_threshold_governance_warn_ratio_normalized is False
+    assert settings.backtest_multi_window_alert_threshold_governance_critical_ratio_normalized is True
+    assert settings.backtest_multi_window_alert_threshold_governance_ratio_normalization_applied is True
+
+
+def test_settings_clamps_governance_ratio_range(monkeypatch) -> None:
+    monkeypatch.setenv("BACKTEST_MULTI_WINDOW_ALERT_THRESHOLD_GOVERNANCE_WARN_RATIO", "1.2")
+    monkeypatch.setenv("BACKTEST_MULTI_WINDOW_ALERT_THRESHOLD_GOVERNANCE_CRITICAL_RATIO", "-0.4")
+
+    settings = load_settings()
+
+    assert settings.backtest_multi_window_alert_threshold_governance_warn_ratio == 1.0
+    assert settings.backtest_multi_window_alert_threshold_governance_critical_ratio == 1.0
+    assert settings.backtest_multi_window_alert_threshold_governance_warn_ratio_normalized is True
+    assert settings.backtest_multi_window_alert_threshold_governance_critical_ratio_normalized is True
+    assert settings.backtest_multi_window_alert_threshold_governance_ratio_normalization_applied is True

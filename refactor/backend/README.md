@@ -210,6 +210,9 @@ uvicorn app.main:app --app-dir src --reload --port 18000
     - mismatch ratio denominator is aligned with threshold dimensions total via one backend constant.
     - `refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_warn_ratio`
     - `refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_critical_ratio`
+    - `refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_warn_ratio_normalized`
+    - `refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_critical_ratio_normalized`
+    - `refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_ratio_normalization_applied`
     - `refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_level{level=none|warn|critical}`
     - `refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_level_score`
     - `refactor_backtest_records_return_sample_multi_window_alert_threshold_normalization_applied`
