@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RULES_DIR="$ROOT_DIR/monitoring/prometheus/rules"
 PROMTOOL_BIN="${PROMTOOL_BIN:-promtool}"
+PROMTOOL_REQUIRED="${PROMTOOL_REQUIRED:-0}"
 
 if [[ ! -d "$RULES_DIR" ]]; then
   echo "[check-prometheus-rules] rules directory not found: $RULES_DIR" >&2
@@ -11,6 +12,11 @@ if [[ ! -d "$RULES_DIR" ]]; then
 fi
 
 if ! command -v "$PROMTOOL_BIN" >/dev/null 2>&1; then
+  normalized_required="$(echo "$PROMTOOL_REQUIRED" | tr '[:upper:]' '[:lower:]')"
+  if [[ "$normalized_required" == "1" || "$normalized_required" == "true" || "$normalized_required" == "yes" || "$normalized_required" == "on" ]]; then
+    echo "[check-prometheus-rules] promtool not found and PROMTOOL_REQUIRED=$PROMTOOL_REQUIRED." >&2
+    exit 1
+  fi
   echo "[check-prometheus-rules] promtool not found, skipping rule validation." >&2
   exit 0
 fi

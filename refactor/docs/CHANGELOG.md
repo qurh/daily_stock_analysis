@@ -2,6 +2,20 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.66-m3-promtool-strict-mode] - 2026-02-18
+
+### Added
+
+- New strict-mode behavior for Prometheus rule checker:
+  - `PROMTOOL_REQUIRED=1` makes `check-prometheus-rules.sh` fail when `promtool` is missing.
+- New tests:
+  - strict mode fails when promtool binary is unavailable
+
+### Changed
+
+- `check-prometheus-rules.sh` now supports optional strict mode while preserving default skip behavior for local environments.
+- Backend app version bumped to `0.3.66-m3-promtool-strict-mode`.
+
 ## [0.3.65-m3-promtool-rules-check-script] - 2026-02-18
 
 ### Added
