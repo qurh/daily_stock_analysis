@@ -268,6 +268,20 @@ cd refactor/backend
 ./scripts/ci.sh
 ```
 
+## Prometheus Alert Rule Template
+
+- Template file: `monitoring/prometheus/rules/refactor-threshold-governance-alerts.yml`
+- Includes three baseline rules:
+  - `RefactorThresholdGovernanceWarn`
+  - `RefactorThresholdGovernanceCritical`
+  - `RefactorThresholdGovernanceNormalizationApplied`
+- Validate template with:
+
+```bash
+cd refactor/backend
+promtool check rules monitoring/prometheus/rules/refactor-threshold-governance-alerts.yml
+```
+
 ## Run Real LLM Smoke
 
 ```bash
