@@ -451,6 +451,9 @@ def _load_backtest_quality_snapshot(request: Request) -> dict[str, Any]:
         "return_sample_multi_window_alert_threshold_raw_normalized_mismatch_ratio": (
             sample_multi_window_alert_threshold_raw_normalized_mismatch_ratio
         ),
+        "return_sample_multi_window_alert_threshold_dimensions_total": (
+            sample_multi_window_alert_threshold_raw_normalized_dimensions_total
+        ),
         "return_sample_multi_window_alert_threshold_normalization_applied": (
             int(multi_window_alert_threshold_normalization_applied)
         ),
@@ -757,6 +760,12 @@ def get_global_metrics(
         ),
         help_text="Current ratio of threshold dimensions where raw and normalized values differ (0.0-1.0).",
         value=backtest_quality["return_sample_multi_window_alert_threshold_raw_normalized_mismatch_ratio"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_backtest_records_return_sample_multi_window_alert_threshold_dimensions_total",
+        help_text="Current number of threshold dimensions included in raw-normalized mismatch governance.",
+        total=backtest_quality["return_sample_multi_window_alert_threshold_dimensions_total"],
     )
     _append_total_gauge_line(
         lines=lines,

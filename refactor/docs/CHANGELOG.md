@@ -2,6 +2,20 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.58-m3-global-metrics-threshold-dimensions-total] - 2026-02-18
+
+### Added
+
+- New threshold dimensions total metric in `/api/v2/metrics`:
+  - `refactor_backtest_records_return_sample_multi_window_alert_threshold_dimensions_total`
+- New tests:
+  - global metrics endpoint includes threshold dimensions total
+
+### Changed
+
+- Mismatch ratio denominator semantics are now explicitly observable through dedicated dimensions-total metric.
+- Backend app version bumped to `0.3.58-m3-global-metrics-threshold-dimensions-total`.
+
 ## [0.3.57-m3-global-metrics-threshold-mismatch-ratio] - 2026-02-18
 
 ### Added
