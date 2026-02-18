@@ -3489,3 +3489,6 @@ def test_global_metrics_endpoint_includes_raw_normalized_mismatch_count(monkeypa
     assert (
         "refactor_backtest_records_return_sample_multi_window_alert_threshold_raw_normalized_mismatch_count 2" in body
     )
+    assert (
+        "refactor_backtest_records_return_sample_multi_window_alert_threshold_raw_normalized_mismatch_ratio 0.5" in body
+    )
