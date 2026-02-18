@@ -2,6 +2,21 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.65-m3-promtool-rules-check-script] - 2026-02-18
+
+### Added
+
+- New script for Prometheus rule validation:
+  - `refactor/backend/scripts/check-prometheus-rules.sh`
+- New tests:
+  - ci script invokes Prometheus rules check
+
+### Changed
+
+- `refactor/backend/scripts/ci.sh` now runs `./scripts/check-prometheus-rules.sh`.
+- Rule validation supports `PROMTOOL_BIN` override and skips gracefully when `promtool` is not installed.
+- Backend app version bumped to `0.3.65-m3-promtool-rules-check-script`.
+
 ## [0.3.64-m3-threshold-governance-alert-profiles] - 2026-02-18
 
 ### Added
