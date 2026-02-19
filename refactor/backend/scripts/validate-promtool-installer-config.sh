@@ -221,12 +221,15 @@ if [[ "${normalized_validate_remote}" == "1" || "${normalized_validate_remote}" 
           && printf "%s\tmode=soft\tversion=%s\turl=%s\treason=%s\n" "${soft_audit_ts}" "${PROMTOOL_DEFAULT_VERSION}" "${PROMTOOL_SHA256SUMS_URL}" "${soft_reason}" >> "${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}"; then
           echo "[validate-promtool-installer-config] wrote soft-mode audit record: ${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}" >&2
           if (( PROMTOOL_REMOTE_SOFT_AUDIT_RETENTION_DAYS > 0 )); then
-            python_bin="python3"
-            if ! command -v "${python_bin}" >/dev/null 2>&1; then
+            soft_audit_cutoff_ts=""
+            python_bin=""
+            if command -v python3 >/dev/null 2>&1; then
+              python_bin="python3"
+            elif command -v python >/dev/null 2>&1; then
               python_bin="python"
             fi
-            if command -v "${python_bin}" >/dev/null 2>&1; then
-              soft_audit_cutoff_ts="$("${python_bin}" - "${PROMTOOL_REMOTE_SOFT_AUDIT_RETENTION_DAYS}" <<'PY'
+            if [[ -n "${python_bin}" ]]; then
+              soft_audit_cutoff_ts="$("${python_bin}" - "${PROMTOOL_REMOTE_SOFT_AUDIT_RETENTION_DAYS}" 2>/dev/null <<'PY'
 from datetime import datetime, timedelta, timezone
 import sys
 
@@ -234,9 +237,16 @@ retention_days = int(sys.argv[1])
 cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
 print(cutoff.strftime("%Y-%m-%dT%H:%M:%SZ"))
 PY
-)"
-              if [[ -n "${soft_audit_cutoff_ts}" ]] \
-                && awk -F '\t' -v cutoff="${soft_audit_cutoff_ts}" '
+              )" || true
+            fi
+            if [[ -z "${soft_audit_cutoff_ts}" ]]; then
+              soft_audit_cutoff_ts="$(date -u -d "${PROMTOOL_REMOTE_SOFT_AUDIT_RETENTION_DAYS} days ago" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null)" || true
+            fi
+            if [[ -z "${soft_audit_cutoff_ts}" ]]; then
+              soft_audit_cutoff_ts="$(date -u -v-"${PROMTOOL_REMOTE_SOFT_AUDIT_RETENTION_DAYS}"d +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null)" || true
+            fi
+            if [[ -n "${soft_audit_cutoff_ts}" ]] \
+              && awk -F '\t' -v cutoff="${soft_audit_cutoff_ts}" '
                     function is_iso_utc(ts) {
                       return ts ~ /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$/
                     }
@@ -251,14 +261,11 @@ PY
                       }
                     }
                   ' "${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}" > "${soft_audit_tmp_file}" \
-                && mv "${soft_audit_tmp_file}" "${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}"; then
-                echo "[validate-promtool-installer-config] pruned soft-mode audit file by retention window ${PROMTOOL_REMOTE_SOFT_AUDIT_RETENTION_DAYS} day(s): ${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}" >&2
-              else
-                rm -f "${soft_audit_tmp_file}"
-                echo "[validate-promtool-installer-config] warning: failed to prune soft-mode audit file by retention days: ${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}" >&2
-              fi
+              && mv "${soft_audit_tmp_file}" "${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}"; then
+              echo "[validate-promtool-installer-config] pruned soft-mode audit file by retention window ${PROMTOOL_REMOTE_SOFT_AUDIT_RETENTION_DAYS} day(s): ${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}" >&2
             else
-              echo "[validate-promtool-installer-config] warning: python interpreter not found, skip retention-days prune." >&2
+              rm -f "${soft_audit_tmp_file}"
+              echo "[validate-promtool-installer-config] warning: failed to prune soft-mode audit file by retention days: ${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}" >&2
             fi
           fi
           if (( PROMTOOL_REMOTE_SOFT_AUDIT_MAX_LINES > 0 )); then
