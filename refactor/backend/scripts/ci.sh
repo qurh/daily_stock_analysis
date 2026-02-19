@@ -21,7 +21,7 @@ $PYTHON_BIN -m flake8 src tests --max-line-length=120
 $PYTHON_BIN ./scripts/sync-strict-gate-alert-thresholds.py --check
 
 # Validator error code catalog sync check
-$PYTHON_BIN ./scripts/sync-validator-error-codes.py --check
+$PYTHON_BIN ./scripts/sync-validator-error-codes.py --check --strict-descriptions
 
 # Strict gate summary schema check
 $PYTHON_BIN ./scripts/validate-strict-gate-summary-schema.py
