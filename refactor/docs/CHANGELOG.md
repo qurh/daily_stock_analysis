@@ -2,6 +2,28 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.136-m3-error-code-overrides-semantic-lint] - 2026-02-19
+
+### Added
+
+- Metadata overrides validator now includes semantic lint rules:
+  - rejects placeholder text in override `description/remediation` based on marker config
+  - requires override remediation text to be actionable (verb + minimum length)
+- New validator error codes:
+  - `error_code_metadata_overrides_placeholder_text_detected`
+  - `error_code_metadata_overrides_remediation_quality_invalid`
+  - `error_code_metadata_overrides_placeholder_markers_file_not_found`
+  - `error_code_metadata_overrides_placeholder_markers_invalid`
+- New tests:
+  - validates validator fails with structured error when override remediation contains placeholder text
+  - validates validator fails with structured error when remediation is non-actionable
+
+### Changed
+
+- README now documents semantic lint behavior in metadata overrides validator.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.136-m3-error-code-overrides-semantic-lint`.
+
 ## [0.3.135-m3-error-code-metadata-overrides-validator] - 2026-02-19
 
 ### Added
