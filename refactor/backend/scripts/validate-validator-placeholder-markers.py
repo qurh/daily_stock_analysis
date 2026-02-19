@@ -16,6 +16,20 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MARKERS_FILE = BACKEND_ROOT / "config" / "validator-placeholder-markers.json"
 DEFAULT_SCHEMA_FILE = BACKEND_ROOT / "config" / "schemas" / "validator-placeholder-markers.schema.json"
 MARKER_PATTERN = re.compile(r"^[A-Z][A-Z0-9_-]*$")
+VALIDATOR_ERROR_CODES = {
+    "JSON_PARSE_ERROR": "placeholder_markers_json_parse_error",
+    "PAYLOAD_TYPE_INVALID": "placeholder_markers_payload_type_invalid",
+    "MARKERS_LIST_MISSING_OR_EMPTY": "placeholder_markers_markers_list_missing_or_empty",
+    "MARKER_NOT_STRING": "placeholder_markers_marker_not_string",
+    "MARKER_EMPTY": "placeholder_markers_marker_empty",
+    "DUPLICATE_MARKER": "placeholder_markers_duplicate_marker",
+    "MARKER_FORMAT_INVALID": "placeholder_markers_marker_format_invalid",
+    "SCHEMA_INVALID": "placeholder_markers_schema_invalid",
+    "SCHEMA_VALIDATION_FAILED": "placeholder_markers_schema_validation_failed",
+    "MARKERS_FILE_NOT_FOUND": "placeholder_markers_markers_file_not_found",
+    "SCHEMA_FILE_NOT_FOUND": "placeholder_markers_schema_file_not_found",
+    "UNEXPECTED_ERROR": "placeholder_markers_unexpected_error",
+}
 
 
 class PlaceholderMarkersValidationError(ValueError):
@@ -30,13 +44,13 @@ def _load_json_payload(path: Path, role: str) -> dict:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except JSONDecodeError as exc:
         raise PlaceholderMarkersValidationError(
-            code="placeholder_markers_json_parse_error",
+            code=VALIDATOR_ERROR_CODES["JSON_PARSE_ERROR"],
             message=f"failed to parse json: {path}",
             context={"path": str(path), "role": role},
         ) from exc
     if not isinstance(payload, dict):
         raise PlaceholderMarkersValidationError(
-            code="placeholder_markers_payload_type_invalid",
+            code=VALIDATOR_ERROR_CODES["PAYLOAD_TYPE_INVALID"],
             message=f"{role} payload must be an object",
             context={"path": str(path), "role": role},
         )
@@ -47,7 +61,7 @@ def _validate_markers(payload: dict) -> list[str]:
     markers = payload.get("markers")
     if not isinstance(markers, list) or not markers:
         raise PlaceholderMarkersValidationError(
-            code="placeholder_markers_markers_list_missing_or_empty",
+            code=VALIDATOR_ERROR_CODES["MARKERS_LIST_MISSING_OR_EMPTY"],
             message="markers payload must include non-empty markers list",
             context={},
         )
@@ -57,26 +71,26 @@ def _validate_markers(payload: dict) -> list[str]:
     for raw_marker in markers:
         if not isinstance(raw_marker, str):
             raise PlaceholderMarkersValidationError(
-                code="placeholder_markers_marker_not_string",
+                code=VALIDATOR_ERROR_CODES["MARKER_NOT_STRING"],
                 message=f"marker must be a string: {raw_marker}",
                 context={"marker": raw_marker},
             )
         marker = raw_marker.strip().upper()
         if not marker:
             raise PlaceholderMarkersValidationError(
-                code="placeholder_markers_marker_empty",
+                code=VALIDATOR_ERROR_CODES["MARKER_EMPTY"],
                 message="marker cannot be empty",
                 context={},
             )
         if marker in seen:
             raise PlaceholderMarkersValidationError(
-                code="placeholder_markers_duplicate_marker",
+                code=VALIDATOR_ERROR_CODES["DUPLICATE_MARKER"],
                 message=f"duplicate marker detected: {marker}",
                 context={"marker": marker},
             )
         if MARKER_PATTERN.match(marker) is None:
             raise PlaceholderMarkersValidationError(
-                code="placeholder_markers_marker_format_invalid",
+                code=VALIDATOR_ERROR_CODES["MARKER_FORMAT_INVALID"],
                 message=f"invalid marker format: {marker}",
                 context={"marker": marker},
             )
@@ -90,7 +104,7 @@ def _validate_against_schema(payload: dict, schema: dict, schema_file: Path) -> 
         Draft202012Validator.check_schema(schema)
     except SchemaError as exc:
         raise PlaceholderMarkersValidationError(
-            code="placeholder_markers_schema_invalid",
+            code=VALIDATOR_ERROR_CODES["SCHEMA_INVALID"],
             message=f"invalid json schema: {schema_file}",
             context={"schema_file": str(schema_file)},
         ) from exc
@@ -98,7 +112,7 @@ def _validate_against_schema(payload: dict, schema: dict, schema_file: Path) -> 
         Draft202012Validator(schema).validate(payload)
     except ValidationError as exc:
         raise PlaceholderMarkersValidationError(
-            code="placeholder_markers_schema_validation_failed",
+            code=VALIDATOR_ERROR_CODES["SCHEMA_VALIDATION_FAILED"],
             message="schema validation failed for marker config",
             context={"validation_path": list(exc.path)},
         ) from exc
@@ -130,13 +144,13 @@ def main() -> int:
     try:
         if not args.markers_file.exists():
             raise PlaceholderMarkersValidationError(
-                code="placeholder_markers_markers_file_not_found",
+                code=VALIDATOR_ERROR_CODES["MARKERS_FILE_NOT_FOUND"],
                 message=f"markers file not found: {args.markers_file}",
                 context={"path": str(args.markers_file)},
             )
         if not args.schema_file.exists():
             raise PlaceholderMarkersValidationError(
-                code="placeholder_markers_schema_file_not_found",
+                code=VALIDATOR_ERROR_CODES["SCHEMA_FILE_NOT_FOUND"],
                 message=f"schema file not found: {args.schema_file}",
                 context={"path": str(args.schema_file)},
             )
@@ -158,7 +172,7 @@ def main() -> int:
             else:
                 payload = {
                     "validator": "validate-validator-placeholder-markers",
-                    "code": "placeholder_markers_unexpected_error",
+                    "code": VALIDATOR_ERROR_CODES["UNEXPECTED_ERROR"],
                     "message": str(exc),
                     "context": {},
                 }

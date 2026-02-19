@@ -2,6 +2,25 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.130-m3-marker-error-code-catalog] - 2026-02-19
+
+### Added
+
+- Marker validator error codes are now included in unified validator error code governance:
+  - marker validator exposes `VALIDATOR_ERROR_CODES`
+  - catalog adds `placeholder_markers` group in `refactor/backend/config/validator-error-codes.json`
+  - sync script now harvests marker validator error code registry
+- New tests:
+  - validates catalog includes `placeholder_markers` group
+  - validates marker validator registry is exposed and namespaced
+  - validates catalog coverage check includes marker validator script codes
+
+### Changed
+
+- README now documents catalog group set including `placeholder_markers`.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.130-m3-marker-error-code-catalog`.
+
 ## [0.3.129-m3-marker-validator-json-errors] - 2026-02-19
 
 ### Added

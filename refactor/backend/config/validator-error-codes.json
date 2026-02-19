@@ -23,5 +23,19 @@
     "summary_contract_schema_version_const_missing": "Schema file does not contain properties.schema_version.const string.",
     "summary_contract_schema_version_field_missing": "Schema file does not contain properties.schema_version object.",
     "summary_contract_unexpected_error": "Unexpected runtime error in summary contract changelog validator."
+  },
+  "placeholder_markers": {
+    "placeholder_markers_duplicate_marker": "Marker list contains duplicate marker after normalization.",
+    "placeholder_markers_json_parse_error": "Failed to parse JSON marker or schema file.",
+    "placeholder_markers_marker_empty": "Marker value is empty after trimming.",
+    "placeholder_markers_marker_format_invalid": "Marker value does not match required format.",
+    "placeholder_markers_marker_not_string": "Marker entry is not a string value.",
+    "placeholder_markers_markers_file_not_found": "Marker config file does not exist.",
+    "placeholder_markers_markers_list_missing_or_empty": "Marker config markers list is missing or empty.",
+    "placeholder_markers_payload_type_invalid": "Marker or schema payload is not a JSON object.",
+    "placeholder_markers_schema_file_not_found": "Marker schema file does not exist.",
+    "placeholder_markers_schema_invalid": "Marker schema file is not a valid JSON Schema.",
+    "placeholder_markers_schema_validation_failed": "Marker config does not satisfy marker schema constraints.",
+    "placeholder_markers_unexpected_error": "Unexpected runtime error in marker validator."
   }
 }
