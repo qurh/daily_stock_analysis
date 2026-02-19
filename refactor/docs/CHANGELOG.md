@@ -2,6 +2,24 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.112-m3-summary-schema-validator-ci] - 2026-02-19
+
+### Added
+
+- New schema validator script:
+  - `refactor/backend/scripts/validate-strict-gate-summary-schema.py`
+  - validates JSON parse, JSON Schema draft validity, and required contract fields
+- New tests:
+  - verifies CI script includes summary schema validator
+  - verifies validator passes default schema
+  - verifies validator fails on invalid JSON
+
+### Changed
+
+- Backend CI script now runs strict gate summary schema validation.
+- README now documents validator usage.
+- Backend app version bumped to `0.3.112-m3-summary-schema-validator-ci`.
+
 ## [0.3.111-m3-summary-json-schema-validation] - 2026-02-19
 
 ### Added

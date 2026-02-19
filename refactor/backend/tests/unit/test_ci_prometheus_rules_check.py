@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -23,9 +24,47 @@ def test_ci_script_invokes_prometheus_rules_check() -> None:
     assert "./scripts/check-prometheus-rules.sh" in ci_content
     assert "./scripts/validate-promtool-installer-config.sh" in ci_content
     assert "./scripts/sync-strict-gate-alert-thresholds.py --check" in ci_content
+    assert "./scripts/validate-strict-gate-summary-schema.py" in ci_content
     assert "promtool check rules" in check_content
     assert "PROMTOOL_REQUIRED" in ci_content
     assert "CI" in ci_content
+
+
+def test_summary_schema_validator_script_passes_default_schema() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-strict-gate-summary-schema.py"
+    assert validate_script_file.exists()
+
+    completed = subprocess.run(
+        [sys.executable, str(validate_script_file)],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0
+    assert "schema is valid" in completed.stdout.lower()
+
+
+def test_summary_schema_validator_script_fails_on_invalid_json(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-strict-gate-summary-schema.py"
+    assert validate_script_file.exists()
+
+    invalid_schema_file = tmp_path / "invalid-schema.json"
+    invalid_schema_file.write_text("{not-json", encoding="utf-8")
+
+    completed = subprocess.run(
+        [sys.executable, str(validate_script_file), "--schema-file", str(invalid_schema_file)],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "failed to parse json" in completed.stderr.lower()
 
 
 def test_prometheus_rules_check_fails_in_strict_mode_when_promtool_missing() -> None:
