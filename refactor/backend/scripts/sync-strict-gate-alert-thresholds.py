@@ -26,12 +26,57 @@ class StrictGateThresholdProfile:
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = BACKEND_ROOT / "config" / "strict-gate-alert-thresholds.json"
+DURATION_PATTERN = re.compile(r"^[1-9][0-9]*(ms|s|m|h|d|w|y)$")
+VALID_SEVERITIES = {"info", "warning", "critical"}
 RULE_FILE_BY_PROFILE = {
     "default": BACKEND_ROOT / "monitoring" / "prometheus" / "rules" / "refactor-threshold-governance-alerts.yml",
     "dev": BACKEND_ROOT / "monitoring" / "prometheus" / "rules" / "refactor-threshold-governance-alerts.dev.yml",
     "staging": BACKEND_ROOT / "monitoring" / "prometheus" / "rules" / "refactor-threshold-governance-alerts.staging.yml",
     "prod": BACKEND_ROOT / "monitoring" / "prometheus" / "rules" / "refactor-threshold-governance-alerts.prod.yml",
 }
+
+
+def _parse_min_hits(profile_name: str, raw_value: object) -> int:
+    try:
+        value = int(raw_value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Invalid min_hits for profile '{profile_name}': {raw_value}") from exc
+    if value <= 0:
+        raise ValueError(f"min_hits out of range for profile '{profile_name}': {value} (must be > 0)")
+    return value
+
+
+def _parse_ratio(profile_name: str, field_name: str, raw_value: object) -> float:
+    try:
+        value = float(raw_value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Invalid ratio for profile '{profile_name}' field '{field_name}': {raw_value}") from exc
+    if value < 0.0 or value > 1.0:
+        raise ValueError(
+            f"ratio out of range for profile '{profile_name}' field '{field_name}': {value} (must be between 0 and 1)"
+        )
+    return value
+
+
+def _parse_duration(profile_name: str, field_name: str, raw_value: object) -> str:
+    value = str(raw_value).strip().lower()
+    if DURATION_PATTERN.fullmatch(value) is None:
+        raise ValueError(
+            f"Invalid duration for profile '{profile_name}' field '{field_name}': {raw_value} "
+            "(expected pattern like 5m/10m/1h)"
+        )
+    return value
+
+
+def _parse_severity(profile_name: str, field_name: str, raw_value: object) -> str:
+    value = str(raw_value).strip().lower()
+    if value not in VALID_SEVERITIES:
+        allowed = ", ".join(sorted(VALID_SEVERITIES))
+        raise ValueError(
+            f"Invalid severity for profile '{profile_name}' field '{field_name}': {raw_value} "
+            f"(allowed: {allowed})"
+        )
+    return value
 
 
 def _format_number(value: float | int) -> str:
@@ -85,18 +130,55 @@ def _load_profiles(path: Path) -> dict[str, StrictGateThresholdProfile]:
             if field not in raw_profile:
                 raise ValueError(f"Missing field '{field}' in profile '{profile_name}'")
 
+        min_hits = _parse_min_hits(profile_name=profile_name, raw_value=raw_profile["min_hits"])
+        warn_ratio = _parse_ratio(profile_name=profile_name, field_name="warn_ratio", raw_value=raw_profile["warn_ratio"])
+        critical_ratio = _parse_ratio(
+            profile_name=profile_name, field_name="critical_ratio", raw_value=raw_profile["critical_ratio"]
+        )
+        if critical_ratio < warn_ratio:
+            raise ValueError(
+                f"ratio out of range for profile '{profile_name}': critical_ratio {critical_ratio} "
+                f"must be >= warn_ratio {warn_ratio}"
+            )
+
         profiles[profile_name] = StrictGateThresholdProfile(
-            min_hits=int(raw_profile["min_hits"]),
-            warn_ratio=float(raw_profile["warn_ratio"]),
-            warn_for=str(raw_profile["warn_for"]),
-            critical_ratio=float(raw_profile["critical_ratio"]),
-            critical_for=str(raw_profile["critical_for"]),
-            soft_audit_max_lines_for=str(raw_profile["soft_audit_max_lines_for"]),
-            soft_audit_max_lines_severity=str(raw_profile["soft_audit_max_lines_severity"]),
-            soft_audit_max_bytes_for=str(raw_profile["soft_audit_max_bytes_for"]),
-            soft_audit_max_bytes_severity=str(raw_profile["soft_audit_max_bytes_severity"]),
-            soft_audit_rotation_unbounded_for=str(raw_profile["soft_audit_rotation_unbounded_for"]),
-            soft_audit_rotation_unbounded_severity=str(raw_profile["soft_audit_rotation_unbounded_severity"]),
+            min_hits=min_hits,
+            warn_ratio=warn_ratio,
+            warn_for=_parse_duration(profile_name=profile_name, field_name="warn_for", raw_value=raw_profile["warn_for"]),
+            critical_ratio=critical_ratio,
+            critical_for=_parse_duration(
+                profile_name=profile_name, field_name="critical_for", raw_value=raw_profile["critical_for"]
+            ),
+            soft_audit_max_lines_for=_parse_duration(
+                profile_name=profile_name,
+                field_name="soft_audit_max_lines_for",
+                raw_value=raw_profile["soft_audit_max_lines_for"],
+            ),
+            soft_audit_max_lines_severity=_parse_severity(
+                profile_name=profile_name,
+                field_name="soft_audit_max_lines_severity",
+                raw_value=raw_profile["soft_audit_max_lines_severity"],
+            ),
+            soft_audit_max_bytes_for=_parse_duration(
+                profile_name=profile_name,
+                field_name="soft_audit_max_bytes_for",
+                raw_value=raw_profile["soft_audit_max_bytes_for"],
+            ),
+            soft_audit_max_bytes_severity=_parse_severity(
+                profile_name=profile_name,
+                field_name="soft_audit_max_bytes_severity",
+                raw_value=raw_profile["soft_audit_max_bytes_severity"],
+            ),
+            soft_audit_rotation_unbounded_for=_parse_duration(
+                profile_name=profile_name,
+                field_name="soft_audit_rotation_unbounded_for",
+                raw_value=raw_profile["soft_audit_rotation_unbounded_for"],
+            ),
+            soft_audit_rotation_unbounded_severity=_parse_severity(
+                profile_name=profile_name,
+                field_name="soft_audit_rotation_unbounded_severity",
+                raw_value=raw_profile["soft_audit_rotation_unbounded_severity"],
+            ),
         )
     return profiles
 
@@ -178,6 +260,7 @@ def _render_profile(content: str, profile: StrictGateThresholdProfile) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Sync strict gate alert thresholds into Prometheus rule profiles.")
     parser.add_argument("--check", action="store_true", help="Check mode: fail if any file is out of sync.")
+    parser.add_argument("--config", type=Path, default=CONFIG_PATH, help="Path to threshold config JSON file.")
     parser.add_argument(
         "--profile",
         action="append",
@@ -186,7 +269,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    profiles = _load_profiles(CONFIG_PATH)
+    profiles = _load_profiles(args.config)
     selected_profiles = list(args.profile or RULE_FILE_BY_PROFILE.keys())
 
     changed_files: list[Path] = []
@@ -219,4 +302,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except Exception as exc:
+        print(f"[sync-strict-gate-alert-thresholds] {exc}", file=sys.stderr)
+        sys.exit(1)

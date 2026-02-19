@@ -361,6 +361,12 @@ cd refactor/backend
   - includes strict gate thresholds and soft-audit alert window/severity profile values
 - Strict gate threshold sync script:
   - `scripts/sync-strict-gate-alert-thresholds.py`
+  - validates config schema before sync:
+    - duration format: `^[1-9][0-9]*(ms|s|m|h|d|w|y)$`
+    - severity enum: `info|warning|critical`
+    - ratio range: `0.0 <= ratio <= 1.0`
+    - ratio relation: `critical_ratio >= warn_ratio`
+    - min hits: `min_hits > 0`
 - Includes eight baseline rules:
   - `RefactorThresholdGovernanceWarn`
   - `RefactorThresholdGovernanceCritical`
@@ -386,6 +392,7 @@ promtool check rules monitoring/prometheus/rules/refactor-threshold-governance-a
 cd refactor/backend
 python3 scripts/sync-strict-gate-alert-thresholds.py --check --profile dev
 python3 scripts/sync-strict-gate-alert-thresholds.py --profile staging
+python3 scripts/sync-strict-gate-alert-thresholds.py --check --config /tmp/strict-gate-alert-thresholds.json
 ```
 
 ## Run Real LLM Smoke
