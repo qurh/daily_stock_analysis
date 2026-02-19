@@ -278,7 +278,8 @@ cd refactor/backend
   - active workflow: `.github/workflows/refactor-backend-ci.yml`
   - example template: `refactor/backend/ci/github-actions/refactor-backend-ci.example.yml`
   - shared installer script: `refactor/backend/scripts/install-promtool.sh`
-  - promtool is installed from pinned release `v2.52.0` in workflow steps (not apt package).
+  - shared installer config: `refactor/backend/config/promtool-installer.defaults`
+  - promtool version and per-platform SHA256 are managed in the shared config file.
   - workflow verifies archive SHA256 before extracting and installing `promtool`.
   - installer script auto-detects `linux-amd64` / `linux-arm64` from machine architecture by default.
   - installer script supports smoke mode with `PROMTOOL_DRY_RUN=1` and arch override via `PROMTOOL_MACHINE_ARCH`.
