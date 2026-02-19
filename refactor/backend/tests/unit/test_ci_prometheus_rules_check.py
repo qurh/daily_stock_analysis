@@ -39,3 +39,28 @@ def test_prometheus_rules_check_fails_in_strict_mode_when_promtool_missing() -> 
 
     assert completed.returncode != 0
     assert "promtool not found" in completed.stderr
+
+
+def test_prometheus_rules_check_outputs_validated_rules_summary() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    check_file = backend_root / "scripts" / "check-prometheus-rules.sh"
+    rules_dir = backend_root / "monitoring" / "prometheus" / "rules"
+    assert check_file.exists()
+    assert rules_dir.exists()
+
+    expected_count = len(sorted(rules_dir.glob("*.yml"))) + len(sorted(rules_dir.glob("*.yaml")))
+    assert expected_count > 0
+
+    env = dict(os.environ)
+    env["PROMTOOL_BIN"] = "echo"
+    completed = subprocess.run(
+        ["bash", str(check_file)],
+        cwd=backend_root,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0
+    assert f"validated {expected_count} rule file(s)" in completed.stderr

@@ -21,7 +21,10 @@ if ! command -v "$PROMTOOL_BIN" >/dev/null 2>&1; then
   exit 0
 fi
 
-mapfile -t rule_files < <(find "$RULES_DIR" -maxdepth 1 -type f \( -name "*.yml" -o -name "*.yaml" \) | sort)
+rule_files=()
+while IFS= read -r rule_file; do
+  rule_files+=("$rule_file")
+done < <(find "$RULES_DIR" -maxdepth 1 -type f \( -name "*.yml" -o -name "*.yaml" \) | sort)
 
 if [[ ${#rule_files[@]} -eq 0 ]]; then
   echo "[check-prometheus-rules] no rule files found under $RULES_DIR" >&2
@@ -32,3 +35,5 @@ for rule_file in "${rule_files[@]}"; do
   # Equivalent command form: promtool check rules <rule-file>
   "$PROMTOOL_BIN" check rules "$rule_file"
 done
+
+echo "[check-prometheus-rules] validated ${#rule_files[@]} rule file(s)." >&2
