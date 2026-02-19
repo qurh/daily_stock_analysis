@@ -42,6 +42,7 @@ def test_ci_script_invokes_prometheus_rules_check() -> None:
     assert "./scripts/sync-validator-error-codes.py --check --strict-descriptions" in ci_content
     assert "./scripts/validate-validator-placeholder-markers.py" in ci_content
     assert "./scripts/validate-validator-error-code-catalog.py" in ci_content
+    assert "./scripts/validate-validator-error-code-metadata-lint.py" in ci_content
     assert "./scripts/validate-validator-error-code-metadata-overrides.py" in ci_content
     assert "./scripts/validate-strict-gate-summary-schema.py" in ci_content
     assert "./scripts/validate-summary-contract-changelog.py" in ci_content
@@ -263,6 +264,70 @@ def test_validator_error_code_metadata_lint_config_exists_and_is_valid() -> None
     assert isinstance(payload.get("action_verbs"), list)
     assert payload["action_verbs"]
     assert all(isinstance(item, str) and item.strip() for item in payload["action_verbs"])
+
+
+def test_validator_error_code_metadata_lint_schema_exists() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    schema_file = backend_root / "config" / "schemas" / "validator-error-code-metadata-lint.schema.json"
+    assert schema_file.exists()
+
+    payload = json.loads(schema_file.read_text(encoding="utf-8"))
+    assert payload.get("$schema") == "https://json-schema.org/draft/2020-12/schema"
+    assert payload.get("type") == "object"
+
+
+def test_validator_error_code_metadata_lint_validator_script_passes_default_config() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-validator-error-code-metadata-lint.py"
+    assert validate_script_file.exists()
+
+    completed = subprocess.run(
+        [sys.executable, str(validate_script_file)],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0
+    assert "lint config is valid" in completed.stdout.lower()
+
+
+def test_validator_error_code_metadata_lint_validator_script_json_errors_for_schema_violation(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-validator-error-code-metadata-lint.py"
+    assert validate_script_file.exists()
+
+    invalid_lint_config_file = tmp_path / "metadata-lint-invalid.json"
+    invalid_lint_config_file.write_text(
+        json.dumps(
+            {"min_remediation_length": 0, "action_verbs": []},
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--lint-config-file",
+            str(invalid_lint_config_file),
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "validate-validator-error-code-metadata-lint"
+    assert payload["code"] == "error_code_metadata_lint_schema_validation_failed"
+    assert "schema validation failed" in payload["message"].lower()
 
 
 def test_validator_error_code_metadata_overrides_validator_script_passes_default_config() -> None:

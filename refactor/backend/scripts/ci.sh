@@ -29,6 +29,9 @@ $PYTHON_BIN ./scripts/sync-validator-error-codes.py --check --strict-description
 # Validator error code catalog schema check
 $PYTHON_BIN ./scripts/validate-validator-error-code-catalog.py
 
+# Validator error code metadata lint config check
+$PYTHON_BIN ./scripts/validate-validator-error-code-metadata-lint.py
+
 # Validator error code metadata overrides check
 $PYTHON_BIN ./scripts/validate-validator-error-code-metadata-overrides.py
 
