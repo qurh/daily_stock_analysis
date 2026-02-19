@@ -2,6 +2,22 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.109-m3-threshold-sync-summary-output-file] - 2026-02-19
+
+### Added
+
+- `sync-strict-gate-alert-thresholds.py` now supports:
+  - `--summary-output <path>`
+  - writes JSON summary payload to file when used with `--summary-only --summary-format json`
+- New tests:
+  - verifies summary JSON file is written and matches stdout payload
+  - verifies `--summary-output` requires `--summary-format json`
+
+### Changed
+
+- README now includes `--summary-output` usage example.
+- Backend app version bumped to `0.3.109-m3-threshold-sync-summary-output-file`.
+
 ## [0.3.108-m3-threshold-sync-module-summary] - 2026-02-19
 
 ### Added

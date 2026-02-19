@@ -397,6 +397,7 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --profile dev
 python3 scripts/sync-strict-gate-alert-thresholds.py --check --dry-run --profile dev
 python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --profile dev
 python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --summary-format json --profile dev
+python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --summary-format json --summary-output /tmp/strict-gate-summary.json --profile dev
 ```
 
 - In JSON summary mode, `modules` includes changed alert counts for:
