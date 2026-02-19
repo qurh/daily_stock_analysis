@@ -2,6 +2,27 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.98-m3-strict-publish-gate-alert-rules] - 2026-02-19
+
+### Added
+
+- New Prometheus alert rules for strict publish gate block ratio:
+  - `RefactorStrategyPublishStrictGateBlockRatioWarn`
+  - `RefactorStrategyPublishStrictGateBlockRatioCritical`
+- Added rules to all profile templates:
+  - `monitoring/prometheus/rules/refactor-threshold-governance-alerts.yml`
+  - `monitoring/prometheus/rules/refactor-threshold-governance-alerts.dev.yml`
+  - `monitoring/prometheus/rules/refactor-threshold-governance-alerts.staging.yml`
+  - `monitoring/prometheus/rules/refactor-threshold-governance-alerts.prod.yml`
+- New tests:
+  - verifies base alert rule template includes strict gate alerts and expressions
+  - verifies profile templates include strict gate alerts and profile thresholds
+
+### Changed
+
+- Prometheus rule template baseline count increased from six to eight.
+- Backend app version bumped to `0.3.98-m3-strict-publish-gate-alert-rules`.
+
 ## [0.3.97-m3-strict-publish-gate-metrics] - 2026-02-19
 
 ### Added
