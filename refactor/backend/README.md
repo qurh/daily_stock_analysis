@@ -443,15 +443,21 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
   - metadata override schema: `refactor/backend/config/schemas/validator-error-code-metadata-overrides.schema.json`
   - metadata lint config: `refactor/backend/config/validator-error-code-metadata-lint.json`
   - metadata lint schema: `refactor/backend/config/schemas/validator-error-code-metadata-lint.schema.json`
+  - metadata lint config supports profile mode:
+    - `{"default_profile": "...", "profiles": {"dev": {...}, "prod": {...}}}`
   - validate metadata lint config: `python3 scripts/validate-validator-error-code-metadata-lint.py`
   - custom lint config/schema:
     - `python3 scripts/validate-validator-error-code-metadata-lint.py --lint-config-file <path> --schema-file <path>`
+  - lint profile selection:
+    - `python3 scripts/validate-validator-error-code-metadata-lint.py --lint-config-file <path> --lint-profile <profile>`
   - metadata lint validator supports `--json-errors` (`error_code_metadata_lint_*`)
   - validate metadata overrides: `python3 scripts/validate-validator-error-code-metadata-overrides.py`
   - custom overrides/schema/catalog:
     - `python3 scripts/validate-validator-error-code-metadata-overrides.py --overrides-file <path> --schema-file <path> --catalog-file <path>`
   - custom lint config:
     - `python3 scripts/validate-validator-error-code-metadata-overrides.py --lint-config-file <path>`
+  - overrides lint profile selection:
+    - `python3 scripts/validate-validator-error-code-metadata-overrides.py --lint-config-file <path> --lint-profile <profile>`
   - metadata override validator supports `--json-errors` (`error_code_metadata_overrides_*`)
   - metadata override semantic lint:
     - rejects placeholder text in `description/remediation` using marker config
