@@ -407,9 +407,12 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
 - JSON summary payload includes `schema_version` for contract compatibility checks.
 - Formal schema file:
   - `refactor/backend/config/schemas/strict-gate-summary.schema.json`
+- Formal example payload:
+  - `refactor/backend/config/schemas/strict-gate-summary.example.json`
 - Validate schema contract:
   - `python3 scripts/validate-strict-gate-summary-schema.py`
   - validates `schema_version` consistency between schema file and sync script
+  - validates example payload against schema
 
 ## Run Real LLM Smoke
 
