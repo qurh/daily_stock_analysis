@@ -2,6 +2,41 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.122-m3-validator-error-code-registry] - 2026-02-19
+
+### Added
+
+- Validator scripts now expose explicit error-code registries:
+  - `validate-strict-gate-summary-schema.py` -> `VALIDATOR_ERROR_CODES`
+  - `validate-summary-contract-changelog.py` -> `VALIDATOR_ERROR_CODES`
+- New tests:
+  - verifies both validator scripts expose non-empty error-code registries
+  - verifies catalog coverage includes declared registry codes (not only literal codes)
+
+### Changed
+
+- Both validator scripts now emit JSON error `code` values via registry constants.
+- README now documents validator registry expectation.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.122-m3-validator-error-code-registry`.
+
+## [0.3.121-m3-validator-error-code-catalog] - 2026-02-19
+
+### Added
+
+- New validator error code catalog:
+  - `refactor/backend/config/validator-error-codes.json`
+  - includes grouped codes for `summary_schema` and `summary_contract`
+- New tests:
+  - verifies catalog file exists with required groups
+  - verifies catalog covers all literal validator error codes
+
+### Changed
+
+- README now documents validator error code catalog path.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.121-m3-validator-error-code-catalog`.
+
 ## [0.3.120-m3-validator-error-code-prefix] - 2026-02-19
 
 ### Added

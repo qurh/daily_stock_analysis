@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import runpy
 import subprocess
 import sys
 import tempfile
@@ -10,6 +11,18 @@ from pathlib import Path
 PROMTOOL_DEFAULT_VERSION = "2.52.0"
 PROMTOOL_ARCHIVE_SHA256_LINUX_AMD64 = "7f31c5d6474bbff3e514e627e0b7a7fbbd4e5cea3f315fd0b76cad50be4c1ba3"
 PROMTOOL_ARCHIVE_SHA256_LINUX_ARM64 = "b503c0f552e381d7d3f84dfd275166bf07c74f99c428ffed69447d4ab3259901"
+VALIDATOR_CODE_PATTERN = re.compile(r'code="([^"]+)"')
+
+
+def _load_validator_error_codes(script_file: Path) -> dict[str, str]:
+    namespace = runpy.run_path(str(script_file))
+    payload = namespace.get("VALIDATOR_ERROR_CODES")
+    assert isinstance(payload, dict)
+    assert payload
+    for error_name, error_code in payload.items():
+        assert isinstance(error_name, str)
+        assert isinstance(error_code, str)
+    return payload
 
 
 def test_ci_script_invokes_prometheus_rules_check() -> None:
@@ -31,6 +44,58 @@ def test_ci_script_invokes_prometheus_rules_check() -> None:
     assert "promtool check rules" in check_content
     assert "PROMTOOL_REQUIRED" in ci_content
     assert "CI" in ci_content
+
+
+def test_validator_error_code_catalog_exists_and_has_prefix_groups() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+    assert catalog_file.exists()
+
+    payload = json.loads(catalog_file.read_text(encoding="utf-8"))
+    assert "summary_schema" in payload
+    assert "summary_contract" in payload
+    assert isinstance(payload["summary_schema"], dict)
+    assert isinstance(payload["summary_contract"], dict)
+
+
+def test_validator_scripts_expose_error_code_registries() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    summary_script = backend_root / "scripts" / "validate-strict-gate-summary-schema.py"
+    contract_script = backend_root / "scripts" / "validate-summary-contract-changelog.py"
+
+    assert summary_script.exists()
+    assert contract_script.exists()
+
+    summary_codes = set(_load_validator_error_codes(summary_script).values())
+    contract_codes = set(_load_validator_error_codes(contract_script).values())
+
+    assert summary_codes
+    assert contract_codes
+    assert all(code.startswith("summary_schema_") for code in summary_codes)
+    assert all(code.startswith("summary_contract_") for code in contract_codes)
+
+
+def test_validator_error_code_catalog_covers_all_script_error_codes() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+    summary_script = backend_root / "scripts" / "validate-strict-gate-summary-schema.py"
+    contract_script = backend_root / "scripts" / "validate-summary-contract-changelog.py"
+
+    assert catalog_file.exists()
+    catalog_payload = json.loads(catalog_file.read_text(encoding="utf-8"))
+    catalog_codes = {
+        code for group in ("summary_schema", "summary_contract") for code in catalog_payload.get(group, {}).keys()
+    }
+
+    script_codes: set[str] = set()
+    for script_file in (summary_script, contract_script):
+        assert script_file.exists()
+        content = script_file.read_text(encoding="utf-8")
+        script_codes.update(VALIDATOR_CODE_PATTERN.findall(content))
+        script_codes.update(_load_validator_error_codes(script_file).values())
+
+    missing_codes = sorted(script_codes.difference(catalog_codes))
+    assert not missing_codes
 
 
 def test_summary_schema_validator_script_passes_default_schema() -> None:
