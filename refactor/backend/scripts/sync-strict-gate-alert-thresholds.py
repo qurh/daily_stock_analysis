@@ -22,6 +22,12 @@ class StrictGateThresholdProfile:
     soft_audit_max_bytes_severity: str
     soft_audit_rotation_unbounded_for: str
     soft_audit_rotation_unbounded_severity: str
+    governance_warn_for: str
+    governance_warn_severity: str
+    governance_critical_for: str
+    governance_critical_severity: str
+    governance_normalization_for: str
+    governance_normalization_severity: str
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -125,6 +131,12 @@ def _load_profiles(path: Path) -> dict[str, StrictGateThresholdProfile]:
             "soft_audit_max_bytes_severity",
             "soft_audit_rotation_unbounded_for",
             "soft_audit_rotation_unbounded_severity",
+            "governance_warn_for",
+            "governance_warn_severity",
+            "governance_critical_for",
+            "governance_critical_severity",
+            "governance_normalization_for",
+            "governance_normalization_severity",
         )
         for field in required_fields:
             if field not in raw_profile:
@@ -179,6 +191,36 @@ def _load_profiles(path: Path) -> dict[str, StrictGateThresholdProfile]:
                 field_name="soft_audit_rotation_unbounded_severity",
                 raw_value=raw_profile["soft_audit_rotation_unbounded_severity"],
             ),
+            governance_warn_for=_parse_duration(
+                profile_name=profile_name,
+                field_name="governance_warn_for",
+                raw_value=raw_profile["governance_warn_for"],
+            ),
+            governance_warn_severity=_parse_severity(
+                profile_name=profile_name,
+                field_name="governance_warn_severity",
+                raw_value=raw_profile["governance_warn_severity"],
+            ),
+            governance_critical_for=_parse_duration(
+                profile_name=profile_name,
+                field_name="governance_critical_for",
+                raw_value=raw_profile["governance_critical_for"],
+            ),
+            governance_critical_severity=_parse_severity(
+                profile_name=profile_name,
+                field_name="governance_critical_severity",
+                raw_value=raw_profile["governance_critical_severity"],
+            ),
+            governance_normalization_for=_parse_duration(
+                profile_name=profile_name,
+                field_name="governance_normalization_for",
+                raw_value=raw_profile["governance_normalization_for"],
+            ),
+            governance_normalization_severity=_parse_severity(
+                profile_name=profile_name,
+                field_name="governance_normalization_severity",
+                raw_value=raw_profile["governance_normalization_severity"],
+            ),
         )
     return profiles
 
@@ -194,6 +236,42 @@ def _render_profile(content: str, profile: StrictGateThresholdProfile) -> str:
     )
 
     updated = content
+    updated = _replace_alert_field(
+        content=updated,
+        alert_name="RefactorThresholdGovernanceWarn",
+        field_name="for",
+        value=profile.governance_warn_for,
+    )
+    updated = _replace_alert_field(
+        content=updated,
+        alert_name="RefactorThresholdGovernanceWarn",
+        field_name="severity",
+        value=profile.governance_warn_severity,
+    )
+    updated = _replace_alert_field(
+        content=updated,
+        alert_name="RefactorThresholdGovernanceCritical",
+        field_name="for",
+        value=profile.governance_critical_for,
+    )
+    updated = _replace_alert_field(
+        content=updated,
+        alert_name="RefactorThresholdGovernanceCritical",
+        field_name="severity",
+        value=profile.governance_critical_severity,
+    )
+    updated = _replace_alert_field(
+        content=updated,
+        alert_name="RefactorThresholdGovernanceNormalizationApplied",
+        field_name="for",
+        value=profile.governance_normalization_for,
+    )
+    updated = _replace_alert_field(
+        content=updated,
+        alert_name="RefactorThresholdGovernanceNormalizationApplied",
+        field_name="severity",
+        value=profile.governance_normalization_severity,
+    )
     updated = _replace_alert_field(
         content=updated,
         alert_name="RefactorStrategyPublishStrictGateBlockRatioWarn",

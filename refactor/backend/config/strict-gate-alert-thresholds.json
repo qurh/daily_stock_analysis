@@ -11,7 +11,13 @@
       "soft_audit_max_bytes_for": "10m",
       "soft_audit_max_bytes_severity": "warning",
       "soft_audit_rotation_unbounded_for": "45m",
-      "soft_audit_rotation_unbounded_severity": "warning"
+      "soft_audit_rotation_unbounded_severity": "warning",
+      "governance_warn_for": "15m",
+      "governance_warn_severity": "warning",
+      "governance_critical_for": "5m",
+      "governance_critical_severity": "critical",
+      "governance_normalization_for": "30m",
+      "governance_normalization_severity": "warning"
     },
     "dev": {
       "min_hits": 10,
@@ -24,7 +30,13 @@
       "soft_audit_max_bytes_for": "3m",
       "soft_audit_max_bytes_severity": "info",
       "soft_audit_rotation_unbounded_for": "20m",
-      "soft_audit_rotation_unbounded_severity": "info"
+      "soft_audit_rotation_unbounded_severity": "info",
+      "governance_warn_for": "5m",
+      "governance_warn_severity": "info",
+      "governance_critical_for": "2m",
+      "governance_critical_severity": "warning",
+      "governance_normalization_for": "10m",
+      "governance_normalization_severity": "info"
     },
     "staging": {
       "min_hits": 10,
@@ -37,7 +49,13 @@
       "soft_audit_max_bytes_for": "8m",
       "soft_audit_max_bytes_severity": "warning",
       "soft_audit_rotation_unbounded_for": "30m",
-      "soft_audit_rotation_unbounded_severity": "warning"
+      "soft_audit_rotation_unbounded_severity": "warning",
+      "governance_warn_for": "10m",
+      "governance_warn_severity": "warning",
+      "governance_critical_for": "5m",
+      "governance_critical_severity": "critical",
+      "governance_normalization_for": "20m",
+      "governance_normalization_severity": "warning"
     },
     "prod": {
       "min_hits": 10,
@@ -50,7 +68,13 @@
       "soft_audit_max_bytes_for": "10m",
       "soft_audit_max_bytes_severity": "warning",
       "soft_audit_rotation_unbounded_for": "45m",
-      "soft_audit_rotation_unbounded_severity": "critical"
+      "soft_audit_rotation_unbounded_severity": "critical",
+      "governance_warn_for": "15m",
+      "governance_warn_severity": "warning",
+      "governance_critical_for": "5m",
+      "governance_critical_severity": "critical",
+      "governance_normalization_for": "30m",
+      "governance_normalization_severity": "warning"
     }
   }
 }
