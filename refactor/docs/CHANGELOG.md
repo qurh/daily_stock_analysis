@@ -2,6 +2,25 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.142-m3-error-code-lint-profile-message-hint] - 2026-02-19
+
+### Added
+
+- Human-readable profile hint in plain stderr output for unknown profile:
+  - `validate-validator-error-code-metadata-lint.py` now appends
+    - `Did you mean: <profile>?` when fuzzy suggestion exists
+  - `validate-validator-error-code-metadata-overrides.py` now appends
+    - `Did you mean: <profile>?` when fuzzy suggestion exists
+- New tests:
+  - validates lint validator plain stderr includes suggested profile hint
+  - validates overrides validator plain stderr includes suggested profile hint
+
+### Changed
+
+- README now documents plain stderr suggestion behavior.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.142-m3-error-code-lint-profile-message-hint`.
+
 ## [0.3.141-m3-error-code-lint-profile-suggestion] - 2026-02-19
 
 ### Added
