@@ -150,9 +150,16 @@ uvicorn app.main:app --app-dir src --reload --port 18000
 
 ## Optimization Proposal Schema Gate
 
-- For chatbot strategy lifecycle proposals (`source=chatbot` and `target` starts with `strategy.`),
-  `diff.strategy_id` is required.
-- Missing `strategy_id` is rejected with `400` (`FDB-INPUT-002`), preventing ambiguous proposal-strategy linkage.
+- `target` must be one of the supported namespaces:
+  - `prompt.*`
+  - `workflow.*`
+  - `strategy.*`
+- Unsupported `target` namespace is rejected with `400` (`FDB-INPUT-003`).
+- `diff` required keys by target namespace:
+  - `prompt.*` -> `diff.prompt_patch` (`FDB-INPUT-005`)
+  - `workflow.*` -> `diff.flow_patch` (`FDB-INPUT-004`)
+  - `strategy.*` -> `diff.strategy_id` (`FDB-INPUT-002`)
+- `strategy.*` supports nested form `diff.strategy.strategy_id`; service normalizes it to `diff.strategy_id`.
 
 ## Prompt Binding
 
