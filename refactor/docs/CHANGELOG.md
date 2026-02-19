@@ -2,6 +2,20 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.70-m3-refactor-backend-github-actions-workflow] - 2026-02-19
+
+### Added
+
+- New active GitHub Actions workflow for refactor backend quality gate:
+  - `.github/workflows/refactor-backend-ci.yml`
+- New tests:
+  - verifies root workflow exists and includes backend-path filters, promtool installation, and `scripts/ci.sh` execution
+
+### Changed
+
+- `README` now documents both active workflow and template paths.
+- Backend app version bumped to `0.3.70-m3-refactor-backend-github-actions-workflow`.
+
 ## [0.3.69-m3-github-actions-promtool-ci-template] - 2026-02-19
 
 ### Added
