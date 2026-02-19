@@ -1,27 +1,27 @@
 {
   "summary_schema": {
-    "summary_schema_json_parse_error": "Failed to parse JSON input file.",
+    "summary_schema_changed_files_count_mismatch": "changed_files_count does not match files length.",
     "summary_schema_example_payload_schema_validation_failed": "Example payload does not satisfy summary schema.",
     "summary_schema_example_schema_version_mismatch": "Example payload schema_version differs from expected schema version.",
     "summary_schema_files_type_invalid": "Example payload field files is not a list.",
-    "summary_schema_modules_type_invalid": "Example payload field modules is not an object.",
-    "summary_schema_changed_files_count_mismatch": "changed_files_count does not match files length.",
-    "summary_schema_total_added_lines_mismatch": "total_added_lines does not match per-file added_lines sum.",
-    "summary_schema_total_removed_lines_mismatch": "total_removed_lines does not match per-file removed_lines sum.",
-    "summary_schema_module_total_mismatch_strict": "Top-level strict module total does not match per-file strict total.",
+    "summary_schema_json_parse_error": "Failed to parse JSON input file.",
     "summary_schema_module_total_mismatch_governance": "Top-level governance module total does not match per-file governance total.",
     "summary_schema_module_total_mismatch_soft_audit": "Top-level soft_audit module total does not match per-file soft_audit total.",
+    "summary_schema_module_total_mismatch_strict": "Top-level strict module total does not match per-file strict total.",
+    "summary_schema_modules_type_invalid": "Example payload field modules is not an object.",
+    "summary_schema_total_added_lines_mismatch": "total_added_lines does not match per-file added_lines sum.",
+    "summary_schema_total_removed_lines_mismatch": "total_removed_lines does not match per-file removed_lines sum.",
     "summary_schema_unexpected_error": "Unexpected runtime error in summary schema validator."
   },
   "summary_contract": {
     "summary_contract_app_version_not_found": "Unable to locate app version in backend app file.",
-    "summary_contract_schema_properties_missing": "Schema file does not contain properties object.",
-    "summary_contract_schema_version_field_missing": "Schema file does not contain properties.schema_version object.",
-    "summary_contract_schema_version_const_missing": "Schema file does not contain properties.schema_version.const string.",
+    "summary_contract_changelog_app_version_mismatch": "Latest changelog version does not match backend app version.",
     "summary_contract_latest_changelog_entry_not_found": "Unable to locate latest changelog entry heading.",
     "summary_contract_missing_summary_schema_version_note": "Latest changelog entry is missing Summary schema version note.",
     "summary_contract_required_file_not_found": "One or more required files are missing.",
-    "summary_contract_changelog_app_version_mismatch": "Latest changelog version does not match backend app version.",
+    "summary_contract_schema_properties_missing": "Schema file does not contain properties object.",
+    "summary_contract_schema_version_const_missing": "Schema file does not contain properties.schema_version.const string.",
+    "summary_contract_schema_version_field_missing": "Schema file does not contain properties.schema_version object.",
     "summary_contract_unexpected_error": "Unexpected runtime error in summary contract changelog validator."
   }
 }
