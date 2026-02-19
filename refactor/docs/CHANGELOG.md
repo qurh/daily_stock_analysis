@@ -2,6 +2,21 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.87-m3-promtool-retention-fallback] - 2026-02-19
+
+### Added
+
+- New fallback test for retention-days prune when python interpreters are unavailable:
+  - verifies retention pruning still works via `date` fallback path
+
+### Changed
+
+- `validate-promtool-installer-config.sh` retention-days prune now:
+  - tries python (`python3`/`python`) first
+  - falls back to `date -d` (GNU) and `date -v` (BSD) when python is missing or execution fails
+  - avoids hard failure when python binary exists but returns non-zero
+- Backend app version bumped to `0.3.87-m3-promtool-retention-fallback`.
+
 ## [0.3.86-m3-promtool-soft-audit-rotation] - 2026-02-19
 
 ### Added

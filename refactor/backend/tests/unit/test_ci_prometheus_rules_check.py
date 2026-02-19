@@ -1140,6 +1140,105 @@ def test_promtool_installer_config_validation_soft_mode_audit_prunes_by_retentio
     assert any("reason=checksum mismatch for" in line for line in retained_lines)
 
 
+def test_promtool_installer_config_validation_soft_mode_retention_days_fallback_without_python() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-promtool-installer-config.sh"
+    assert validate_script_file.exists()
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        config_file = tmp_path / "promtool-installer.defaults"
+        config_file.write_text(
+            "\n".join(
+                [
+                    f"PROMTOOL_DEFAULT_VERSION={PROMTOOL_DEFAULT_VERSION}",
+                    (
+                        "PROMTOOL_DEFAULT_SHA256_LINUX_AMD64="
+                        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    ),
+                    f"PROMTOOL_DEFAULT_SHA256_LINUX_ARM64={PROMTOOL_ARCHIVE_SHA256_LINUX_ARM64}",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        sha256sums_file = tmp_path / "sha256sums.txt"
+        sha256sums_file.write_text(
+            "\n".join(
+                [
+                    f"{PROMTOOL_ARCHIVE_SHA256_LINUX_AMD64}  prometheus-{PROMTOOL_DEFAULT_VERSION}.linux-amd64.tar.gz",
+                    f"{PROMTOOL_ARCHIVE_SHA256_LINUX_ARM64}  prometheus-{PROMTOOL_DEFAULT_VERSION}.linux-arm64.tar.gz",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        audit_file = tmp_path / "audit" / "remote-soft-fallback.log"
+        audit_file.parent.mkdir(parents=True, exist_ok=True)
+        audit_file.write_text(
+            "\n".join(
+                [
+                    "2000-01-01T00:00:00Z\tmode=soft\tversion=2.52.0\turl=x\treason=old-prune",
+                    "2099-01-01T00:00:00Z\tmode=soft\tversion=2.52.0\turl=x\treason=future-keep",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        mock_bin_dir = tmp_path / "mock-bin"
+        mock_bin_dir.mkdir(parents=True, exist_ok=True)
+
+        python3_file = mock_bin_dir / "python3"
+        python3_file.write_text("#!/usr/bin/env bash\nexit 127\n", encoding="utf-8")
+        python3_file.chmod(0o755)
+
+        python_file = mock_bin_dir / "python"
+        python_file.write_text("#!/usr/bin/env bash\nexit 127\n", encoding="utf-8")
+        python_file.chmod(0o755)
+
+        date_file = mock_bin_dir / "date"
+        date_file.write_text(
+            """#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "$*" == *"-d 1 days ago"* ]]; then
+  printf "2025-01-01T00:00:00Z\\n"
+  exit 0
+fi
+
+printf "2026-02-19T12:00:00Z\\n"
+""",
+            encoding="utf-8",
+        )
+        date_file.chmod(0o755)
+
+        env = dict(os.environ)
+        env["PATH"] = f"{mock_bin_dir}:{env.get('PATH', '')}"
+        env["PROMTOOL_CONFIG_FILE"] = str(config_file)
+        env["PROMTOOL_VALIDATE_REMOTE"] = "1"
+        env["PROMTOOL_VALIDATE_REMOTE_MODE"] = "soft"
+        env["PROMTOOL_SHA256SUMS_URL"] = f"file://{sha256sums_file}"
+        env["PROMTOOL_REMOTE_SOFT_AUDIT_FILE"] = str(audit_file)
+        env["PROMTOOL_REMOTE_SOFT_AUDIT_MAX_LINES"] = "0"
+        env["PROMTOOL_REMOTE_SOFT_AUDIT_MAX_BYTES"] = "0"
+        env["PROMTOOL_REMOTE_SOFT_AUDIT_RETENTION_DAYS"] = "1"
+        completed = subprocess.run(
+            ["bash", str(validate_script_file)],
+            cwd=backend_root,
+            env=env,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        retained_lines = [line for line in audit_file.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+    assert completed.returncode == 0
+    assert "pruned soft-mode audit file by retention window 1 day(s)" in completed.stderr
+    assert all("reason=old-prune" not in line for line in retained_lines)
+    assert any("reason=future-keep" in line for line in retained_lines)
+
+
 def test_promtool_installer_config_validation_fails_for_invalid_soft_audit_max_bytes() -> None:
     backend_root = Path(__file__).resolve().parents[2]
     validate_script_file = backend_root / "scripts" / "validate-promtool-installer-config.sh"
