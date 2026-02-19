@@ -1444,6 +1444,10 @@ def test_global_metrics_endpoint_includes_promtool_soft_fallback_audit_metrics(t
         encoding="utf-8",
     )
     monkeypatch.setenv("PROMTOOL_REMOTE_SOFT_AUDIT_FILE", str(audit_file))
+    monkeypatch.setenv("PROMTOOL_REMOTE_SOFT_AUDIT_MAX_LINES", "20")
+    monkeypatch.setenv("PROMTOOL_REMOTE_SOFT_AUDIT_MAX_BYTES", "4096")
+    monkeypatch.setenv("PROMTOOL_REMOTE_SOFT_AUDIT_RETENTION_DAYS", "7")
+    expected_size = len(audit_file.read_bytes())
     client = TestClient(create_app())
 
     response = client.get("/api/v2/metrics")
@@ -1452,6 +1456,11 @@ def test_global_metrics_endpoint_includes_promtool_soft_fallback_audit_metrics(t
     assert "refactor_promtool_remote_soft_fallback_audit_enabled 1" in body
     assert "refactor_promtool_remote_soft_fallback_audit_events_total 2" in body
     assert "refactor_promtool_remote_soft_fallback_audit_read_error 0" in body
+    assert "refactor_promtool_remote_soft_fallback_audit_file_line_count 2" in body
+    assert f"refactor_promtool_remote_soft_fallback_audit_file_size_bytes {expected_size}" in body
+    assert "refactor_promtool_remote_soft_fallback_audit_config_max_lines 20" in body
+    assert "refactor_promtool_remote_soft_fallback_audit_config_max_bytes 4096" in body
+    assert "refactor_promtool_remote_soft_fallback_audit_config_retention_days 7" in body
     expected_last_seen = datetime(2026, 2, 19, 13, 30, tzinfo=timezone.utc).timestamp()
     assert f"refactor_promtool_remote_soft_fallback_audit_last_seen_unixtime {expected_last_seen}" in body
 

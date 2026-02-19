@@ -282,6 +282,7 @@ cd refactor/backend
   - optional audit time window: `PROMTOOL_REMOTE_SOFT_AUDIT_RETENTION_DAYS=<N>` (`0` disables age prune).
   - retention-days prune uses python when available and falls back to `date` calculation when python is unavailable.
   - `/api/v2/metrics` can export audit counters from the same file when `PROMTOOL_REMOTE_SOFT_AUDIT_FILE` is set in backend env.
+  - `/api/v2/metrics` also exports audit file footprint and configured rotation thresholds (max lines/bytes/retention days).
 - Remote checksum validation supports fetch hardening knobs:
   - `PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS` (default: `3`)
   - `PROMTOOL_REMOTE_FETCH_CONNECT_TIMEOUT_SECONDS` (default: `10`)
@@ -314,10 +315,13 @@ cd refactor/backend
   - `monitoring/prometheus/rules/refactor-threshold-governance-alerts.dev.yml`
   - `monitoring/prometheus/rules/refactor-threshold-governance-alerts.staging.yml`
   - `monitoring/prometheus/rules/refactor-threshold-governance-alerts.prod.yml`
-- Includes three baseline rules:
+- Includes six baseline rules:
   - `RefactorThresholdGovernanceWarn`
   - `RefactorThresholdGovernanceCritical`
   - `RefactorThresholdGovernanceNormalizationApplied`
+  - `RefactorPromtoolSoftAuditMaxLinesExceeded`
+  - `RefactorPromtoolSoftAuditMaxBytesExceeded`
+  - `RefactorPromtoolSoftAuditRotationUnbounded`
 - Validate template with:
 
 ```bash
