@@ -995,3 +995,185 @@ def test_promtool_installer_config_validation_fails_for_invalid_soft_audit_max_l
 
     assert completed.returncode != 0
     assert "PROMTOOL_REMOTE_SOFT_AUDIT_MAX_LINES must be a non-negative integer" in completed.stderr
+
+
+def test_promtool_installer_config_validation_soft_mode_audit_trims_to_max_bytes() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-promtool-installer-config.sh"
+    assert validate_script_file.exists()
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        config_file = tmp_path / "promtool-installer.defaults"
+        config_file.write_text(
+            "\n".join(
+                [
+                    f"PROMTOOL_DEFAULT_VERSION={PROMTOOL_DEFAULT_VERSION}",
+                    (
+                        "PROMTOOL_DEFAULT_SHA256_LINUX_AMD64="
+                        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    ),
+                    f"PROMTOOL_DEFAULT_SHA256_LINUX_ARM64={PROMTOOL_ARCHIVE_SHA256_LINUX_ARM64}",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        sha256sums_file = tmp_path / "sha256sums.txt"
+        sha256sums_file.write_text(
+            "\n".join(
+                [
+                    f"{PROMTOOL_ARCHIVE_SHA256_LINUX_AMD64}  prometheus-{PROMTOOL_DEFAULT_VERSION}.linux-amd64.tar.gz",
+                    f"{PROMTOOL_ARCHIVE_SHA256_LINUX_ARM64}  prometheus-{PROMTOOL_DEFAULT_VERSION}.linux-arm64.tar.gz",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        audit_file = tmp_path / "audit" / "remote-soft-fallback.log"
+        audit_file.parent.mkdir(parents=True, exist_ok=True)
+        audit_file.write_text(
+            "\n".join(
+                [
+                    "2026-02-19T00:00:00Z\tmode=soft\tversion=2.52.0\turl=x\treason=" + "old-audit-entry-" * 12,
+                    "2026-02-19T00:10:00Z\tmode=soft\tversion=2.52.0\turl=x\treason=" + "old-audit-entry-" * 12,
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        env = dict(os.environ)
+        env["PROMTOOL_CONFIG_FILE"] = str(config_file)
+        env["PROMTOOL_VALIDATE_REMOTE"] = "1"
+        env["PROMTOOL_VALIDATE_REMOTE_MODE"] = "soft"
+        env["PROMTOOL_SHA256SUMS_URL"] = f"file://{sha256sums_file}"
+        env["PROMTOOL_REMOTE_SOFT_AUDIT_FILE"] = str(audit_file)
+        env["PROMTOOL_REMOTE_SOFT_AUDIT_MAX_LINES"] = "0"
+        env["PROMTOOL_REMOTE_SOFT_AUDIT_MAX_BYTES"] = "280"
+        completed = subprocess.run(
+            ["bash", str(validate_script_file)],
+            cwd=backend_root,
+            env=env,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        audit_bytes_size = len(audit_file.read_bytes())
+        audit_content = audit_file.read_text(encoding="utf-8")
+
+    assert completed.returncode == 0
+    assert "trimmed soft-mode audit file to last 280 byte(s)" in completed.stderr
+    assert audit_bytes_size <= 280
+    assert "reason=checksum mismatch for" in audit_content
+
+
+def test_promtool_installer_config_validation_soft_mode_audit_prunes_by_retention_days() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-promtool-installer-config.sh"
+    assert validate_script_file.exists()
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        config_file = tmp_path / "promtool-installer.defaults"
+        config_file.write_text(
+            "\n".join(
+                [
+                    f"PROMTOOL_DEFAULT_VERSION={PROMTOOL_DEFAULT_VERSION}",
+                    (
+                        "PROMTOOL_DEFAULT_SHA256_LINUX_AMD64="
+                        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    ),
+                    f"PROMTOOL_DEFAULT_SHA256_LINUX_ARM64={PROMTOOL_ARCHIVE_SHA256_LINUX_ARM64}",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        sha256sums_file = tmp_path / "sha256sums.txt"
+        sha256sums_file.write_text(
+            "\n".join(
+                [
+                    f"{PROMTOOL_ARCHIVE_SHA256_LINUX_AMD64}  prometheus-{PROMTOOL_DEFAULT_VERSION}.linux-amd64.tar.gz",
+                    f"{PROMTOOL_ARCHIVE_SHA256_LINUX_ARM64}  prometheus-{PROMTOOL_DEFAULT_VERSION}.linux-arm64.tar.gz",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        audit_file = tmp_path / "audit" / "remote-soft-fallback.log"
+        audit_file.parent.mkdir(parents=True, exist_ok=True)
+        audit_file.write_text(
+            "\n".join(
+                [
+                    "2000-01-01T00:00:00Z\tmode=soft\tversion=2.52.0\turl=x\treason=old-prune",
+                    "2099-01-01T00:00:00Z\tmode=soft\tversion=2.52.0\turl=x\treason=future-keep",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        env = dict(os.environ)
+        env["PROMTOOL_CONFIG_FILE"] = str(config_file)
+        env["PROMTOOL_VALIDATE_REMOTE"] = "1"
+        env["PROMTOOL_VALIDATE_REMOTE_MODE"] = "soft"
+        env["PROMTOOL_SHA256SUMS_URL"] = f"file://{sha256sums_file}"
+        env["PROMTOOL_REMOTE_SOFT_AUDIT_FILE"] = str(audit_file)
+        env["PROMTOOL_REMOTE_SOFT_AUDIT_MAX_LINES"] = "0"
+        env["PROMTOOL_REMOTE_SOFT_AUDIT_MAX_BYTES"] = "0"
+        env["PROMTOOL_REMOTE_SOFT_AUDIT_RETENTION_DAYS"] = "1"
+        completed = subprocess.run(
+            ["bash", str(validate_script_file)],
+            cwd=backend_root,
+            env=env,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        retained_lines = [line for line in audit_file.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+    assert completed.returncode == 0
+    assert "pruned soft-mode audit file by retention window 1 day(s)" in completed.stderr
+    assert all("reason=old-prune" not in line for line in retained_lines)
+    assert any("reason=future-keep" in line for line in retained_lines)
+    assert any("reason=checksum mismatch for" in line for line in retained_lines)
+
+
+def test_promtool_installer_config_validation_fails_for_invalid_soft_audit_max_bytes() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-promtool-installer-config.sh"
+    assert validate_script_file.exists()
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        config_file = tmp_path / "promtool-installer.defaults"
+        config_file.write_text(
+            "\n".join(
+                [
+                    f"PROMTOOL_DEFAULT_VERSION={PROMTOOL_DEFAULT_VERSION}",
+                    f"PROMTOOL_DEFAULT_SHA256_LINUX_AMD64={PROMTOOL_ARCHIVE_SHA256_LINUX_AMD64}",
+                    f"PROMTOOL_DEFAULT_SHA256_LINUX_ARM64={PROMTOOL_ARCHIVE_SHA256_LINUX_ARM64}",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        env = dict(os.environ)
+        env["PROMTOOL_CONFIG_FILE"] = str(config_file)
+        env["PROMTOOL_VALIDATE_REMOTE"] = "1"
+        env["PROMTOOL_VALIDATE_REMOTE_MODE"] = "soft"
+        env["PROMTOOL_REMOTE_SOFT_AUDIT_FILE"] = str(tmp_path / "audit.log")
+        env["PROMTOOL_REMOTE_SOFT_AUDIT_MAX_BYTES"] = "-2"
+        completed = subprocess.run(
+            ["bash", str(validate_script_file)],
+            cwd=backend_root,
+            env=env,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+    assert completed.returncode != 0
+    assert "PROMTOOL_REMOTE_SOFT_AUDIT_MAX_BYTES must be a non-negative integer" in completed.stderr
