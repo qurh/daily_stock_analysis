@@ -254,7 +254,24 @@ class StrategyService:
 
             normalized_proposal_id = (proposal_id or "").strip() or None
             if require_proposal_id and normalized_proposal_id is None:
+                self._record_strategy_publish_gate_event(
+                    conn=conn,
+                    strategy_id=strategy_id,
+                    gate_code="STR-GATE-009",
+                    require_proposal_id=True,
+                    blocked=True,
+                )
+                conn.commit()
                 raise RuntimeError("STR-GATE-009: proposal_id is required in strict publish mode")
+            if require_proposal_id:
+                self._record_strategy_publish_gate_event(
+                    conn=conn,
+                    strategy_id=strategy_id,
+                    gate_code="STR-GATE-009",
+                    require_proposal_id=True,
+                    blocked=False,
+                )
+                conn.commit()
             if normalized_proposal_id is not None:
                 linked_proposal = self._load_proposal_by_id(
                     conn=conn,
@@ -670,6 +687,31 @@ class StrategyService:
                     "updated_at": row["updated_at"],
                 }
         return None
+
+    def _record_strategy_publish_gate_event(
+        self,
+        conn: Any,
+        strategy_id: str,
+        gate_code: str,
+        require_proposal_id: bool,
+        blocked: bool,
+    ) -> None:
+        conn.execute(
+            """
+            INSERT INTO strategy_publish_gate_events (
+                event_id, strategy_id, gate_code, require_proposal_id, blocked, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                str(uuid4()),
+                strategy_id,
+                gate_code,
+                1 if require_proposal_id else 0,
+                1 if blocked else 0,
+                _utc_now(),
+            ),
+        )
 
     def _load_proposal_by_id(self, conn: Any, proposal_id: str) -> Any:
         row = conn.execute(

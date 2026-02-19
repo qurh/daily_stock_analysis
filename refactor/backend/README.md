@@ -182,6 +182,10 @@ uvicorn app.main:app --app-dir src --reload --port 18000
   - publish request supports optional `proposal_id` for explicit proposal-strategy bind validation
   - strict mode switch `STRATEGY_PUBLISH_REQUIRE_PROPOSAL_ID=true` forces `proposal_id` to be provided
     for publish requests (missing proposal_id returns `409` with `STR-GATE-009`)
+  - strict gate audit metrics are exported via `/api/v2/metrics`:
+    - `refactor_strategy_publish_strict_gate_hits_total`
+    - `refactor_strategy_publish_strict_gate_blocked_total`
+    - `refactor_strategy_publish_strict_gate_block_ratio`
   - when `proposal_id` is provided:
     - proposal must exist
     - proposal must be linked to current strategy (`diff.strategy_id == strategy_id`)

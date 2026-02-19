@@ -147,6 +147,28 @@ def _load_promtool_soft_fallback_audit_stats(
     return stats
 
 
+def _load_strategy_publish_strict_gate_stats(request: Request) -> dict[str, float]:
+    query = """
+        SELECT
+            COUNT(1) AS hits_total,
+            COALESCE(SUM(CASE WHEN blocked = 1 THEN 1 ELSE 0 END), 0) AS blocked_total
+        FROM strategy_publish_gate_events
+        WHERE gate_code = 'STR-GATE-009' AND require_proposal_id = 1
+    """
+    with request.app.state.database.connection() as conn:
+        row = conn.execute(query).fetchone()
+    if row is None:
+        return {"hits_total": 0.0, "blocked_total": 0.0, "block_ratio": 0.0}
+    hits_total = float(int(row["hits_total"] or 0))
+    blocked_total = float(int(row["blocked_total"] or 0))
+    block_ratio = round((blocked_total / hits_total), 4) if hits_total > 0 else 0.0
+    return {
+        "hits_total": hits_total,
+        "blocked_total": blocked_total,
+        "block_ratio": block_ratio,
+    }
+
+
 def _append_total_gauge_line(lines: list[str], metric_name: str, help_text: str, total: int) -> None:
     lines.append(f"# HELP {metric_name} {help_text}")
     lines.append(f"# TYPE {metric_name} gauge")
@@ -689,6 +711,7 @@ def get_global_metrics(
     backtest_quality = _load_backtest_quality_snapshot(request=request)
     optimization_quality = _load_optimization_quality_snapshot(request=request)
     settings = request.app.state.settings
+    strategy_publish_strict_gate = _load_strategy_publish_strict_gate_stats(request=request)
     promtool_soft_audit_stats = _load_promtool_soft_fallback_audit_stats(
         audit_file_path=settings.promtool_remote_soft_audit_file,
         config_max_lines=settings.promtool_remote_soft_audit_max_lines,
@@ -826,6 +849,24 @@ def get_global_metrics(
         metric_name="refactor_promtool_remote_soft_fallback_audit_config_retention_days",
         help_text="Configured retention window days for promtool remote soft fallback audit file.",
         total=int(promtool_soft_audit_stats["config_retention_days"]),
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_strategy_publish_strict_gate_hits_total",
+        help_text="Current strict publish gate evaluation count for STR-GATE-009.",
+        total=int(strategy_publish_strict_gate["hits_total"]),
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_strategy_publish_strict_gate_blocked_total",
+        help_text="Current strict publish gate blocked count for STR-GATE-009.",
+        total=int(strategy_publish_strict_gate["blocked_total"]),
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_strategy_publish_strict_gate_block_ratio",
+        help_text="Current strict publish gate blocked ratio for STR-GATE-009.",
+        value=float(strategy_publish_strict_gate["block_ratio"]),
     )
     _append_labeled_gauge_lines(
         lines=lines,
