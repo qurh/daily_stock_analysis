@@ -70,7 +70,7 @@ def _validate_against_schema(catalog: dict, schema: dict, schema_file: Path) -> 
         ) from exc
 
 
-def _validate_code_prefix(catalog: dict[str, dict[str, str]]) -> None:
+def _validate_code_prefix(catalog: dict[str, dict[str, dict[str, str]]]) -> None:
     for group_name, group_payload in catalog.items():
         for code in group_payload.keys():
             required_prefix = f"{group_name}_"

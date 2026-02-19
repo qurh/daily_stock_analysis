@@ -16,6 +16,8 @@ VALIDATOR_SCRIPT_FILES = {
     "summary_contract": BACKEND_ROOT / "scripts" / "validate-summary-contract-changelog.py",
     "placeholder_markers": BACKEND_ROOT / "scripts" / "validate-validator-placeholder-markers.py",
 }
+DEFAULT_ENTRY_SEVERITY = "error"
+DEFAULT_ENTRY_REMEDIATION = "Review validator output and update configuration or input data for this error."
 
 
 def _load_validator_registry_codes(script_file: Path) -> list[str]:
@@ -32,43 +34,78 @@ def _load_validator_registry_codes(script_file: Path) -> list[str]:
     return sorted(set(codes))
 
 
-def _load_existing_catalog(path: Path) -> dict[str, dict[str, str]]:
+def _load_existing_catalog(path: Path) -> dict[str, dict[str, dict[str, str]]]:
     if not path.exists():
         return {}
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise ValueError(f"catalog payload must be an object: {path}")
 
-    catalog: dict[str, dict[str, str]] = {}
+    catalog: dict[str, dict[str, dict[str, str]]] = {}
     for group_name, group_payload in payload.items():
         if not isinstance(group_name, str) or not isinstance(group_payload, dict):
             continue
         catalog[group_name] = {}
-        for code, description in group_payload.items():
-            if isinstance(code, str) and isinstance(description, str):
-                catalog[group_name][code] = description
+        for code, entry_payload in group_payload.items():
+            if not isinstance(code, str):
+                continue
+            if isinstance(entry_payload, str):
+                catalog[group_name][code] = {"description": entry_payload}
+                continue
+            if not isinstance(entry_payload, dict):
+                continue
+            entry: dict[str, str] = {}
+            for field_name in ("description", "severity", "remediation"):
+                field_value = entry_payload.get(field_name)
+                if isinstance(field_value, str):
+                    entry[field_name] = field_value
+            if entry:
+                catalog[group_name][code] = entry
     return catalog
 
 
-def _build_catalog(existing_catalog: dict[str, dict[str, str]]) -> dict[str, dict[str, str]]:
-    catalog: dict[str, dict[str, str]] = {}
+def _build_catalog_entry(existing_entry: object, code: str) -> dict[str, str]:
+    entry: dict[str, str] = {
+        "description": f"TODO: document {code}.",
+        "severity": DEFAULT_ENTRY_SEVERITY,
+        "remediation": DEFAULT_ENTRY_REMEDIATION,
+    }
+    if isinstance(existing_entry, str):
+        if existing_entry.strip():
+            entry["description"] = existing_entry
+        return entry
+    if not isinstance(existing_entry, dict):
+        return entry
+
+    existing_description = existing_entry.get("description")
+    if isinstance(existing_description, str) and existing_description.strip():
+        entry["description"] = existing_description
+
+    existing_severity = existing_entry.get("severity")
+    if isinstance(existing_severity, str) and existing_severity.strip():
+        entry["severity"] = existing_severity
+
+    existing_remediation = existing_entry.get("remediation")
+    if isinstance(existing_remediation, str) and existing_remediation.strip():
+        entry["remediation"] = existing_remediation
+    return entry
+
+
+def _build_catalog(existing_catalog: dict[str, dict[str, dict[str, str]]]) -> dict[str, dict[str, dict[str, str]]]:
+    catalog: dict[str, dict[str, dict[str, str]]] = {}
     for group_name, script_file in VALIDATOR_SCRIPT_FILES.items():
         if not script_file.exists():
             raise FileNotFoundError(f"validator script not found: {script_file}")
         codes = _load_validator_registry_codes(script_file=script_file)
         existing_group = existing_catalog.get(group_name, {})
-        group_catalog: dict[str, str] = {}
+        group_catalog: dict[str, dict[str, str]] = {}
         for code in codes:
-            existing_description = existing_group.get(code)
-            if isinstance(existing_description, str) and existing_description.strip():
-                group_catalog[code] = existing_description
-            else:
-                group_catalog[code] = f"TODO: document {code}."
+            group_catalog[code] = _build_catalog_entry(existing_entry=existing_group.get(code), code=code)
         catalog[group_name] = group_catalog
     return catalog
 
 
-def _render_catalog(catalog: dict[str, dict[str, str]]) -> str:
+def _render_catalog(catalog: dict[str, dict[str, dict[str, str]]]) -> str:
     return json.dumps(catalog, ensure_ascii=False, indent=2) + "\n"
 
 
@@ -101,22 +138,26 @@ def _build_placeholder_pattern(markers: list[str]) -> re.Pattern[str]:
 
 
 def _collect_placeholder_violations(
-    catalog: dict[str, dict[str, str]],
+    catalog: dict[str, dict[str, dict[str, str]]],
     placeholder_pattern: re.Pattern[str],
-) -> list[tuple[str, str, str, str]]:
-    violations: list[tuple[str, str, str, str]] = []
+) -> list[tuple[str, str, str, str, str]]:
+    violations: list[tuple[str, str, str, str, str]] = []
     for group_name, group_payload in catalog.items():
-        for code, description in group_payload.items():
-            match = placeholder_pattern.match(description)
-            if match is None:
-                continue
-            marker = match.group(1).upper()
-            violations.append((group_name, code, marker, description.strip()))
-    return sorted(violations, key=lambda item: (item[0], item[1]))
+        for code, entry_payload in group_payload.items():
+            for field_name in ("description", "remediation"):
+                field_value = entry_payload.get(field_name)
+                if not isinstance(field_value, str):
+                    continue
+                match = placeholder_pattern.match(field_value)
+                if match is None:
+                    continue
+                marker = match.group(1).upper()
+                violations.append((group_name, code, field_name, marker, field_value.strip()))
+    return sorted(violations, key=lambda item: (item[0], item[1], item[2]))
 
 
 def _format_placeholder_error(
-    violations: list[tuple[str, str, str, str]],
+    violations: list[tuple[str, str, str, str, str]],
     markers: list[str],
 ) -> str:
     lines = [
@@ -124,8 +165,8 @@ def _format_placeholder_error(
         "[sync-validator-error-codes] markers: " + ", ".join(markers),
         "[sync-validator-error-codes] violations:",
     ]
-    for group_name, code, marker, description in violations:
-        lines.append(f"[sync-validator-error-codes] - {group_name}.{code} ({marker}) -> {description}")
+    for group_name, code, field_name, marker, value in violations:
+        lines.append(f"[sync-validator-error-codes] - {group_name}.{code}.{field_name} ({marker}) -> {value}")
     lines.append(
         "[sync-validator-error-codes] remediation: replace placeholder prefix with concrete user-facing description."
     )

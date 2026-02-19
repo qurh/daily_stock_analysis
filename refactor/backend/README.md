@@ -425,6 +425,7 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
 - Validator error code catalog:
   - `refactor/backend/config/validator-error-codes.json`
   - catalog schema: `refactor/backend/config/schemas/validator-error-codes.schema.json`
+  - catalog entry shape: `{description, severity, remediation}`
   - catalog groups: `summary_schema`, `summary_contract`, `placeholder_markers`
   - validate catalog schema and naming: `python3 scripts/validate-validator-error-code-catalog.py`
   - custom catalog/schema: `python3 scripts/validate-validator-error-code-catalog.py --catalog-file <path> --schema-file <path>`
@@ -438,8 +439,8 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
   - validator scripts must expose `VALIDATOR_ERROR_CODES` registry for coverage checks
   - sync/check command: `python3 scripts/sync-validator-error-codes.py --check --strict-descriptions`
   - custom marker config: `python3 scripts/sync-validator-error-codes.py --check --strict-descriptions --placeholder-markers-file <path>`
-  - `--strict-descriptions` rejects placeholder descriptions (`TODO:`, `TBD:`, `FIXME:`; case-insensitive)
-  - strict error output includes marker list, group/code entries, and remediation hint
+  - `--strict-descriptions` rejects placeholder text in `description/remediation` (`TODO:`, `TBD:`, `FIXME:`; case-insensitive)
+  - strict error output includes marker list, `group.code.field` entries, and remediation hint
 
 ## Run Real LLM Smoke
 

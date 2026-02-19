@@ -2,6 +2,31 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.132-m3-error-code-catalog-structured-entries] - 2026-02-19
+
+### Added
+
+- Validator error code catalog entries are now structured objects:
+  - `{description, severity, remediation}`
+  - default severity is `error`
+- `sync-validator-error-codes.py` now supports legacy string-entry migration:
+  - legacy `code: "description"` input is auto-upgraded to structured entry output
+- Strict placeholder gate now scans both fields:
+  - `description`
+  - `remediation`
+- New tests:
+  - validates catalog entries are structured objects with required fields
+  - validates sync script migrates legacy string entries
+  - validates strict gate blocks placeholder in remediation field
+
+### Changed
+
+- Catalog schema now enforces structured entry fields and severity enum.
+- README now documents structured catalog entry contract and strict gate field scope.
+- `refactor/backend/config/validator-error-codes.json` migrated to structured entry format.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.132-m3-error-code-catalog-structured-entries`.
+
 ## [0.3.131-m3-error-code-catalog-schema] - 2026-02-19
 
 ### Added
