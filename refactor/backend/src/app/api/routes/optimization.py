@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -15,9 +16,15 @@ class OptimizationTriggerRequest(BaseModel):
     backtest_job_id: str | None = None
 
 
+class OptimizationProposalTarget(str, Enum):
+    prompt_chat_reply = "prompt.chat.reply"
+    workflow_stock_analysis = "workflow.stock.analysis"
+    strategy_analysis_lifecycle = "strategy.analysis.lifecycle"
+
+
 class OptimizationProposalCreateRequest(BaseModel):
     source: str = Field(pattern="^(event|manual|chatbot)$")
-    target: str = Field(min_length=1)
+    target: OptimizationProposalTarget
     summary: str | None = None
     diff: dict[str, Any] = Field(default_factory=dict)
 
@@ -55,7 +62,7 @@ def create_optimization_proposal(
     try:
         return service.create_proposal(
             source=request.source,
-            target=request.target,
+            target=request.target.value,
             summary=request.summary,
             diff=request.diff,
         )

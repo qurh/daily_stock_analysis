@@ -187,8 +187,9 @@ def test_optimization_proposal_rejects_unsupported_target_namespace() -> None:
             "diff": {"something": "value"},
         },
     )
-    assert response.status_code == 400
-    assert "FDB-INPUT-003" in response.json()["detail"]
+    assert response.status_code == 422
+    detail = response.json()["detail"]
+    assert any(item["loc"][-1] == "target" for item in detail)
 
 
 def test_workflow_proposal_requires_flow_patch_in_diff() -> None:
@@ -245,3 +246,25 @@ def test_prompt_proposal_requires_prompt_patch_in_diff() -> None:
     )
     assert ok.status_code == 201
     assert ok.json()["status"] == "review_pending"
+
+
+def test_optimization_proposal_target_openapi_enum_contract() -> None:
+    client = TestClient(create_app())
+
+    openapi = client.get("/openapi.json")
+    assert openapi.status_code == 200
+    payload = openapi.json()
+    schema = payload["components"]["schemas"]["OptimizationProposalCreateRequest"]
+    target_property = schema["properties"]["target"]
+    target_schema = target_property
+    if "$ref" in target_property:
+        target_schema = payload["components"]["schemas"][target_property["$ref"].split("/")[-1]]
+    elif "allOf" in target_property:
+        ref = target_property["allOf"][0]["$ref"]
+        target_schema = payload["components"]["schemas"][ref.split("/")[-1]]
+
+    assert target_schema["enum"] == [
+        "prompt.chat.reply",
+        "workflow.stock.analysis",
+        "strategy.analysis.lifecycle",
+    ]
