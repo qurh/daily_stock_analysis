@@ -14,6 +14,7 @@ DEFAULT_PLACEHOLDER_MARKERS_FILE = BACKEND_ROOT / "config" / "validator-placehol
 VALIDATOR_SCRIPT_FILES = {
     "summary_schema": BACKEND_ROOT / "scripts" / "validate-strict-gate-summary-schema.py",
     "summary_contract": BACKEND_ROOT / "scripts" / "validate-summary-contract-changelog.py",
+    "placeholder_markers": BACKEND_ROOT / "scripts" / "validate-validator-placeholder-markers.py",
 }
 
 
