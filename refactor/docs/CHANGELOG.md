@@ -2,6 +2,24 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.129-m3-marker-validator-json-errors] - 2026-02-19
+
+### Added
+
+- `validate-validator-placeholder-markers.py` now supports structured error output:
+  - `--json-errors`
+  - emits JSON payload with `validator/code/message/context` on failures
+  - error code namespace: `placeholder_markers_*`
+- New tests:
+  - validates json error payload for duplicate marker failures
+  - validates json error payload for schema validation failures
+
+### Changed
+
+- README now documents `--json-errors` usage for marker config validator.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.129-m3-marker-validator-json-errors`.
+
 ## [0.3.128-m3-marker-schema-validation] - 2026-02-19
 
 ### Added
