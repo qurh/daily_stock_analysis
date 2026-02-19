@@ -74,7 +74,11 @@ def test_github_actions_refactor_ci_example_includes_promtool_install_and_ci_run
 
     content = workflow_file.read_text(encoding="utf-8")
     assert "Install promtool" in content
-    assert "apt-get install -y prometheus" in content
+    assert 'PROMTOOL_VERSION: "2.52.0"' in content
+    assert "github.com/prometheus/prometheus/releases/download" in content
+    assert "tar -xzf" in content
+    assert "sudo install" in content
+    assert "apt-get install -y prometheus" not in content
     assert "cd refactor/backend" in content
     assert "bash scripts/ci.sh" in content
     assert 'PROMTOOL_REQUIRED: "1"' in content
@@ -94,4 +98,7 @@ def test_github_actions_refactor_ci_workflow_exists_and_targets_backend_paths() 
     assert '- "refactor/backend/**"' in content
     assert '- "refactor/docs/**"' in content
     assert "Install promtool" in content
+    assert 'PROMTOOL_VERSION: "2.52.0"' in content
+    assert "github.com/prometheus/prometheus/releases/download" in content
+    assert "apt-get install -y prometheus" not in content
     assert "bash scripts/ci.sh" in content
