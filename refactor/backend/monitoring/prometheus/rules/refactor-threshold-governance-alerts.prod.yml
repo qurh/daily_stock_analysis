@@ -33,3 +33,36 @@ groups:
         annotations:
           summary: "Threshold governance ratio normalization applied"
           description: "Governance warn/critical ratio configuration has been normalized for at least 30m."
+
+      - alert: RefactorPromtoolSoftAuditMaxLinesExceeded
+        expr: refactor_promtool_remote_soft_fallback_audit_config_max_lines > 0 and refactor_promtool_remote_soft_fallback_audit_file_line_count > refactor_promtool_remote_soft_fallback_audit_config_max_lines
+        for: 10m
+        labels:
+          severity: warning
+          scope: promtool
+          domain: soft-audit
+        annotations:
+          summary: "Soft audit lines exceeded configured max"
+          description: "Soft audit file line count exceeded configured max lines for 10m."
+
+      - alert: RefactorPromtoolSoftAuditMaxBytesExceeded
+        expr: refactor_promtool_remote_soft_fallback_audit_config_max_bytes > 0 and refactor_promtool_remote_soft_fallback_audit_file_size_bytes > refactor_promtool_remote_soft_fallback_audit_config_max_bytes
+        for: 10m
+        labels:
+          severity: warning
+          scope: promtool
+          domain: soft-audit
+        annotations:
+          summary: "Soft audit bytes exceeded configured max"
+          description: "Soft audit file size exceeded configured max bytes for 10m."
+
+      - alert: RefactorPromtoolSoftAuditRotationUnbounded
+        expr: refactor_promtool_remote_soft_fallback_audit_enabled == 1 and refactor_promtool_remote_soft_fallback_audit_config_max_lines == 0 and refactor_promtool_remote_soft_fallback_audit_config_max_bytes == 0 and refactor_promtool_remote_soft_fallback_audit_config_retention_days == 0
+        for: 45m
+        labels:
+          severity: critical
+          scope: promtool
+          domain: soft-audit
+        annotations:
+          summary: "Soft audit rotation guards are fully disabled"
+          description: "All soft audit rotation guards are disabled (lines/bytes/retention) for 45m."
