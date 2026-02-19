@@ -2,6 +2,21 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.71-m3-promtool-fixed-version-workflow] - 2026-02-19
+
+### Added
+
+- New fixed-version promtool install flow in backend CI workflows:
+  - `.github/workflows/refactor-backend-ci.yml`
+  - `refactor/backend/ci/github-actions/refactor-backend-ci.example.yml`
+- New tests:
+  - verifies workflows pin promtool version and use official release download flow instead of apt package install
+
+### Changed
+
+- Promtool installation in backend CI now downloads a pinned release tarball (`v2.52.0`) for better reproducibility.
+- Backend app version bumped to `0.3.71-m3-promtool-fixed-version-workflow`.
+
 ## [0.3.70-m3-refactor-backend-github-actions-workflow] - 2026-02-19
 
 ### Added
