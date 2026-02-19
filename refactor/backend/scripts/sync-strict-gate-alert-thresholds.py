@@ -118,12 +118,20 @@ def _render_profile(content: str, profile: StrictGateThresholdProfile) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Sync strict gate alert thresholds into Prometheus rule profiles.")
     parser.add_argument("--check", action="store_true", help="Check mode: fail if any file is out of sync.")
+    parser.add_argument(
+        "--profile",
+        action="append",
+        choices=sorted(RULE_FILE_BY_PROFILE.keys()),
+        help="Only sync/check selected profile(s). Repeatable.",
+    )
     args = parser.parse_args()
 
     profiles = _load_profiles(CONFIG_PATH)
+    selected_profiles = list(args.profile or RULE_FILE_BY_PROFILE.keys())
 
     changed_files: list[Path] = []
-    for profile_name, rule_file in RULE_FILE_BY_PROFILE.items():
+    for profile_name in selected_profiles:
+        rule_file = RULE_FILE_BY_PROFILE[profile_name]
         if not rule_file.exists():
             raise FileNotFoundError(f"Rule file not found: {rule_file}")
 
