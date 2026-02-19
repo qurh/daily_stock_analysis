@@ -2,6 +2,20 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.68-m3-promtool-rules-summary-and-bash3-compat] - 2026-02-19
+
+### Added
+
+- New output summary for Prometheus rule checks:
+  - `check-prometheus-rules.sh` now prints validated rule file count on success.
+- New tests:
+  - checker script emits validated rules summary when rule checks succeed
+
+### Changed
+
+- `check-prometheus-rules.sh` no longer relies on `mapfile`, improving compatibility with `bash 3.2` environments.
+- Backend app version bumped to `0.3.68-m3-promtool-rules-summary-and-bash3-compat`.
+
 ## [0.3.67-m3-ci-default-promtool-strict] - 2026-02-18
 
 ### Added
