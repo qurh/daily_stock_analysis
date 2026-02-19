@@ -79,6 +79,34 @@ def _validate_example_payload(example_payload: dict, schema: dict, expected_vers
             f"example={example_payload.get('schema_version')}, expected={expected_version}"
         )
 
+    files = example_payload.get("files")
+    modules = example_payload.get("modules")
+    if not isinstance(files, list) or not isinstance(modules, dict):
+        raise ValueError("example payload consistency check failed")
+
+    if example_payload.get("changed_files_count") != len(files):
+        raise ValueError("example payload consistency check failed")
+
+    total_added_lines = sum(item.get("added_lines", 0) for item in files if isinstance(item, dict))
+    total_removed_lines = sum(item.get("removed_lines", 0) for item in files if isinstance(item, dict))
+    if example_payload.get("total_added_lines") != total_added_lines:
+        raise ValueError("example payload consistency check failed")
+    if example_payload.get("total_removed_lines") != total_removed_lines:
+        raise ValueError("example payload consistency check failed")
+
+    module_names = ("strict", "governance", "soft_audit")
+    for module_name in module_names:
+        module_total = modules.get(module_name, {}).get("changed_alerts_count")
+        file_total = 0
+        for item in files:
+            if not isinstance(item, dict):
+                continue
+            item_modules = item.get("modules")
+            if isinstance(item_modules, dict):
+                file_total += item_modules.get(module_name, {}).get("changed_alerts_count", 0)
+        if module_total != file_total:
+            raise ValueError("example payload consistency check failed")
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate strict gate summary JSON schema.")

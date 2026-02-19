@@ -104,7 +104,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Daily Stock Analysis Refactor API",
-        version="0.3.115-m3-summary-contract-changelog-link",
+        version="0.3.116-m3-summary-example-consistency-guard",
     )
     app.state.workflow_service = workflow_service
     app.state.analysis_service = analysis_service
