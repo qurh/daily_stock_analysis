@@ -33,6 +33,7 @@ def test_settings_reads_non_prefixed_env_vars(monkeypatch) -> None:
     monkeypatch.setenv("FEEDBACK_EVENT_OPTIMIZATION_ENABLED", "false")
     monkeypatch.setenv("FEEDBACK_EVENT_OPTIMIZATION_MIN_RECORDS", "5")
     monkeypatch.setenv("FEEDBACK_EVENT_OPTIMIZATION_COOLDOWN_SECONDS", "120")
+    monkeypatch.setenv("STRATEGY_PUBLISH_REQUIRE_PROPOSAL_ID", "true")
     monkeypatch.setenv("BACKTEST_RETURN_SAMPLE_MIN_SIZE", "12")
     monkeypatch.setenv("BACKTEST_RETURN_SAMPLE_MEDIUM_COVERAGE_PCT", "65")
     monkeypatch.setenv("BACKTEST_MULTI_WINDOW_ALERT_WARN_LOW_WINDOWS", "1")
@@ -75,6 +76,7 @@ def test_settings_reads_non_prefixed_env_vars(monkeypatch) -> None:
     assert settings.feedback_event_optimization_enabled is False
     assert settings.feedback_event_optimization_min_records == 5
     assert settings.feedback_event_optimization_cooldown_seconds == 120
+    assert settings.strategy_publish_require_proposal_id is True
     assert settings.backtest_return_sample_min_size == 12
     assert settings.backtest_return_sample_medium_coverage_pct == 65.0
     assert settings.backtest_multi_window_alert_warn_low_windows == 1

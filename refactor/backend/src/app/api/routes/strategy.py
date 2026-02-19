@@ -1,6 +1,6 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from app.api.deps import get_strategy_service
@@ -120,6 +120,7 @@ def list_strategy_versions(
 def publish_strategy(
     strategy_id: str,
     request: StrategyPublishRequest,
+    http_request: Request,
     service: StrategyService = Depends(get_strategy_service),
 ) -> dict[str, Any]:
     try:
@@ -127,6 +128,7 @@ def publish_strategy(
             strategy_id=strategy_id,
             backtest_job_id=request.backtest_job_id,
             proposal_id=request.proposal_id,
+            require_proposal_id=http_request.app.state.settings.strategy_publish_require_proposal_id,
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

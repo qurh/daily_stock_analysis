@@ -359,3 +359,70 @@ def test_strategy_publish_requires_explicit_proposal_approved() -> None:
     assert published.status_code == 200
     assert published.json()["status"] == "active"
     assert published.json()["gate_result"]["proposal_id"] == linked_proposal_id
+
+
+def test_strategy_publish_requires_proposal_id_in_strict_mode(monkeypatch) -> None:
+    monkeypatch.setenv("STRATEGY_PUBLISH_REQUIRE_PROPOSAL_ID", "true")
+    client = TestClient(create_app())
+    _distill_and_approve_memo(client)
+
+    extracted = client.post(
+        "/api/v2/strategy/extract",
+        json={"strategy_type": "analysis"},
+    )
+    assert extracted.status_code == 201
+    strategy_id = extracted.json()["strategy_id"]
+
+    now = datetime.now(timezone.utc).isoformat()
+    high_job_id = str(uuid4())
+    with client.app.state.database.connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO backtest_jobs (
+                job_id, scope, symbol, eval_window_days, status, progress, metrics_json,
+                engine_version, started_at, ended_at, created_at, updated_at
+            )
+            VALUES (?, 'market', NULL, 10, 'completed', 100, ?, 'v1', ?, ?, ?, ?)
+            """,
+            (
+                high_job_id,
+                json.dumps({"sample_size": 20, "win_rate_pct": 82.0}, ensure_ascii=False),
+                now,
+                now,
+                now,
+                now,
+            ),
+        )
+
+    blocked = client.post(
+        f"/api/v2/strategy/{strategy_id}/publish",
+        json={"backtest_job_id": high_job_id},
+    )
+    assert blocked.status_code == 409
+    assert "STR-GATE-009" in blocked.json()["detail"]
+
+    proposal = client.post(
+        "/api/v2/optimization/proposals",
+        json={
+            "source": "chatbot",
+            "target": "strategy.analysis.lifecycle",
+            "summary": "strict mode publish proposal",
+            "diff": {"strategy_id": strategy_id},
+        },
+    )
+    assert proposal.status_code == 201
+    proposal_id = proposal.json()["proposal_id"]
+
+    approved = client.post(
+        f"/api/v2/optimization/proposals/{proposal_id}/approve",
+        json={"reviewer": "qrh", "note": "approve for strict mode"},
+    )
+    assert approved.status_code == 200
+    assert approved.json()["status"] == "approved"
+
+    published = client.post(
+        f"/api/v2/strategy/{strategy_id}/publish",
+        json={"backtest_job_id": high_job_id, "proposal_id": proposal_id},
+    )
+    assert published.status_code == 200
+    assert published.json()["status"] == "active"
