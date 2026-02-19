@@ -88,7 +88,7 @@ def _load_placeholder_markers(path: Path) -> list[str]:
         if not marker_value:
             raise ValueError("placeholder marker cannot be empty")
         if marker_value in seen:
-            continue
+            raise ValueError(f"duplicate marker detected: {marker_value}")
         seen.add(marker_value)
         normalized.append(marker_value)
     return normalized
