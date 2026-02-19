@@ -2,6 +2,23 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.78-m3-promtool-config-remote-check] - 2026-02-19
+
+### Added
+
+- New optional remote linkage validation in promtool installer config checker:
+  - validates configured checksums against release `sha256sums.txt`
+  - supports custom source via `PROMTOOL_SHA256SUMS_URL`
+- New tests:
+  - verifies remote checksum validation passes on aligned data
+  - verifies remote checksum validation fails on mismatch
+  - verifies GitHub Actions workflows enable `PROMTOOL_VALIDATE_REMOTE=1`
+
+### Changed
+
+- `.github/workflows/refactor-backend-ci.yml` and example workflow now enable remote config linkage validation by default.
+- Backend app version bumped to `0.3.78-m3-promtool-config-remote-check`.
+
 ## [0.3.77-m3-promtool-installer-config-validation] - 2026-02-19
 
 ### Added
