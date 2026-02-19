@@ -414,6 +414,7 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
   - validates `schema_version` consistency between schema file and sync script
   - validates example payload against schema
   - validates example payload internal consistency (file counts / line sums / module sums)
+  - emits field-level mismatch details for consistency failures
 - Validate changelog linkage:
   - `python3 scripts/validate-summary-contract-changelog.py`
   - validates latest changelog version and summary schema version note
