@@ -2,6 +2,27 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.128-m3-marker-schema-validation] - 2026-02-19
+
+### Added
+
+- New marker config schema file:
+  - `refactor/backend/config/schemas/validator-placeholder-markers.schema.json`
+  - defines required `markers` array and base type constraints
+- `validate-validator-placeholder-markers.py` now supports schema validation:
+  - `--schema-file <path>`
+  - validates schema itself (`Draft2020-12`) and validates marker payload against schema
+- New tests:
+  - validates marker schema file exists and includes required contract fields
+  - validates marker validator fails on schema violations
+  - validates marker validator fails when given invalid schema file
+
+### Changed
+
+- README now documents marker schema path and custom schema flag.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.128-m3-marker-schema-validation`.
+
 ## [0.3.127-m3-placeholder-marker-validator] - 2026-02-19
 
 ### Added

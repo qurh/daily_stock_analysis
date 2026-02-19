@@ -7,8 +7,13 @@ import re
 import sys
 from pathlib import Path
 
+from jsonschema import Draft202012Validator
+from jsonschema.exceptions import SchemaError
+from jsonschema.exceptions import ValidationError
+
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MARKERS_FILE = BACKEND_ROOT / "config" / "validator-placeholder-markers.json"
+DEFAULT_SCHEMA_FILE = BACKEND_ROOT / "config" / "schemas" / "validator-placeholder-markers.schema.json"
 MARKER_PATTERN = re.compile(r"^[A-Z][A-Z0-9_-]*$")
 
 
@@ -41,6 +46,17 @@ def _validate_markers(payload: dict) -> list[str]:
     return normalized_markers
 
 
+def _validate_against_schema(payload: dict, schema: dict, schema_file: Path) -> None:
+    try:
+        Draft202012Validator.check_schema(schema)
+    except SchemaError as exc:
+        raise ValueError(f"invalid json schema: {schema_file}") from exc
+    try:
+        Draft202012Validator(schema).validate(payload)
+    except ValidationError as exc:
+        raise ValueError("schema validation failed for marker config") from exc
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Validate placeholder markers config for validator strict descriptions."
@@ -51,12 +67,22 @@ def main() -> int:
         default=DEFAULT_MARKERS_FILE,
         help="Path to placeholder markers config file.",
     )
+    parser.add_argument(
+        "--schema-file",
+        type=Path,
+        default=DEFAULT_SCHEMA_FILE,
+        help="Path to placeholder markers schema file.",
+    )
     args = parser.parse_args()
 
     try:
         if not args.markers_file.exists():
             raise FileNotFoundError(f"markers file not found: {args.markers_file}")
+        if not args.schema_file.exists():
+            raise FileNotFoundError(f"schema file not found: {args.schema_file}")
         payload = _load_payload(path=args.markers_file)
+        schema = _load_payload(path=args.schema_file)
+        _validate_against_schema(payload=payload, schema=schema, schema_file=args.schema_file)
         _validate_markers(payload=payload)
         print(f"[validate-validator-placeholder-markers] markers config is valid: {args.markers_file}")
         return 0
