@@ -2,6 +2,50 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.89-m3-soft-audit-alert-rules] - 2026-02-19
+
+### Added
+
+- New Prometheus alert rules for promtool soft audit rotation governance:
+  - `RefactorPromtoolSoftAuditMaxLinesExceeded`
+  - `RefactorPromtoolSoftAuditMaxBytesExceeded`
+  - `RefactorPromtoolSoftAuditRotationUnbounded`
+- Added the three alert rules to profile templates:
+  - `refactor-threshold-governance-alerts.dev.yml`
+  - `refactor-threshold-governance-alerts.staging.yml`
+  - `refactor-threshold-governance-alerts.prod.yml`
+- New tests:
+  - verifies base alert template includes soft audit rotation governance rules and expressions
+  - verifies dev/staging/prod profile templates include the new soft audit rules
+
+### Changed
+
+- `README` Prometheus rule template section now documents six baseline rules.
+- Backend app version bumped to `0.3.89-m3-soft-audit-alert-rules`.
+
+## [0.3.88-m3-promtool-audit-rotation-metrics] - 2026-02-19
+
+### Added
+
+- New global metrics for promtool soft audit rotation visibility:
+  - `refactor_promtool_remote_soft_fallback_audit_file_line_count`
+  - `refactor_promtool_remote_soft_fallback_audit_file_size_bytes`
+  - `refactor_promtool_remote_soft_fallback_audit_config_max_lines`
+  - `refactor_promtool_remote_soft_fallback_audit_config_max_bytes`
+  - `refactor_promtool_remote_soft_fallback_audit_config_retention_days`
+- New tests:
+  - verifies `/api/v2/metrics` includes audit file footprint + rotation config gauges
+  - verifies settings loader reads rotation config env vars
+
+### Changed
+
+- `AppSettings` now includes:
+  - `promtool_remote_soft_audit_max_lines`
+  - `promtool_remote_soft_audit_max_bytes`
+  - `promtool_remote_soft_audit_retention_days`
+- `/api/v2/metrics` soft audit loader now reports file line count/size and configured rotation thresholds.
+- Backend app version bumped to `0.3.88-m3-promtool-audit-rotation-metrics`.
+
 ## [0.3.87-m3-promtool-retention-fallback] - 2026-02-19
 
 ### Added

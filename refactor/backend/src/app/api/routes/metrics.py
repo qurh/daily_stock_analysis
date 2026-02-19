@@ -90,12 +90,22 @@ def _load_total_sum(request: Request, table_name: str, value_column: str) -> int
     return int(row["total"])
 
 
-def _load_promtool_soft_fallback_audit_stats(audit_file_path: str | None) -> dict[str, float]:
+def _load_promtool_soft_fallback_audit_stats(
+    audit_file_path: str | None,
+    config_max_lines: int,
+    config_max_bytes: int,
+    config_retention_days: int,
+) -> dict[str, float]:
     stats = {
         "enabled": 0.0,
         "events_total": 0.0,
         "read_error": 0.0,
         "last_seen_unixtime": 0.0,
+        "file_line_count": 0.0,
+        "file_size_bytes": 0.0,
+        "config_max_lines": float(max(config_max_lines, 0)),
+        "config_max_bytes": float(max(config_max_bytes, 0)),
+        "config_retention_days": float(max(config_retention_days, 0)),
     }
     if audit_file_path is None:
         return stats
@@ -110,6 +120,12 @@ def _load_promtool_soft_fallback_audit_stats(audit_file_path: str | None) -> dic
         return stats
 
     try:
+        stats["file_size_bytes"] = float(audit_file.stat().st_size)
+    except OSError:
+        stats["read_error"] = 1.0
+        return stats
+
+    try:
         lines = audit_file.read_text(encoding="utf-8").splitlines()
     except OSError:
         stats["read_error"] = 1.0
@@ -119,6 +135,7 @@ def _load_promtool_soft_fallback_audit_stats(audit_file_path: str | None) -> dic
         line = raw_line.strip()
         if not line:
             continue
+        stats["file_line_count"] += 1.0
         stats["events_total"] += 1.0
         timestamp_token = line.split("\t", 1)[0].strip()
         try:
@@ -671,8 +688,12 @@ def get_global_metrics(
     )
     backtest_quality = _load_backtest_quality_snapshot(request=request)
     optimization_quality = _load_optimization_quality_snapshot(request=request)
+    settings = request.app.state.settings
     promtool_soft_audit_stats = _load_promtool_soft_fallback_audit_stats(
-        audit_file_path=request.app.state.settings.promtool_remote_soft_audit_file
+        audit_file_path=settings.promtool_remote_soft_audit_file,
+        config_max_lines=settings.promtool_remote_soft_audit_max_lines,
+        config_max_bytes=settings.promtool_remote_soft_audit_max_bytes,
+        config_retention_days=settings.promtool_remote_soft_audit_retention_days,
     )
     lines = [
         "# HELP refactor_backend_build_info Backend build info.",
@@ -775,6 +796,36 @@ def get_global_metrics(
         metric_name="refactor_promtool_remote_soft_fallback_audit_last_seen_unixtime",
         help_text="Last observed UTC unix timestamp from promtool remote soft fallback audit events.",
         value=promtool_soft_audit_stats["last_seen_unixtime"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_promtool_remote_soft_fallback_audit_file_line_count",
+        help_text="Current non-empty line count in promtool remote soft fallback audit file.",
+        total=int(promtool_soft_audit_stats["file_line_count"]),
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_promtool_remote_soft_fallback_audit_file_size_bytes",
+        help_text="Current file size in bytes for promtool remote soft fallback audit file.",
+        total=int(promtool_soft_audit_stats["file_size_bytes"]),
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_promtool_remote_soft_fallback_audit_config_max_lines",
+        help_text="Configured max retained lines for promtool remote soft fallback audit file.",
+        total=int(promtool_soft_audit_stats["config_max_lines"]),
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_promtool_remote_soft_fallback_audit_config_max_bytes",
+        help_text="Configured max retained bytes for promtool remote soft fallback audit file.",
+        total=int(promtool_soft_audit_stats["config_max_bytes"]),
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_promtool_remote_soft_fallback_audit_config_retention_days",
+        help_text="Configured retention window days for promtool remote soft fallback audit file.",
+        total=int(promtool_soft_audit_stats["config_retention_days"]),
     )
     _append_labeled_gauge_lines(
         lines=lines,

@@ -27,6 +27,9 @@ def test_settings_reads_non_prefixed_env_vars(monkeypatch) -> None:
     monkeypatch.setenv("PROMPT_LOCK_OVERVIEW_TIMEOUT_GROUPED_SEC", "0.4")
     monkeypatch.setenv("PROMPT_LOCK_OVERVIEW_TIMEOUT_TRENDS_SEC", "0.5")
     monkeypatch.setenv("PROMTOOL_REMOTE_SOFT_AUDIT_FILE", "/tmp/promtool-soft-audit.log")
+    monkeypatch.setenv("PROMTOOL_REMOTE_SOFT_AUDIT_MAX_LINES", "88")
+    monkeypatch.setenv("PROMTOOL_REMOTE_SOFT_AUDIT_MAX_BYTES", "8192")
+    monkeypatch.setenv("PROMTOOL_REMOTE_SOFT_AUDIT_RETENTION_DAYS", "14")
     monkeypatch.setenv("BACKTEST_RETURN_SAMPLE_MIN_SIZE", "12")
     monkeypatch.setenv("BACKTEST_RETURN_SAMPLE_MEDIUM_COVERAGE_PCT", "65")
     monkeypatch.setenv("BACKTEST_MULTI_WINDOW_ALERT_WARN_LOW_WINDOWS", "1")
@@ -63,6 +66,9 @@ def test_settings_reads_non_prefixed_env_vars(monkeypatch) -> None:
     assert settings.prompt_lock_overview_timeout_grouped_sec == 0.4
     assert settings.prompt_lock_overview_timeout_trends_sec == 0.5
     assert settings.promtool_remote_soft_audit_file == "/tmp/promtool-soft-audit.log"
+    assert settings.promtool_remote_soft_audit_max_lines == 88
+    assert settings.promtool_remote_soft_audit_max_bytes == 8192
+    assert settings.promtool_remote_soft_audit_retention_days == 14
     assert settings.backtest_return_sample_min_size == 12
     assert settings.backtest_return_sample_medium_coverage_pct == 65.0
     assert settings.backtest_multi_window_alert_warn_low_windows == 1
