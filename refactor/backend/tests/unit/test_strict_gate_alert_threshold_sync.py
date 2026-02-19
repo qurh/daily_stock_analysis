@@ -171,3 +171,51 @@ def test_strict_gate_alert_threshold_sync_rejects_critical_ratio_below_warn_rati
 
     assert result.returncode != 0
     assert "must be >=" in result.stderr.lower()
+
+
+def test_strict_gate_alert_threshold_sync_dry_run_outputs_diff_without_writing(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script = backend_root / "scripts" / "sync-strict-gate-alert-thresholds.py"
+    dev_rule_file = (
+        backend_root / "monitoring" / "prometheus" / "rules" / "refactor-threshold-governance-alerts.dev.yml"
+    )
+
+    original_content = dev_rule_file.read_text(encoding="utf-8")
+
+    payload = _base_threshold_config(backend_root)
+    payload["profiles"]["dev"]["warn_for"] = "6m"
+    config_file = _write_threshold_config(tmp_path=tmp_path, payload=payload)
+
+    result = subprocess.run(
+        [sys.executable, str(sync_script), "--dry-run", "--profile", "dev", "--config", str(config_file)],
+        cwd=str(backend_root),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+    assert "--- " in result.stdout
+    assert "+++ " in result.stdout
+    assert "@@" in result.stdout
+    assert dev_rule_file.read_text(encoding="utf-8") == original_content
+
+
+def test_strict_gate_alert_threshold_sync_check_and_dry_run_fails_when_out_of_sync(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script = backend_root / "scripts" / "sync-strict-gate-alert-thresholds.py"
+
+    payload = _base_threshold_config(backend_root)
+    payload["profiles"]["dev"]["warn_for"] = "6m"
+    config_file = _write_threshold_config(tmp_path=tmp_path, payload=payload)
+
+    result = subprocess.run(
+        [sys.executable, str(sync_script), "--check", "--dry-run", "--profile", "dev", "--config", str(config_file)],
+        cwd=str(backend_root),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "out of sync" in result.stdout.lower()
