@@ -2,6 +2,22 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.101-m3-strict-gate-threshold-profile-sync] - 2026-02-19
+
+### Added
+
+- Strict gate threshold sync script now supports profile-only execution:
+  - `--profile default|dev|staging|prod`
+  - repeatable for multi-profile execution
+- New tests:
+  - verifies profile check mode passes (`--check --profile dev`)
+  - verifies unknown profile is rejected by CLI validation
+
+### Changed
+
+- README now documents profile-only sync/check examples.
+- Backend app version bumped to `0.3.101-m3-strict-gate-threshold-profile-sync`.
+
 ## [0.3.100-m3-strict-gate-threshold-param-sync] - 2026-02-19
 
 ### Added
