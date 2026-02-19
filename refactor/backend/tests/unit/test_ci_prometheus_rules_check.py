@@ -2,6 +2,8 @@ import os
 import subprocess
 from pathlib import Path
 
+PROMTOOL_ARCHIVE_SHA256 = "7f31c5d6474bbff3e514e627e0b7a7fbbd4e5cea3f315fd0b76cad50be4c1ba3"
+
 
 def test_ci_script_invokes_prometheus_rules_check() -> None:
     backend_root = Path(__file__).resolve().parents[2]
@@ -75,8 +77,11 @@ def test_github_actions_refactor_ci_example_includes_promtool_install_and_ci_run
     content = workflow_file.read_text(encoding="utf-8")
     assert "Install promtool" in content
     assert 'PROMTOOL_VERSION: "2.52.0"' in content
+    assert f'PROMTOOL_SHA256: "{PROMTOOL_ARCHIVE_SHA256}"' in content
     assert "github.com/prometheus/prometheus/releases/download" in content
     assert "tar -xzf" in content
+    assert "sha256sum -c -" in content
+    assert "PROMTOOL_SHA256" in content
     assert "sudo install" in content
     assert "apt-get install -y prometheus" not in content
     assert "cd refactor/backend" in content
@@ -99,6 +104,8 @@ def test_github_actions_refactor_ci_workflow_exists_and_targets_backend_paths() 
     assert '- "refactor/docs/**"' in content
     assert "Install promtool" in content
     assert 'PROMTOOL_VERSION: "2.52.0"' in content
+    assert f'PROMTOOL_SHA256: "{PROMTOOL_ARCHIVE_SHA256}"' in content
     assert "github.com/prometheus/prometheus/releases/download" in content
+    assert "sha256sum -c -" in content
     assert "apt-get install -y prometheus" not in content
     assert "bash scripts/ci.sh" in content
