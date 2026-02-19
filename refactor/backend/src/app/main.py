@@ -104,7 +104,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Daily Stock Analysis Refactor API",
-        version="0.3.78-m3-promtool-config-remote-check",
+        version="0.3.79-m3-promtool-remote-fetch-hardening",
     )
     app.state.workflow_service = workflow_service
     app.state.analysis_service = analysis_service

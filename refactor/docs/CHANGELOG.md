@@ -2,6 +2,24 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.79-m3-promtool-remote-fetch-hardening] - 2026-02-19
+
+### Added
+
+- New remote fetch hardening options for promtool checksum linkage validation:
+  - `PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS`
+  - `PROMTOOL_REMOTE_FETCH_CONNECT_TIMEOUT_SECONDS`
+  - `PROMTOOL_REMOTE_FETCH_TIMEOUT_SECONDS`
+  - `PROMTOOL_REMOTE_FETCH_RETRY_DELAY_SECONDS`
+- New tests:
+  - verifies remote checksum fetch retries and succeeds after transient failure
+  - verifies remote checksum fetch fails after max-attempt budget
+
+### Changed
+
+- `validate-promtool-installer-config.sh` now retries remote `sha256sums.txt` fetches with configurable timeout and delay.
+- Backend app version bumped to `0.3.79-m3-promtool-remote-fetch-hardening`.
+
 ## [0.3.78-m3-promtool-config-remote-check] - 2026-02-19
 
 ### Added
