@@ -23,6 +23,9 @@ $PYTHON_BIN ./scripts/sync-strict-gate-alert-thresholds.py --check
 # Strict gate summary schema check
 $PYTHON_BIN ./scripts/validate-strict-gate-summary-schema.py
 
+# Strict gate summary contract changelog check
+$PYTHON_BIN ./scripts/validate-summary-contract-changelog.py
+
 # Prometheus rule validation
 if [[ -n "${CI:-}" ]]; then
   export PROMTOOL_REQUIRED="${PROMTOOL_REQUIRED:-1}"

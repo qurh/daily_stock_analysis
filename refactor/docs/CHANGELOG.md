@@ -2,6 +2,26 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.115-m3-summary-contract-changelog-link] - 2026-02-19
+
+### Added
+
+- New contract validator script:
+  - `refactor/backend/scripts/validate-summary-contract-changelog.py`
+  - validates latest changelog entry version equals backend app version
+  - validates latest changelog entry includes summary schema version note
+- New tests:
+  - verifies CI script includes contract changelog validator
+  - verifies contract changelog validator passes default files
+  - verifies validator fails when schema version note is missing
+
+### Changed
+
+- Backend CI now runs contract changelog validator.
+- README now documents changelog contract validation command.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.115-m3-summary-contract-changelog-link`.
+
 ## [0.3.114-m3-summary-schema-example-golden] - 2026-02-19
 
 ### Added
