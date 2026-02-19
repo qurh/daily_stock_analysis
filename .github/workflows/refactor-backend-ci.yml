@@ -31,9 +31,14 @@ jobs:
           python -m pip install -r refactor/backend/requirements-dev.txt
 
       - name: Install promtool
+        env:
+          PROMTOOL_VERSION: "2.52.0"
         run: |
-          sudo apt-get update
-          sudo apt-get install -y prometheus
+          ARCHIVE="prometheus-${PROMTOOL_VERSION}.linux-amd64.tar.gz"
+          URL="https://github.com/prometheus/prometheus/releases/download/v${PROMTOOL_VERSION}/${ARCHIVE}"
+          curl -fsSL -o "/tmp/${ARCHIVE}" "${URL}"
+          tar -xzf "/tmp/${ARCHIVE}" -C /tmp
+          sudo install "/tmp/prometheus-${PROMTOOL_VERSION}.linux-amd64/promtool" /usr/local/bin/promtool
           promtool --version
 
       - name: Run refactor backend ci.sh
