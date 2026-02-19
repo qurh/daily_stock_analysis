@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://daily-stock-analysis.local/schemas/strict-gate-summary.schema.json",
+  "title": "Strict Gate Summary Payload",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "changed_files_count",
+    "total_added_lines",
+    "total_removed_lines",
+    "files",
+    "modules"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1"
+    },
+    "changed_files_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "total_added_lines": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "total_removed_lines": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/fileSummary"
+      }
+    },
+    "modules": {
+      "$ref": "#/$defs/moduleCounters"
+    }
+  },
+  "$defs": {
+    "moduleCounter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "changed_alerts_count"
+      ],
+      "properties": {
+        "changed_alerts_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "moduleCounters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "strict",
+        "governance",
+        "soft_audit"
+      ],
+      "properties": {
+        "strict": {
+          "$ref": "#/$defs/moduleCounter"
+        },
+        "governance": {
+          "$ref": "#/$defs/moduleCounter"
+        },
+        "soft_audit": {
+          "$ref": "#/$defs/moduleCounter"
+        }
+      }
+    },
+    "fileSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "added_lines",
+        "removed_lines",
+        "modules"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "added_lines": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "removed_lines": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "modules": {
+          "$ref": "#/$defs/moduleCounters"
+        }
+      }
+    }
+  }
+}
