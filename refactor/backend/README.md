@@ -296,6 +296,7 @@ cd refactor/backend
   - promtool version and per-platform SHA256 are managed in the shared config file.
   - workflow verifies archive SHA256 before extracting and installing `promtool`.
   - CI workflow enables `PROMTOOL_VALIDATE_REMOTE=1` to validate configured checksums against upstream release metadata.
+  - CI workflow explicitly sets `PROMTOOL_VALIDATE_REMOTE_MODE=strict` for hard gate behavior.
   - installer script auto-detects `linux-amd64` / `linux-arm64` from machine architecture by default.
   - installer script supports smoke mode with `PROMTOOL_DRY_RUN=1` and arch override via `PROMTOOL_MACHINE_ARCH`.
 
