@@ -1,12 +1,28 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PROMTOOL_VERSION="${PROMTOOL_VERSION:-2.52.0}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROMTOOL_CONFIG_FILE="${PROMTOOL_CONFIG_FILE:-${SCRIPT_DIR}/../config/promtool-installer.defaults}"
+
+if [[ ! -f "${PROMTOOL_CONFIG_FILE}" ]]; then
+  echo "[install-promtool] config file not found: ${PROMTOOL_CONFIG_FILE}" >&2
+  exit 1
+fi
+
+# shellcheck disable=SC1090
+source "${PROMTOOL_CONFIG_FILE}"
+
+PROMTOOL_VERSION="${PROMTOOL_VERSION:-${PROMTOOL_DEFAULT_VERSION:-}}"
 PROMTOOL_PLATFORM="${PROMTOOL_PLATFORM:-}"
 PROMTOOL_TMP_DIR="${PROMTOOL_TMP_DIR:-/tmp}"
 PROMTOOL_INSTALL_DIR="${PROMTOOL_INSTALL_DIR:-/usr/local/bin}"
 PROMTOOL_DRY_RUN="${PROMTOOL_DRY_RUN:-0}"
 PROMTOOL_MACHINE_ARCH="${PROMTOOL_MACHINE_ARCH:-}"
+
+if [[ -z "${PROMTOOL_VERSION}" ]]; then
+  echo "[install-promtool] PROMTOOL_VERSION is empty and no default is configured." >&2
+  exit 1
+fi
 
 if [[ -z "${PROMTOOL_PLATFORM}" ]]; then
   machine_arch="${PROMTOOL_MACHINE_ARCH:-$(uname -m)}"
@@ -27,16 +43,21 @@ fi
 if [[ -z "${PROMTOOL_SHA256:-}" ]]; then
   case "${PROMTOOL_PLATFORM}" in
     linux-amd64)
-      PROMTOOL_SHA256="7f31c5d6474bbff3e514e627e0b7a7fbbd4e5cea3f315fd0b76cad50be4c1ba3"
+      PROMTOOL_SHA256="${PROMTOOL_DEFAULT_SHA256_LINUX_AMD64:-}"
       ;;
     linux-arm64)
-      PROMTOOL_SHA256="b503c0f552e381d7d3f84dfd275166bf07c74f99c428ffed69447d4ab3259901"
+      PROMTOOL_SHA256="${PROMTOOL_DEFAULT_SHA256_LINUX_ARM64:-}"
       ;;
     *)
       echo "[install-promtool] missing PROMTOOL_SHA256 for platform: ${PROMTOOL_PLATFORM}" >&2
       exit 1
       ;;
   esac
+fi
+
+if [[ -z "${PROMTOOL_SHA256}" ]]; then
+  echo "[install-promtool] PROMTOOL_SHA256 is empty for platform: ${PROMTOOL_PLATFORM}" >&2
+  exit 1
 fi
 
 archive="prometheus-${PROMTOOL_VERSION}.${PROMTOOL_PLATFORM}.tar.gz"

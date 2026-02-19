@@ -30,9 +30,6 @@ jobs:
           python -m pip install -r refactor/backend/requirements-dev.txt
 
       - name: Install promtool
-        env:
-          PROMTOOL_VERSION: "2.52.0"
-          PROMTOOL_SHA256: "7f31c5d6474bbff3e514e627e0b7a7fbbd4e5cea3f315fd0b76cad50be4c1ba3"
         run: |
           bash refactor/backend/scripts/install-promtool.sh
 

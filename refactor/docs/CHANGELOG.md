@@ -2,6 +2,23 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.76-m3-promtool-installer-centralized-config] - 2026-02-19
+
+### Added
+
+- New centralized config file for promtool installer:
+  - `refactor/backend/config/promtool-installer.defaults`
+  - contains pinned promtool version and per-platform checksum defaults
+- New tests:
+  - verifies config file exists with pinned defaults
+  - verifies installer script reads centralized config
+  - verifies CI workflows no longer hardcode `PROMTOOL_VERSION` / `PROMTOOL_SHA256`
+
+### Changed
+
+- `install-promtool.sh` now sources centralized config and resolves defaults from it.
+- Backend app version bumped to `0.3.76-m3-promtool-installer-centralized-config`.
+
 ## [0.3.75-m3-promtool-installer-dryrun-smoke] - 2026-02-19
 
 ### Added

@@ -2,7 +2,9 @@ import os
 import subprocess
 from pathlib import Path
 
-PROMTOOL_ARCHIVE_SHA256 = "7f31c5d6474bbff3e514e627e0b7a7fbbd4e5cea3f315fd0b76cad50be4c1ba3"
+PROMTOOL_DEFAULT_VERSION = "2.52.0"
+PROMTOOL_ARCHIVE_SHA256_LINUX_AMD64 = "7f31c5d6474bbff3e514e627e0b7a7fbbd4e5cea3f315fd0b76cad50be4c1ba3"
+PROMTOOL_ARCHIVE_SHA256_LINUX_ARM64 = "b503c0f552e381d7d3f84dfd275166bf07c74f99c428ffed69447d4ab3259901"
 
 
 def test_ci_script_invokes_prometheus_rules_check() -> None:
@@ -76,8 +78,8 @@ def test_github_actions_refactor_ci_example_includes_promtool_install_and_ci_run
 
     content = workflow_file.read_text(encoding="utf-8")
     assert "Install promtool" in content
-    assert 'PROMTOOL_VERSION: "2.52.0"' in content
-    assert f'PROMTOOL_SHA256: "{PROMTOOL_ARCHIVE_SHA256}"' in content
+    assert "PROMTOOL_VERSION:" not in content
+    assert "PROMTOOL_SHA256:" not in content
     assert "bash refactor/backend/scripts/install-promtool.sh" in content
     assert "apt-get install -y prometheus" not in content
     assert "cd refactor/backend" in content
@@ -99,11 +101,22 @@ def test_github_actions_refactor_ci_workflow_exists_and_targets_backend_paths() 
     assert '- "refactor/backend/**"' in content
     assert '- "refactor/docs/**"' in content
     assert "Install promtool" in content
-    assert 'PROMTOOL_VERSION: "2.52.0"' in content
-    assert f'PROMTOOL_SHA256: "{PROMTOOL_ARCHIVE_SHA256}"' in content
+    assert "PROMTOOL_VERSION:" not in content
+    assert "PROMTOOL_SHA256:" not in content
     assert "bash refactor/backend/scripts/install-promtool.sh" in content
     assert "apt-get install -y prometheus" not in content
     assert "bash scripts/ci.sh" in content
+
+
+def test_promtool_installer_config_file_exists_with_pinned_defaults() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    config_file = backend_root / "config" / "promtool-installer.defaults"
+    assert config_file.exists()
+
+    content = config_file.read_text(encoding="utf-8")
+    assert f"PROMTOOL_DEFAULT_VERSION={PROMTOOL_DEFAULT_VERSION}" in content
+    assert f"PROMTOOL_DEFAULT_SHA256_LINUX_AMD64={PROMTOOL_ARCHIVE_SHA256_LINUX_AMD64}" in content
+    assert f"PROMTOOL_DEFAULT_SHA256_LINUX_ARM64={PROMTOOL_ARCHIVE_SHA256_LINUX_ARM64}" in content
 
 
 def test_promtool_installer_script_exists_and_verifies_checksum() -> None:
@@ -112,8 +125,11 @@ def test_promtool_installer_script_exists_and_verifies_checksum() -> None:
     assert install_script_file.exists()
 
     content = install_script_file.read_text(encoding="utf-8")
-    assert "PROMTOOL_VERSION" in content
-    assert "PROMTOOL_SHA256" in content
+    assert "PROMTOOL_CONFIG_FILE" in content
+    assert "PROMTOOL_DEFAULT_VERSION" in content
+    assert "PROMTOOL_DEFAULT_SHA256_LINUX_AMD64" in content
+    assert "PROMTOOL_DEFAULT_SHA256_LINUX_ARM64" in content
+    assert "source" in content
     assert "github.com/prometheus/prometheus/releases/download" in content
     assert "sha256sum -c -" in content
     assert "tar -xzf" in content
