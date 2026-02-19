@@ -99,7 +99,9 @@ def _validate_action_verbs(lint_config: dict) -> None:
         seen.add(verb)
 
 
-def _resolve_lint_profile(lint_config: dict, lint_profile: str | None) -> tuple[dict, str | None]:
+def _resolve_lint_profile(
+    lint_config: dict, lint_profile: str | None, lint_config_file: Path
+) -> tuple[dict, str | None]:
     profiles = lint_config.get("profiles")
     if profiles is None:
         if lint_profile is not None:
@@ -119,7 +121,8 @@ def _resolve_lint_profile(lint_config: dict, lint_profile: str | None) -> tuple[
         suggested_profiles = get_close_matches(selected_profile, available_profiles, n=3, cutoff=0.5)
         suggested_cli_args = f"--lint-profile {suggested_profiles[0]}" if suggested_profiles else None
         suggested_command = (
-            f"python3 scripts/validate-validator-error-code-metadata-lint.py {suggested_cli_args}"
+            "python3 scripts/validate-validator-error-code-metadata-lint.py "
+            f'--lint-config-file "{lint_config_file}" {suggested_cli_args}'
             if suggested_cli_args
             else None
         )
@@ -189,6 +192,7 @@ def main() -> int:
         selected_lint_config, selected_profile = _resolve_lint_profile(
             lint_config=lint_config,
             lint_profile=effective_lint_profile,
+            lint_config_file=args.lint_config_file,
         )
         _validate_action_verbs(lint_config=selected_lint_config)
         profile_suffix = f" (profile={selected_profile})" if selected_profile is not None else ""
