@@ -2,6 +2,25 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.94-m3-proposal-target-enum-api] - 2026-02-19
+
+### Added
+
+- API-level proposal target enum contract for `POST /api/v2/optimization/proposals`:
+  - `prompt.chat.reply`
+  - `workflow.stock.analysis`
+  - `strategy.analysis.lifecycle`
+- New OpenAPI contract test:
+  - verifies proposal target enum is exposed in OpenAPI schema
+- New API validation expectation test:
+  - verifies unsupported target is rejected at request-validation layer (`422`)
+
+### Changed
+
+- `OptimizationProposalCreateRequest.target` now uses enum type in API model.
+- `OptimizationService` target classifier now uses explicit whitelist mapping aligned with API enum.
+- Backend app version bumped to `0.3.94-m3-proposal-target-enum-api`.
+
 ## [0.3.93-m3-proposal-target-schema] - 2026-02-19
 
 ### Added

@@ -104,7 +104,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Daily Stock Analysis Refactor API",
-        version="0.3.93-m3-proposal-target-schema",
+        version="0.3.94-m3-proposal-target-enum-api",
     )
     app.state.workflow_service = workflow_service
     app.state.analysis_service = analysis_service

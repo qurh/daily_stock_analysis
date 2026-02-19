@@ -16,6 +16,12 @@ def _utc_now() -> str:
 class OptimizationService:
     """Optimization service for trigger jobs and proposal review lifecycle."""
 
+    _SUPPORTED_PROPOSAL_TARGETS: dict[str, str] = {
+        "prompt.chat.reply": "prompt",
+        "workflow.stock.analysis": "workflow",
+        "strategy.analysis.lifecycle": "strategy",
+    }
+
     def __init__(
         self,
         database: SQLiteDatabase,
@@ -380,13 +386,7 @@ class OptimizationService:
 
     @staticmethod
     def _classify_proposal_target(target: str) -> str | None:
-        if target.startswith("prompt."):
-            return "prompt"
-        if target.startswith("workflow."):
-            return "workflow"
-        if target.startswith("strategy."):
-            return "strategy"
-        return None
+        return OptimizationService._SUPPORTED_PROPOSAL_TARGETS.get(target)
 
     @staticmethod
     def _extract_linked_strategy_id(diff: dict[str, Any]) -> str | None:

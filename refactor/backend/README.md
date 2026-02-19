@@ -150,15 +150,16 @@ uvicorn app.main:app --app-dir src --reload --port 18000
 
 ## Optimization Proposal Schema Gate
 
-- `target` must be one of the supported namespaces:
-  - `prompt.*`
-  - `workflow.*`
-  - `strategy.*`
-- Unsupported `target` namespace is rejected with `400` (`FDB-INPUT-003`).
+- API request model (`OptimizationProposalCreateRequest.target`) is restricted to enum values:
+  - `prompt.chat.reply`
+  - `workflow.stock.analysis`
+  - `strategy.analysis.lifecycle`
+- Unsupported target is rejected by request validation (`422`).
 - `diff` required keys by target namespace:
   - `prompt.*` -> `diff.prompt_patch` (`FDB-INPUT-005`)
   - `workflow.*` -> `diff.flow_patch` (`FDB-INPUT-004`)
   - `strategy.*` -> `diff.strategy_id` (`FDB-INPUT-002`)
+- Service layer still keeps target whitelist gate (`FDB-INPUT-003`) as defense-in-depth.
 - `strategy.*` supports nested form `diff.strategy.strategy_id`; service normalizes it to `diff.strategy_id`.
 
 ## Prompt Binding
