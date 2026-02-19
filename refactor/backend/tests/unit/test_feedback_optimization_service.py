@@ -145,3 +145,31 @@ def test_chatbot_proposal_review_flow() -> None:
     )
     assert rejected.status_code == 200
     assert rejected.json()["status"] == "rejected"
+
+
+def test_chatbot_strategy_proposal_requires_strategy_id_in_diff() -> None:
+    client = TestClient(create_app())
+
+    invalid = client.post(
+        "/api/v2/optimization/proposals",
+        json={
+            "source": "chatbot",
+            "target": "strategy.analysis.lifecycle",
+            "summary": "missing strategy binding",
+            "diff": {"backtest_job_id": "bt-001"},
+        },
+    )
+    assert invalid.status_code == 400
+    assert "strategy_id" in invalid.json()["detail"]
+
+    valid = client.post(
+        "/api/v2/optimization/proposals",
+        json={
+            "source": "chatbot",
+            "target": "strategy.analysis.lifecycle",
+            "summary": "contains strategy id",
+            "diff": {"strategy_id": "stg-001", "backtest_job_id": "bt-001"},
+        },
+    )
+    assert valid.status_code == 201
+    assert valid.json()["status"] == "review_pending"
