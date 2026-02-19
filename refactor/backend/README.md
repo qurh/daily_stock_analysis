@@ -428,6 +428,7 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
   - placeholder marker schema: `refactor/backend/config/schemas/validator-placeholder-markers.schema.json`
   - validate marker config: `python3 scripts/validate-validator-placeholder-markers.py`
   - custom marker schema: `python3 scripts/validate-validator-placeholder-markers.py --schema-file <path>`
+  - structured error output: `python3 scripts/validate-validator-placeholder-markers.py --json-errors`
   - validator scripts must expose `VALIDATOR_ERROR_CODES` registry for coverage checks
   - sync/check command: `python3 scripts/sync-validator-error-codes.py --check --strict-descriptions`
   - custom marker config: `python3 scripts/sync-validator-error-codes.py --check --strict-descriptions --placeholder-markers-file <path>`

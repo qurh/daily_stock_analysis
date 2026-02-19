@@ -184,6 +184,70 @@ def test_validator_placeholder_markers_validator_script_fails_on_invalid_schema_
     assert "invalid json schema" in completed.stderr.lower()
 
 
+def test_validator_placeholder_markers_validator_script_json_errors_for_duplicate_markers(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-validator-placeholder-markers.py"
+    assert validate_script_file.exists()
+
+    invalid_markers_file = tmp_path / "validator-placeholder-markers.json"
+    invalid_markers_file.write_text(
+        json.dumps({"markers": ["TODO", "todo"]}, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--markers-file",
+            str(invalid_markers_file),
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "validate-validator-placeholder-markers"
+    assert payload["code"] == "placeholder_markers_duplicate_marker"
+    assert payload["context"]["marker"] == "TODO"
+
+
+def test_validator_placeholder_markers_validator_script_json_errors_for_schema_violation(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-validator-placeholder-markers.py"
+    assert validate_script_file.exists()
+
+    invalid_markers_file = tmp_path / "validator-placeholder-markers.json"
+    invalid_markers_file.write_text(
+        json.dumps({"markers": "TODO"}, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--markers-file",
+            str(invalid_markers_file),
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "validate-validator-placeholder-markers"
+    assert payload["code"] == "placeholder_markers_schema_validation_failed"
+    assert "schema validation failed" in payload["message"].lower()
+
+
 def test_validator_error_code_sync_script_passes_default_catalog() -> None:
     backend_root = Path(__file__).resolve().parents[2]
     sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
