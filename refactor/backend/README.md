@@ -271,6 +271,7 @@ cd refactor/backend
 - `ci.sh` now runs `./scripts/check-prometheus-rules.sh`.
 - `ci.sh` now runs `./scripts/validate-promtool-installer-config.sh` before rule checks.
 - `validate-promtool-installer-config.sh` validates required config keys, version format, and SHA256 checksum format.
+- Set `PROMTOOL_VALIDATE_REMOTE=1` to verify configured checksums against release `sha256sums.txt`.
 - If `promtool` is unavailable, rule validation is skipped with a warning.
 - Override binary path with `PROMTOOL_BIN` when needed.
 - Set `PROMTOOL_REQUIRED=1` to fail immediately when `promtool` is missing.
@@ -283,6 +284,7 @@ cd refactor/backend
   - shared installer config: `refactor/backend/config/promtool-installer.defaults`
   - promtool version and per-platform SHA256 are managed in the shared config file.
   - workflow verifies archive SHA256 before extracting and installing `promtool`.
+  - CI workflow enables `PROMTOOL_VALIDATE_REMOTE=1` to validate configured checksums against upstream release metadata.
   - installer script auto-detects `linux-amd64` / `linux-arm64` from machine architecture by default.
   - installer script supports smoke mode with `PROMTOOL_DRY_RUN=1` and arch override via `PROMTOOL_MACHINE_ARCH`.
 
