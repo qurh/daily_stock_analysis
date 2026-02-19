@@ -251,6 +251,20 @@ def test_validator_error_code_metadata_overrides_schema_exists() -> None:
     assert payload.get("type") == "object"
 
 
+def test_validator_error_code_metadata_lint_config_exists_and_is_valid() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    lint_config_file = backend_root / "config" / "validator-error-code-metadata-lint.json"
+    assert lint_config_file.exists()
+
+    payload = json.loads(lint_config_file.read_text(encoding="utf-8"))
+    assert isinstance(payload, dict)
+    assert isinstance(payload.get("min_remediation_length"), int)
+    assert payload["min_remediation_length"] >= 1
+    assert isinstance(payload.get("action_verbs"), list)
+    assert payload["action_verbs"]
+    assert all(isinstance(item, str) and item.strip() for item in payload["action_verbs"])
+
+
 def test_validator_error_code_metadata_overrides_validator_script_passes_default_config() -> None:
     backend_root = Path(__file__).resolve().parents[2]
     validate_script_file = backend_root / "scripts" / "validate-validator-error-code-metadata-overrides.py"
@@ -309,6 +323,88 @@ def test_validator_error_code_metadata_overrides_validator_script_json_errors_fo
     assert payload["validator"] == "validate-validator-error-code-metadata-overrides"
     assert payload["code"] == "error_code_metadata_overrides_unknown_override_code"
     assert "unknown override code" in payload["message"].lower()
+
+
+def test_validator_error_code_metadata_overrides_validator_script_supports_custom_lint_config(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-validator-error-code-metadata-overrides.py"
+    assert validate_script_file.exists()
+
+    overrides_file = tmp_path / "metadata-overrides-custom-lint.json"
+    overrides_file.write_text(
+        json.dumps(
+            {"summary_schema": {"summary_schema_json_parse_error": {"remediation": "Do now"}}},
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    lint_config_file = tmp_path / "metadata-lint-config.json"
+    lint_config_file.write_text(
+        json.dumps(
+            {"min_remediation_length": 2, "action_verbs": ["do"]},
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--overrides-file",
+            str(overrides_file),
+            "--lint-config-file",
+            str(lint_config_file),
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0
+    assert "overrides config is valid" in completed.stdout.lower()
+
+
+def test_validator_error_code_metadata_overrides_validator_script_json_errors_for_invalid_lint_config(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-validator-error-code-metadata-overrides.py"
+    assert validate_script_file.exists()
+
+    lint_config_file = tmp_path / "metadata-lint-config-invalid.json"
+    lint_config_file.write_text(
+        json.dumps(
+            {"min_remediation_length": 0, "action_verbs": []},
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--lint-config-file",
+            str(lint_config_file),
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "validate-validator-error-code-metadata-overrides"
+    assert payload["code"] == "error_code_metadata_overrides_lint_config_invalid"
+    assert "lint config" in payload["message"].lower()
 
 
 def test_validator_error_code_metadata_overrides_validator_script_json_errors_for_placeholder_text(tmp_path) -> None:

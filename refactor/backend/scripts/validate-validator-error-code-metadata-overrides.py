@@ -16,10 +16,7 @@ DEFAULT_OVERRIDES_FILE = BACKEND_ROOT / "config" / "validator-error-code-metadat
 DEFAULT_SCHEMA_FILE = BACKEND_ROOT / "config" / "schemas" / "validator-error-code-metadata-overrides.schema.json"
 DEFAULT_CATALOG_FILE = BACKEND_ROOT / "config" / "validator-error-codes.json"
 DEFAULT_PLACEHOLDER_MARKERS_FILE = BACKEND_ROOT / "config" / "validator-placeholder-markers.json"
-ACTIONABLE_REMEDIATION_PATTERN = re.compile(
-    r"\b(add|adjust|apply|check|create|debug|document|ensure|fix|inspect|remove|replace|rerun|review|set|update|validate|verify)\b",
-    re.IGNORECASE,
-)
+DEFAULT_LINT_CONFIG_FILE = BACKEND_ROOT / "config" / "validator-error-code-metadata-lint.json"
 VALIDATOR_ERROR_CODES = {
     "OVERRIDES_FILE_NOT_FOUND": "error_code_metadata_overrides_overrides_file_not_found",
     "SCHEMA_FILE_NOT_FOUND": "error_code_metadata_overrides_schema_file_not_found",
@@ -30,6 +27,8 @@ VALIDATOR_ERROR_CODES = {
     "SCHEMA_VALIDATION_FAILED": "error_code_metadata_overrides_schema_validation_failed",
     "UNKNOWN_OVERRIDE_GROUP": "error_code_metadata_overrides_unknown_override_group",
     "UNKNOWN_OVERRIDE_CODE": "error_code_metadata_overrides_unknown_override_code",
+    "LINT_CONFIG_FILE_NOT_FOUND": "error_code_metadata_overrides_lint_config_file_not_found",
+    "LINT_CONFIG_INVALID": "error_code_metadata_overrides_lint_config_invalid",
     "PLACEHOLDER_MARKERS_FILE_NOT_FOUND": "error_code_metadata_overrides_placeholder_markers_file_not_found",
     "PLACEHOLDER_MARKERS_INVALID": "error_code_metadata_overrides_placeholder_markers_invalid",
     "PLACEHOLDER_TEXT_DETECTED": "error_code_metadata_overrides_placeholder_text_detected",
@@ -100,6 +99,53 @@ def _validate_override_targets(overrides: dict, catalog: dict) -> None:
                 )
 
 
+def _load_lint_config(path: Path) -> tuple[int, re.Pattern[str]]:
+    if not path.exists():
+        raise MetadataOverridesValidationError(
+            code=VALIDATOR_ERROR_CODES["LINT_CONFIG_FILE_NOT_FOUND"],
+            message=f"lint config file not found: {path}",
+            context={"path": str(path)},
+        )
+    payload = _load_json_payload(path=path, role="lint_config")
+    min_remediation_length = payload.get("min_remediation_length")
+    action_verbs = payload.get("action_verbs")
+
+    if not isinstance(min_remediation_length, int) or min_remediation_length < 1:
+        raise MetadataOverridesValidationError(
+            code=VALIDATOR_ERROR_CODES["LINT_CONFIG_INVALID"],
+            message=f"invalid lint config min_remediation_length: {path}",
+            context={"path": str(path), "field": "min_remediation_length"},
+        )
+    if not isinstance(action_verbs, list) or not action_verbs:
+        raise MetadataOverridesValidationError(
+            code=VALIDATOR_ERROR_CODES["LINT_CONFIG_INVALID"],
+            message=f"invalid lint config action_verbs: {path}",
+            context={"path": str(path), "field": "action_verbs"},
+        )
+
+    normalized_verbs: list[str] = []
+    seen: set[str] = set()
+    for item in action_verbs:
+        if not isinstance(item, str) or not item.strip():
+            raise MetadataOverridesValidationError(
+                code=VALIDATOR_ERROR_CODES["LINT_CONFIG_INVALID"],
+                message=f"invalid lint config action verb: {path}",
+                context={"path": str(path), "field": "action_verbs", "value": item},
+            )
+        verb = item.strip().lower()
+        if verb in seen:
+            raise MetadataOverridesValidationError(
+                code=VALIDATOR_ERROR_CODES["LINT_CONFIG_INVALID"],
+                message=f"duplicate lint config action verb: {verb}",
+                context={"path": str(path), "field": "action_verbs", "value": verb},
+            )
+        seen.add(verb)
+        normalized_verbs.append(verb)
+
+    action_pattern = re.compile(r"\b(" + "|".join(re.escape(item) for item in normalized_verbs) + r")\b", re.IGNORECASE)
+    return min_remediation_length, action_pattern
+
+
 def _load_placeholder_markers(path: Path) -> list[str]:
     if not path.exists():
         raise MetadataOverridesValidationError(
@@ -164,14 +210,21 @@ def _validate_placeholder_text(overrides: dict, placeholder_pattern: re.Pattern[
                 )
 
 
-def _validate_remediation_quality(overrides: dict) -> None:
+def _validate_remediation_quality(
+    overrides: dict,
+    min_remediation_length: int,
+    actionable_remediation_pattern: re.Pattern[str],
+) -> None:
     for group_name, group_payload in overrides.items():
         for code, code_payload in group_payload.items():
             remediation = code_payload.get("remediation")
             if not isinstance(remediation, str):
                 continue
             remediation_value = remediation.strip()
-            if len(remediation_value) < 12 or ACTIONABLE_REMEDIATION_PATTERN.search(remediation_value) is None:
+            if (
+                len(remediation_value) < min_remediation_length
+                or actionable_remediation_pattern.search(remediation_value) is None
+            ):
                 raise MetadataOverridesValidationError(
                     code=VALIDATOR_ERROR_CODES["REMEDIATION_QUALITY_INVALID"],
                     message=f"remediation text is not actionable enough: {group_name}.{code}.remediation",
@@ -210,6 +263,12 @@ def main() -> int:
         help="Path to placeholder markers config file.",
     )
     parser.add_argument(
+        "--lint-config-file",
+        type=Path,
+        default=DEFAULT_LINT_CONFIG_FILE,
+        help="Path to metadata lint config file.",
+    )
+    parser.add_argument(
         "--json-errors",
         action="store_true",
         help="Emit structured JSON errors to stderr.",
@@ -241,10 +300,15 @@ def main() -> int:
         catalog = _load_json_payload(path=args.catalog_file, role="catalog")
         _validate_overrides_schema(overrides=overrides, schema=schema, schema_file=args.schema_file)
         _validate_override_targets(overrides=overrides, catalog=catalog)
+        min_remediation_length, actionable_remediation_pattern = _load_lint_config(path=args.lint_config_file)
         placeholder_markers = _load_placeholder_markers(path=args.placeholder_markers_file)
         placeholder_pattern = _build_placeholder_pattern(markers=placeholder_markers)
         _validate_placeholder_text(overrides=overrides, placeholder_pattern=placeholder_pattern)
-        _validate_remediation_quality(overrides=overrides)
+        _validate_remediation_quality(
+            overrides=overrides,
+            min_remediation_length=min_remediation_length,
+            actionable_remediation_pattern=actionable_remediation_pattern,
+        )
         print(f"[validate-validator-error-code-metadata-overrides] overrides config is valid: {args.overrides_file}")
         return 0
     except Exception as exc:
