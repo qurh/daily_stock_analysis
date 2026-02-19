@@ -10,11 +10,11 @@ from pathlib import Path
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT_FILE = BACKEND_ROOT / "config" / "validator-error-codes.json"
+DEFAULT_PLACEHOLDER_MARKERS_FILE = BACKEND_ROOT / "config" / "validator-placeholder-markers.json"
 VALIDATOR_SCRIPT_FILES = {
     "summary_schema": BACKEND_ROOT / "scripts" / "validate-strict-gate-summary-schema.py",
     "summary_contract": BACKEND_ROOT / "scripts" / "validate-summary-contract-changelog.py",
 }
-PLACEHOLDER_DESCRIPTION_PATTERN = re.compile(r"^\s*(todo|tbd|fixme)\s*:", re.IGNORECASE)
 
 
 def _load_validator_registry_codes(script_file: Path) -> list[str]:
@@ -71,13 +71,64 @@ def _render_catalog(catalog: dict[str, dict[str, str]]) -> str:
     return json.dumps(catalog, ensure_ascii=False, indent=2) + "\n"
 
 
-def _collect_placeholder_codes(catalog: dict[str, dict[str, str]]) -> list[str]:
-    placeholder_codes: list[str] = []
-    for group_payload in catalog.values():
+def _load_placeholder_markers(path: Path) -> list[str]:
+    if not path.exists():
+        raise FileNotFoundError(f"placeholder markers file not found: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    markers = payload.get("markers")
+    if not isinstance(markers, list) or not markers:
+        raise ValueError(f"placeholder markers payload must include non-empty markers list: {path}")
+
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for marker in markers:
+        if not isinstance(marker, str):
+            raise ValueError(f"placeholder marker must be string: {marker}")
+        marker_value = marker.strip().upper()
+        if not marker_value:
+            raise ValueError("placeholder marker cannot be empty")
+        if marker_value in seen:
+            continue
+        seen.add(marker_value)
+        normalized.append(marker_value)
+    return normalized
+
+
+def _build_placeholder_pattern(markers: list[str]) -> re.Pattern[str]:
+    escaped_markers = [re.escape(marker) for marker in markers]
+    return re.compile(r"^\s*(" + "|".join(escaped_markers) + r")\s*:", re.IGNORECASE)
+
+
+def _collect_placeholder_violations(
+    catalog: dict[str, dict[str, str]],
+    placeholder_pattern: re.Pattern[str],
+) -> list[tuple[str, str, str, str]]:
+    violations: list[tuple[str, str, str, str]] = []
+    for group_name, group_payload in catalog.items():
         for code, description in group_payload.items():
-            if PLACEHOLDER_DESCRIPTION_PATTERN.match(description):
-                placeholder_codes.append(code)
-    return sorted(set(placeholder_codes))
+            match = placeholder_pattern.match(description)
+            if match is None:
+                continue
+            marker = match.group(1).upper()
+            violations.append((group_name, code, marker, description.strip()))
+    return sorted(violations, key=lambda item: (item[0], item[1]))
+
+
+def _format_placeholder_error(
+    violations: list[tuple[str, str, str, str]],
+    markers: list[str],
+) -> str:
+    lines = [
+        "[sync-validator-error-codes] placeholder descriptions are not allowed.",
+        "[sync-validator-error-codes] markers: " + ", ".join(markers),
+        "[sync-validator-error-codes] violations:",
+    ]
+    for group_name, code, marker, description in violations:
+        lines.append(f"[sync-validator-error-codes] - {group_name}.{code} ({marker}) -> {description}")
+    lines.append(
+        "[sync-validator-error-codes] remediation: replace placeholder prefix with concrete user-facing description."
+    )
+    return "\n".join(lines)
 
 
 def main() -> int:
@@ -96,6 +147,12 @@ def main() -> int:
         help="Check mode. Return non-zero if output file is not in sync.",
     )
     parser.add_argument(
+        "--placeholder-markers-file",
+        type=Path,
+        default=DEFAULT_PLACEHOLDER_MARKERS_FILE,
+        help="Path to placeholder marker config JSON file.",
+    )
+    parser.add_argument(
         "--strict-descriptions",
         action="store_true",
         help="Fail if any catalog description is a TODO placeholder.",
@@ -106,6 +163,11 @@ def main() -> int:
         existing_catalog = _load_existing_catalog(path=args.output_file)
         generated_catalog = _build_catalog(existing_catalog=existing_catalog)
         generated_content = _render_catalog(catalog=generated_catalog)
+        placeholder_markers: list[str] = []
+        placeholder_pattern: re.Pattern[str] | None = None
+        if args.strict_descriptions:
+            placeholder_markers = _load_placeholder_markers(path=args.placeholder_markers_file)
+            placeholder_pattern = _build_placeholder_pattern(markers=placeholder_markers)
 
         if args.check:
             if not args.output_file.exists():
@@ -122,13 +184,14 @@ def main() -> int:
                 )
                 return 1
             if args.strict_descriptions:
-                placeholder_codes = _collect_placeholder_codes(catalog=generated_catalog)
-                if placeholder_codes:
+                assert placeholder_pattern is not None
+                violations = _collect_placeholder_violations(
+                    catalog=generated_catalog,
+                    placeholder_pattern=placeholder_pattern,
+                )
+                if violations:
                     print(
-                        (
-                            "[sync-validator-error-codes] placeholder descriptions are not allowed: "
-                            + ", ".join(placeholder_codes)
-                        ),
+                        _format_placeholder_error(violations=violations, markers=placeholder_markers),
                         file=sys.stderr,
                     )
                     return 1
@@ -137,9 +200,17 @@ def main() -> int:
 
         args.output_file.parent.mkdir(parents=True, exist_ok=True)
         if args.strict_descriptions:
-            placeholder_codes = _collect_placeholder_codes(catalog=generated_catalog)
-            if placeholder_codes:
-                raise ValueError("placeholder descriptions are not allowed: " + ", ".join(placeholder_codes))
+            assert placeholder_pattern is not None
+            violations = _collect_placeholder_violations(
+                catalog=generated_catalog,
+                placeholder_pattern=placeholder_pattern,
+            )
+            if violations:
+                print(
+                    _format_placeholder_error(violations=violations, markers=placeholder_markers),
+                    file=sys.stderr,
+                )
+                return 1
         args.output_file.write_text(generated_content, encoding="utf-8")
         print(f"[sync-validator-error-codes] catalog updated: {args.output_file}")
         return 0

@@ -424,9 +424,12 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
   - json error `code` namespace: `summary_contract_*`
 - Validator error code catalog:
   - `refactor/backend/config/validator-error-codes.json`
+  - placeholder marker config: `refactor/backend/config/validator-placeholder-markers.json`
   - validator scripts must expose `VALIDATOR_ERROR_CODES` registry for coverage checks
   - sync/check command: `python3 scripts/sync-validator-error-codes.py --check --strict-descriptions`
+  - custom marker config: `python3 scripts/sync-validator-error-codes.py --check --strict-descriptions --placeholder-markers-file <path>`
   - `--strict-descriptions` rejects placeholder descriptions (`TODO:`, `TBD:`, `FIXME:`; case-insensitive)
+  - strict error output includes marker list, group/code entries, and remediation hint
 
 ## Run Real LLM Smoke
 

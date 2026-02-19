@@ -59,6 +59,18 @@ def test_validator_error_code_catalog_exists_and_has_prefix_groups() -> None:
     assert isinstance(payload["summary_contract"], dict)
 
 
+def test_validator_placeholder_markers_config_exists_and_is_non_empty() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    markers_file = backend_root / "config" / "validator-placeholder-markers.json"
+    assert markers_file.exists()
+
+    payload = json.loads(markers_file.read_text(encoding="utf-8"))
+    markers = payload.get("markers")
+    assert isinstance(markers, list)
+    assert markers
+    assert all(isinstance(marker, str) and marker.strip() for marker in markers)
+
+
 def test_validator_error_code_sync_script_passes_default_catalog() -> None:
     backend_root = Path(__file__).resolve().parents[2]
     sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
@@ -151,6 +163,85 @@ def test_validator_error_code_sync_script_strict_descriptions_fail_on_todo(tmp_p
             "--strict-descriptions",
             "--output-file",
             str(todo_catalog_file),
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "placeholder descriptions" in completed.stderr.lower()
+
+
+def test_validator_error_code_sync_script_strict_error_includes_group_and_remediation(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+
+    assert sync_script_file.exists()
+    assert catalog_file.exists()
+
+    payload = json.loads(catalog_file.read_text(encoding="utf-8"))
+    payload["summary_schema"]["summary_schema_json_parse_error"] = "TODO: document summary_schema_json_parse_error."
+    todo_catalog_file = tmp_path / "validator-error-codes-with-todo.json"
+    todo_catalog_file.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--check",
+            "--strict-descriptions",
+            "--output-file",
+            str(todo_catalog_file),
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "summary_schema.summary_schema_json_parse_error" in completed.stderr.lower()
+    assert "remediation" in completed.stderr.lower()
+
+
+def test_validator_error_code_sync_script_supports_custom_placeholder_marker_file(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+
+    assert sync_script_file.exists()
+    assert catalog_file.exists()
+
+    payload = json.loads(catalog_file.read_text(encoding="utf-8"))
+    payload["summary_schema"]["summary_schema_json_parse_error"] = "DRAFTTODO: fill later."
+    custom_catalog_file = tmp_path / "validator-error-codes-custom-marker.json"
+    custom_catalog_file.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    custom_markers_file = tmp_path / "placeholder-markers.json"
+    custom_markers_file.write_text(
+        json.dumps({"markers": ["DRAFTTODO"]}, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--check",
+            "--strict-descriptions",
+            "--placeholder-markers-file",
+            str(custom_markers_file),
+            "--output-file",
+            str(custom_catalog_file),
         ],
         cwd=backend_root,
         check=False,
