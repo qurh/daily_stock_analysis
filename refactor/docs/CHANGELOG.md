@@ -2,6 +2,25 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.96-m3-publish-strict-proposal-mode] - 2026-02-19
+
+### Added
+
+- New strict publish mode switch:
+  - `STRATEGY_PUBLISH_REQUIRE_PROPOSAL_ID=true`
+  - when enabled, strategy publish requires explicit `proposal_id`
+  - missing `proposal_id` is blocked with `STR-GATE-009`
+- New tests:
+  - verifies strict mode blocks publish without `proposal_id`
+  - verifies strict mode allows publish after linked proposal approval
+
+### Changed
+
+- `StrategyPublishRequest` now carries `proposal_id` and publish route applies runtime strict-mode setting.
+- `StrategyService.publish_strategy` now supports strict proposal-id requirement flag.
+- Backend settings add `strategy_publish_require_proposal_id`.
+- Backend app version bumped to `0.3.96-m3-publish-strict-proposal-mode`.
+
 ## [0.3.95-m3-explicit-proposal-publish-bind] - 2026-02-19
 
 ### Added

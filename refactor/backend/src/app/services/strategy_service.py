@@ -242,6 +242,7 @@ class StrategyService:
         strategy_id: str,
         backtest_job_id: str | None,
         proposal_id: str | None = None,
+        require_proposal_id: bool = False,
     ) -> dict[str, Any]:
         if not backtest_job_id:
             raise RuntimeError("STR-GATE-005: backtest_job_id is required before publish")
@@ -252,6 +253,8 @@ class StrategyService:
                 raise RuntimeError(f"Strategy state conflict: {strategy_row['status']}")
 
             normalized_proposal_id = (proposal_id or "").strip() or None
+            if require_proposal_id and normalized_proposal_id is None:
+                raise RuntimeError("STR-GATE-009: proposal_id is required in strict publish mode")
             if normalized_proposal_id is not None:
                 linked_proposal = self._load_proposal_by_id(
                     conn=conn,
