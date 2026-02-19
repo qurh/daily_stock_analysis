@@ -453,6 +453,8 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
   - lint profile env default:
     - `LINT_PROFILE=<profile> python3 scripts/validate-validator-error-code-metadata-lint.py --lint-config-file <path>`
   - metadata lint validator supports `--json-errors` (`error_code_metadata_lint_*`)
+  - unknown lint profile errors include:
+    - `available_profiles` and `suggested_profiles` in JSON `context`
   - validate metadata overrides: `python3 scripts/validate-validator-error-code-metadata-overrides.py`
   - custom overrides/schema/catalog:
     - `python3 scripts/validate-validator-error-code-metadata-overrides.py --overrides-file <path> --schema-file <path> --catalog-file <path>`
@@ -465,6 +467,8 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
   - lint profile precedence:
     - `--lint-profile` > `LINT_PROFILE` > lint config `default_profile`
   - metadata override validator supports `--json-errors` (`error_code_metadata_overrides_*`)
+  - unknown overrides lint profile errors include:
+    - `available_profiles` and `suggested_profiles` in JSON `context`
   - metadata override semantic lint:
     - rejects placeholder text in `description/remediation` using marker config
     - requires remediation text to be actionable (contains action verbs and minimum text length)

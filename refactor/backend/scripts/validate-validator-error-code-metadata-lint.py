@@ -6,6 +6,7 @@ import json
 import os
 import re
 import sys
+from difflib import get_close_matches
 from json import JSONDecodeError
 from pathlib import Path
 
@@ -114,10 +115,16 @@ def _resolve_lint_profile(lint_config: dict, lint_profile: str | None) -> tuple[
     assert isinstance(selected_profile, str)
     profile_payload = profiles.get(selected_profile)
     if not isinstance(profile_payload, dict):
+        available_profiles = sorted(profiles.keys())
+        suggested_profiles = get_close_matches(selected_profile, available_profiles, n=3, cutoff=0.5)
         raise MetadataLintValidationError(
             code=VALIDATOR_ERROR_CODES["PROFILE_NOT_FOUND"],
             message=f"lint profile not found: {selected_profile}",
-            context={"lint_profile": selected_profile, "available_profiles": sorted(profiles.keys())},
+            context={
+                "lint_profile": selected_profile,
+                "available_profiles": available_profiles,
+                "suggested_profiles": suggested_profiles,
+            },
         )
     return profile_payload, selected_profile
 
