@@ -32,7 +32,7 @@ def _load_json(path: Path) -> dict:
         return json.loads(path.read_text(encoding="utf-8"))
     except JSONDecodeError as exc:
         raise SummarySchemaValidationError(
-            code="json_parse_error",
+            code="summary_schema_json_parse_error",
             message=f"failed to parse json: {path}",
             context={"path": str(path)},
         ) from exc
@@ -84,12 +84,12 @@ def _validate_example_payload(example_payload: dict, schema: dict, expected_vers
         Draft202012Validator(schema).validate(example_payload)
     except ValidationError as exc:
         raise SummarySchemaValidationError(
-            code="example_payload_schema_validation_failed",
+            code="summary_schema_example_payload_schema_validation_failed",
             message="example payload validation failed",
         ) from exc
     if example_payload.get("schema_version") != expected_version:
         raise SummarySchemaValidationError(
-            code="example_schema_version_mismatch",
+            code="summary_schema_example_schema_version_mismatch",
             message=(
                 f"example payload schema_version mismatch: "
                 f"example={example_payload.get('schema_version')}, expected={expected_version}"
@@ -104,12 +104,12 @@ def _validate_example_payload(example_payload: dict, schema: dict, expected_vers
     modules = example_payload.get("modules")
     if not isinstance(files, list):
         raise SummarySchemaValidationError(
-            code="files_type_invalid",
+            code="summary_schema_files_type_invalid",
             message="example payload consistency check failed: files must be a list",
         )
     if not isinstance(modules, dict):
         raise SummarySchemaValidationError(
-            code="modules_type_invalid",
+            code="summary_schema_modules_type_invalid",
             message="example payload consistency check failed: modules must be an object",
         )
 
@@ -117,7 +117,7 @@ def _validate_example_payload(example_payload: dict, schema: dict, expected_vers
     expected_files_count = len(files)
     if changed_files_count != expected_files_count:
         raise SummarySchemaValidationError(
-            code="changed_files_count_mismatch",
+            code="summary_schema_changed_files_count_mismatch",
             message=(
                 f"example payload consistency check failed: "
                 f"changed_files_count mismatch (expected={expected_files_count}, actual={changed_files_count})"
@@ -131,7 +131,7 @@ def _validate_example_payload(example_payload: dict, schema: dict, expected_vers
     summary_total_removed = example_payload.get("total_removed_lines")
     if summary_total_added != total_added_lines:
         raise SummarySchemaValidationError(
-            code="total_added_lines_mismatch",
+            code="summary_schema_total_added_lines_mismatch",
             message=(
                 f"example payload consistency check failed: "
                 f"total_added_lines mismatch (expected={total_added_lines}, actual={summary_total_added})"
@@ -140,7 +140,7 @@ def _validate_example_payload(example_payload: dict, schema: dict, expected_vers
         )
     if summary_total_removed != total_removed_lines:
         raise SummarySchemaValidationError(
-            code="total_removed_lines_mismatch",
+            code="summary_schema_total_removed_lines_mismatch",
             message=(
                 f"example payload consistency check failed: "
                 f"total_removed_lines mismatch (expected={total_removed_lines}, actual={summary_total_removed})"
@@ -160,7 +160,7 @@ def _validate_example_payload(example_payload: dict, schema: dict, expected_vers
                 file_total += item_modules.get(module_name, {}).get("changed_alerts_count", 0)
         if module_total != file_total:
             raise SummarySchemaValidationError(
-                code=f"module_total_mismatch_{module_name}",
+                code=f"summary_schema_module_total_mismatch_{module_name}",
                 message=(
                     f"example payload consistency check failed: "
                     f"module total mismatch for {module_name} (expected={file_total}, actual={module_total})"
@@ -233,7 +233,7 @@ def main() -> int:
             else:
                 payload = {
                     "validator": "validate-strict-gate-summary-schema",
-                    "code": "unexpected_error",
+                    "code": "summary_schema_unexpected_error",
                     "message": str(exc),
                     "context": {},
                 }

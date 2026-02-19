@@ -104,7 +104,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Daily Stock Analysis Refactor API",
-        version="0.3.119-m3-contract-validator-json-errors",
+        version="0.3.120-m3-validator-error-code-prefix",
     )
     app.state.workflow_service = workflow_service
     app.state.analysis_service = analysis_service

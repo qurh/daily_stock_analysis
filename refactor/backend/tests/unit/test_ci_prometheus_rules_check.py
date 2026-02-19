@@ -252,7 +252,7 @@ def test_summary_contract_changelog_validator_script_json_errors_for_missing_sch
     assert completed.returncode != 0
     payload = json.loads(completed.stderr)
     assert payload["validator"] == "validate-summary-contract-changelog"
-    assert payload["code"] == "missing_summary_schema_version_note"
+    assert payload["code"] == "summary_contract_missing_summary_schema_version_note"
 
 
 def test_summary_contract_changelog_validator_script_json_errors_for_version_mismatch(tmp_path) -> None:
@@ -280,7 +280,34 @@ def test_summary_contract_changelog_validator_script_json_errors_for_version_mis
     assert completed.returncode != 0
     payload = json.loads(completed.stderr)
     assert payload["validator"] == "validate-summary-contract-changelog"
-    assert payload["code"] == "changelog_app_version_mismatch"
+    assert payload["code"] == "summary_contract_changelog_app_version_mismatch"
+
+
+def test_summary_contract_changelog_validator_json_error_code_uses_prefix(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-summary-contract-changelog.py"
+    assert validate_script_file.exists()
+
+    temp_app_file = tmp_path / "main.py"
+    temp_app_file.write_text('app = FastAPI(version="0.0.0-test")\n', encoding="utf-8")
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--json-errors",
+            "--app-file",
+            str(temp_app_file),
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["code"].startswith("summary_contract_")
 
 
 def test_summary_schema_validator_script_fails_on_inconsistent_totals(tmp_path) -> None:
@@ -360,9 +387,40 @@ def test_summary_schema_validator_script_json_errors_mode_outputs_structured_pay
     assert completed.returncode != 0
     payload = json.loads(completed.stderr)
     assert payload["validator"] == "validate-strict-gate-summary-schema"
-    assert payload["code"] == "changed_files_count_mismatch"
+    assert payload["code"] == "summary_schema_changed_files_count_mismatch"
     assert payload["context"]["expected"] == 1
     assert payload["context"]["actual"] == 99
+
+
+def test_summary_schema_validator_json_error_code_uses_prefix(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-strict-gate-summary-schema.py"
+    source_example_file = backend_root / "config" / "schemas" / "strict-gate-summary.example.json"
+    assert validate_script_file.exists()
+    assert source_example_file.exists()
+
+    example_payload = json.loads(source_example_file.read_text(encoding="utf-8"))
+    example_payload["changed_files_count"] = 99
+    invalid_example_file = tmp_path / "invalid-prefix-example.json"
+    invalid_example_file.write_text(json.dumps(example_payload, ensure_ascii=False), encoding="utf-8")
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--json-errors",
+            "--example-file",
+            str(invalid_example_file),
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["code"].startswith("summary_schema_")
 
 
 def test_prometheus_rules_check_fails_in_strict_mode_when_promtool_missing() -> None:
