@@ -2,6 +2,21 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.72-m3-promtool-checksum-verification] - 2026-02-19
+
+### Added
+
+- New checksum verification for promtool archive in backend CI workflows:
+  - `.github/workflows/refactor-backend-ci.yml`
+  - `refactor/backend/ci/github-actions/refactor-backend-ci.example.yml`
+- New tests:
+  - verifies workflows include pinned SHA256 and `sha256sum -c -` verification
+
+### Changed
+
+- Backend CI now validates archive integrity before extracting and installing promtool.
+- Backend app version bumped to `0.3.72-m3-promtool-checksum-verification`.
+
 ## [0.3.71-m3-promtool-fixed-version-workflow] - 2026-02-19
 
 ### Added

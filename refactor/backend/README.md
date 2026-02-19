@@ -278,6 +278,7 @@ cd refactor/backend
   - active workflow: `.github/workflows/refactor-backend-ci.yml`
   - example template: `refactor/backend/ci/github-actions/refactor-backend-ci.example.yml`
   - promtool is installed from pinned release `v2.52.0` in workflow steps (not apt package).
+  - workflow verifies archive SHA256 before extracting and installing `promtool`.
 
 ## Prometheus Alert Rule Template
 

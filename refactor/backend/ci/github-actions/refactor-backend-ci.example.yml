@@ -32,10 +32,12 @@ jobs:
       - name: Install promtool
         env:
           PROMTOOL_VERSION: "2.52.0"
+          PROMTOOL_SHA256: "7f31c5d6474bbff3e514e627e0b7a7fbbd4e5cea3f315fd0b76cad50be4c1ba3"
         run: |
           ARCHIVE="prometheus-${PROMTOOL_VERSION}.linux-amd64.tar.gz"
           URL="https://github.com/prometheus/prometheus/releases/download/v${PROMTOOL_VERSION}/${ARCHIVE}"
           curl -fsSL -o "/tmp/${ARCHIVE}" "${URL}"
+          echo "${PROMTOOL_SHA256}  /tmp/${ARCHIVE}" | sha256sum -c -
           tar -xzf "/tmp/${ARCHIVE}" -C /tmp
           sudo install "/tmp/prometheus-${PROMTOOL_VERSION}.linux-amd64/promtool" /usr/local/bin/promtool
           promtool --version
