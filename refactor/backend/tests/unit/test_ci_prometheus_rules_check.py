@@ -521,6 +521,7 @@ def test_validator_error_code_metadata_lint_validator_script_plain_errors_includ
     assert completed.returncode != 0
     assert "did you mean" in completed.stderr.lower()
     assert "prod" in completed.stderr.lower()
+    assert "--lint-profile prod" in completed.stderr.lower()
 
 
 def test_validator_error_code_metadata_lint_validator_script_uses_env_profile(tmp_path) -> None:
@@ -883,6 +884,7 @@ def test_validator_error_code_metadata_overrides_validator_script_plain_errors_i
     assert completed.returncode != 0
     assert "did you mean" in completed.stderr.lower()
     assert "prod" in completed.stderr.lower()
+    assert "--lint-profile prod" in completed.stderr.lower()
 
 
 def test_validator_error_code_metadata_overrides_validator_script_uses_env_profile(tmp_path) -> None:
