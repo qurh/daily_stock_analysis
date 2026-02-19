@@ -2,6 +2,22 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.106-m3-threshold-sync-summary-only] - 2026-02-19
+
+### Added
+
+- `sync-strict-gate-alert-thresholds.py` now supports compact summary mode:
+  - `--summary-only` (requires `--dry-run`)
+  - prints per-file and total `+/-` line summary without full patch body
+- New tests:
+  - verifies summary-only outputs compact summary and hides full unified diff
+  - verifies summary-only requires dry-run
+
+### Changed
+
+- README now includes summary-only usage example.
+- Backend app version bumped to `0.3.106-m3-threshold-sync-summary-only`.
+
 ## [0.3.105-m3-threshold-sync-dry-run-diff] - 2026-02-19
 
 ### Added
