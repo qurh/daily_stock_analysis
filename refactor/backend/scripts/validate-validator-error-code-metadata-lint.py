@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from json import JSONDecodeError
@@ -15,6 +16,7 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_LINT_CONFIG_FILE = BACKEND_ROOT / "config" / "validator-error-code-metadata-lint.json"
 DEFAULT_SCHEMA_FILE = BACKEND_ROOT / "config" / "schemas" / "validator-error-code-metadata-lint.schema.json"
 ACTION_VERB_PATTERN = re.compile(r"^[a-z][a-z_-]*$")
+LINT_PROFILE_ENV_VAR = "LINT_PROFILE"
 VALIDATOR_ERROR_CODES = {
     "LINT_CONFIG_FILE_NOT_FOUND": "error_code_metadata_lint_lint_config_file_not_found",
     "SCHEMA_FILE_NOT_FOUND": "error_code_metadata_lint_schema_file_not_found",
@@ -146,6 +148,8 @@ def main() -> int:
         help="Emit structured JSON errors to stderr.",
     )
     args = parser.parse_args()
+    env_lint_profile = os.getenv(LINT_PROFILE_ENV_VAR)
+    effective_lint_profile = args.lint_profile if args.lint_profile is not None else env_lint_profile
 
     try:
         if not args.lint_config_file.exists():
@@ -165,7 +169,7 @@ def main() -> int:
         _validate_schema(lint_config=lint_config, schema=schema, schema_file=args.schema_file)
         selected_lint_config, selected_profile = _resolve_lint_profile(
             lint_config=lint_config,
-            lint_profile=args.lint_profile,
+            lint_profile=effective_lint_profile,
         )
         _validate_action_verbs(lint_config=selected_lint_config)
         profile_suffix = f" (profile={selected_profile})" if selected_profile is not None else ""
