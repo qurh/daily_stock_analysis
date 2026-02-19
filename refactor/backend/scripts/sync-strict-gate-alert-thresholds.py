@@ -61,6 +61,7 @@ ALERTS_BY_MODULE = {
         "RefactorPromtoolSoftAuditRotationUnbounded",
     ),
 }
+SUMMARY_SCHEMA_VERSION = "1"
 
 
 def _parse_min_hits(profile_name: str, raw_value: object) -> int:
@@ -410,6 +411,7 @@ def _build_summary_payload(change_summaries: list[tuple[str, int, int, dict[str,
         for module_name in ALERTS_BY_MODULE:
             module_totals[module_name] += file_module_counts.get(module_name, 0)
     return {
+        "schema_version": SUMMARY_SCHEMA_VERSION,
         "changed_files_count": len(change_summaries),
         "total_added_lines": total_added,
         "total_removed_lines": total_removed,
