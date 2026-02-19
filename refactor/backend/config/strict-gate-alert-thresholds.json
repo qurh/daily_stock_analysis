@@ -5,28 +5,52 @@
       "warn_ratio": 0.2,
       "warn_for": "15m",
       "critical_ratio": 0.5,
-      "critical_for": "5m"
+      "critical_for": "5m",
+      "soft_audit_max_lines_for": "10m",
+      "soft_audit_max_lines_severity": "warning",
+      "soft_audit_max_bytes_for": "10m",
+      "soft_audit_max_bytes_severity": "warning",
+      "soft_audit_rotation_unbounded_for": "45m",
+      "soft_audit_rotation_unbounded_severity": "warning"
     },
     "dev": {
       "min_hits": 10,
       "warn_ratio": 0.25,
       "warn_for": "5m",
       "critical_ratio": 0.6,
-      "critical_for": "2m"
+      "critical_for": "2m",
+      "soft_audit_max_lines_for": "3m",
+      "soft_audit_max_lines_severity": "info",
+      "soft_audit_max_bytes_for": "3m",
+      "soft_audit_max_bytes_severity": "info",
+      "soft_audit_rotation_unbounded_for": "20m",
+      "soft_audit_rotation_unbounded_severity": "info"
     },
     "staging": {
       "min_hits": 10,
       "warn_ratio": 0.2,
       "warn_for": "10m",
       "critical_ratio": 0.5,
-      "critical_for": "5m"
+      "critical_for": "5m",
+      "soft_audit_max_lines_for": "8m",
+      "soft_audit_max_lines_severity": "warning",
+      "soft_audit_max_bytes_for": "8m",
+      "soft_audit_max_bytes_severity": "warning",
+      "soft_audit_rotation_unbounded_for": "30m",
+      "soft_audit_rotation_unbounded_severity": "warning"
     },
     "prod": {
       "min_hits": 10,
       "warn_ratio": 0.2,
       "warn_for": "15m",
       "critical_ratio": 0.5,
-      "critical_for": "5m"
+      "critical_for": "5m",
+      "soft_audit_max_lines_for": "10m",
+      "soft_audit_max_lines_severity": "warning",
+      "soft_audit_max_bytes_for": "10m",
+      "soft_audit_max_bytes_severity": "warning",
+      "soft_audit_rotation_unbounded_for": "45m",
+      "soft_audit_rotation_unbounded_severity": "critical"
     }
   }
 }
