@@ -2,6 +2,23 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.146-m3-error-code-lint-profile-config-aware-command] - 2026-02-19
+
+### Added
+
+- Path-aware command template for unknown profile JSON context:
+  - lint validator `suggested_command` now includes current `--lint-config-file "<path>"`
+  - overrides validator `suggested_command` now includes current `--lint-config-file "<path>"`
+- New tests:
+  - validates lint validator `suggested_command` includes lint-config-file path
+  - validates overrides validator `suggested_command` includes lint-config-file path
+
+### Changed
+
+- README now documents that `suggested_command` includes lint config path.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.146-m3-error-code-lint-profile-config-aware-command`.
+
 ## [0.3.145-m3-error-code-lint-profile-command-context] - 2026-02-19
 
 ### Added
