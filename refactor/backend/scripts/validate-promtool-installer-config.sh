@@ -8,6 +8,8 @@ PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS="${PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS:-3}"
 PROMTOOL_REMOTE_FETCH_CONNECT_TIMEOUT_SECONDS="${PROMTOOL_REMOTE_FETCH_CONNECT_TIMEOUT_SECONDS:-10}"
 PROMTOOL_REMOTE_FETCH_TIMEOUT_SECONDS="${PROMTOOL_REMOTE_FETCH_TIMEOUT_SECONDS:-30}"
 PROMTOOL_REMOTE_FETCH_RETRY_DELAY_SECONDS="${PROMTOOL_REMOTE_FETCH_RETRY_DELAY_SECONDS:-1}"
+PROMTOOL_REMOTE_FETCH_CACHE_FILE="${PROMTOOL_REMOTE_FETCH_CACHE_FILE:-}"
+PROMTOOL_REMOTE_FETCH_CACHE_TTL_SECONDS="${PROMTOOL_REMOTE_FETCH_CACHE_TTL_SECONDS:-3600}"
 
 if [[ ! -f "${PROMTOOL_CONFIG_FILE}" ]]; then
   echo "[validate-promtool-installer-config] config file not found: ${PROMTOOL_CONFIG_FILE}" >&2
@@ -74,6 +76,9 @@ if [[ "${normalized_validate_remote}" == "1" || "${normalized_validate_remote}" 
   validate_positive_integer "PROMTOOL_REMOTE_FETCH_CONNECT_TIMEOUT_SECONDS" "${PROMTOOL_REMOTE_FETCH_CONNECT_TIMEOUT_SECONDS}"
   validate_positive_integer "PROMTOOL_REMOTE_FETCH_TIMEOUT_SECONDS" "${PROMTOOL_REMOTE_FETCH_TIMEOUT_SECONDS}"
   validate_non_negative_integer "PROMTOOL_REMOTE_FETCH_RETRY_DELAY_SECONDS" "${PROMTOOL_REMOTE_FETCH_RETRY_DELAY_SECONDS}"
+  if [[ -n "${PROMTOOL_REMOTE_FETCH_CACHE_FILE}" ]]; then
+    validate_positive_integer "PROMTOOL_REMOTE_FETCH_CACHE_TTL_SECONDS" "${PROMTOOL_REMOTE_FETCH_CACHE_TTL_SECONDS}"
+  fi
 
   PROMTOOL_SHA256SUMS_URL="${PROMTOOL_SHA256SUMS_URL:-https://github.com/prometheus/prometheus/releases/download/v${PROMTOOL_DEFAULT_VERSION}/sha256sums.txt}"
   archive_amd64="prometheus-${PROMTOOL_DEFAULT_VERSION}.linux-amd64.tar.gz"
@@ -86,28 +91,62 @@ if [[ "${normalized_validate_remote}" == "1" || "${normalized_validate_remote}" 
   trap cleanup EXIT
 
   fetch_succeeded=0
-  attempt=1
-  while (( attempt <= PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS )); do
-    if curl -fsSL \
-      --connect-timeout "${PROMTOOL_REMOTE_FETCH_CONNECT_TIMEOUT_SECONDS}" \
-      --max-time "${PROMTOOL_REMOTE_FETCH_TIMEOUT_SECONDS}" \
-      -o "${sha256sums_file}" \
-      "${PROMTOOL_SHA256SUMS_URL}"; then
-      fetch_succeeded=1
-      break
+  if [[ -n "${PROMTOOL_REMOTE_FETCH_CACHE_FILE}" ]]; then
+    cache_meta_file="${PROMTOOL_REMOTE_FETCH_CACHE_FILE}.meta"
+    if [[ -f "${PROMTOOL_REMOTE_FETCH_CACHE_FILE}" && -f "${cache_meta_file}" ]]; then
+      cached_at_raw="$(tr -d '[:space:]' < "${cache_meta_file}" || true)"
+      if [[ "${cached_at_raw}" =~ ^[0-9]+$ ]]; then
+        now_epoch="$(date +%s)"
+        cache_age=$((now_epoch - cached_at_raw))
+        if (( cache_age >= 0 && cache_age <= PROMTOOL_REMOTE_FETCH_CACHE_TTL_SECONDS )); then
+          cp "${PROMTOOL_REMOTE_FETCH_CACHE_FILE}" "${sha256sums_file}"
+          fetch_succeeded=1
+          echo "[validate-promtool-installer-config] using cached sha256sums metadata: ${PROMTOOL_REMOTE_FETCH_CACHE_FILE}" >&2
+        else
+          echo "[validate-promtool-installer-config] cached sha256sums metadata is stale (age ${cache_age}s > ttl ${PROMTOOL_REMOTE_FETCH_CACHE_TTL_SECONDS}s): ${PROMTOOL_REMOTE_FETCH_CACHE_FILE}" >&2
+        fi
+      else
+        echo "[validate-promtool-installer-config] cached sha256sums metadata timestamp is invalid: ${cache_meta_file}" >&2
+      fi
     fi
-
-    if (( attempt < PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS )); then
-      echo "[validate-promtool-installer-config] failed to fetch sha256sums (attempt ${attempt}/${PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS}), retry in ${PROMTOOL_REMOTE_FETCH_RETRY_DELAY_SECONDS}s: ${PROMTOOL_SHA256SUMS_URL}" >&2
-      sleep "${PROMTOOL_REMOTE_FETCH_RETRY_DELAY_SECONDS}"
-    fi
-
-    attempt=$((attempt + 1))
-  done
+  fi
 
   if (( fetch_succeeded != 1 )); then
-    echo "[validate-promtool-installer-config] failed to fetch sha256sums after ${PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS} attempt(s): ${PROMTOOL_SHA256SUMS_URL}" >&2
-    exit 1
+    attempt=1
+    while (( attempt <= PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS )); do
+      if curl -fsSL \
+        --connect-timeout "${PROMTOOL_REMOTE_FETCH_CONNECT_TIMEOUT_SECONDS}" \
+        --max-time "${PROMTOOL_REMOTE_FETCH_TIMEOUT_SECONDS}" \
+        -o "${sha256sums_file}" \
+        "${PROMTOOL_SHA256SUMS_URL}"; then
+        fetch_succeeded=1
+        break
+      fi
+
+      if (( attempt < PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS )); then
+        echo "[validate-promtool-installer-config] failed to fetch sha256sums (attempt ${attempt}/${PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS}), retry in ${PROMTOOL_REMOTE_FETCH_RETRY_DELAY_SECONDS}s: ${PROMTOOL_SHA256SUMS_URL}" >&2
+        sleep "${PROMTOOL_REMOTE_FETCH_RETRY_DELAY_SECONDS}"
+      fi
+
+      attempt=$((attempt + 1))
+    done
+
+    if (( fetch_succeeded != 1 )); then
+      echo "[validate-promtool-installer-config] failed to fetch sha256sums after ${PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS} attempt(s): ${PROMTOOL_SHA256SUMS_URL}" >&2
+      exit 1
+    fi
+
+    if [[ -n "${PROMTOOL_REMOTE_FETCH_CACHE_FILE}" ]]; then
+      cache_dir="$(dirname "${PROMTOOL_REMOTE_FETCH_CACHE_FILE}")"
+      cache_meta_file="${PROMTOOL_REMOTE_FETCH_CACHE_FILE}.meta"
+      if ! mkdir -p "${cache_dir}" \
+        || ! cp "${sha256sums_file}" "${PROMTOOL_REMOTE_FETCH_CACHE_FILE}" \
+        || ! printf "%s\n" "$(date +%s)" > "${cache_meta_file}"; then
+        echo "[validate-promtool-installer-config] warning: failed to update sha256sums cache: ${PROMTOOL_REMOTE_FETCH_CACHE_FILE}" >&2
+      else
+        echo "[validate-promtool-installer-config] updated sha256sums cache: ${PROMTOOL_REMOTE_FETCH_CACHE_FILE}" >&2
+      fi
+    fi
   fi
 
   remote_amd64="$(awk -v file_name="${archive_amd64}" '$2==file_name {print $1; exit}' "${sha256sums_file}")"
