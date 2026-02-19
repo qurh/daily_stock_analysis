@@ -2,6 +2,24 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.125-m3-validator-placeholder-vocabulary] - 2026-02-19
+
+### Added
+
+- Strict description placeholder detection now covers multiple markers:
+  - `TODO:`
+  - `TBD:`
+  - `FIXME:`
+  - case-insensitive match
+- New test:
+  - validates strict mode fails when catalog contains `TBD:` / `FIXME:` placeholders
+
+### Changed
+
+- README strict-description note now documents full placeholder marker set.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.125-m3-validator-placeholder-vocabulary`.
+
 ## [0.3.124-m3-validator-description-strict-check] - 2026-02-19
 
 ### Added
