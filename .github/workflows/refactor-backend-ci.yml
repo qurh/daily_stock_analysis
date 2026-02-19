@@ -1,0 +1,45 @@
+name: "Refactor Backend CI"
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "refactor/backend/**"
+      - "refactor/docs/**"
+      - ".github/workflows/refactor-backend-ci.yml"
+  workflow_dispatch:
+
+jobs:
+  refactor-backend-ci:
+    name: "Refactor Backend Quality Gate"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: "refactor/backend/requirements-dev.txt"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r refactor/backend/requirements-dev.txt
+
+      - name: Install promtool
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y prometheus
+          promtool --version
+
+      - name: Run refactor backend ci.sh
+        env:
+          CI: "true"
+          PROMTOOL_REQUIRED: "1"
+        run: |
+          cd refactor/backend
+          bash scripts/ci.sh
