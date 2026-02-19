@@ -16,12 +16,38 @@
       "minProperties": 1,
       "patternProperties": {
         "^[a-z][a-z0-9_]*$": {
-          "$ref": "#/$defs/description"
+          "$ref": "#/$defs/entry"
         }
       },
       "additionalProperties": false
     },
-    "description": {
+    "entry": {
+      "type": "object",
+      "required": [
+        "description",
+        "severity",
+        "remediation"
+      ],
+      "properties": {
+        "description": {
+          "$ref": "#/$defs/non_empty_text"
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "info",
+            "warning",
+            "error",
+            "critical"
+          ]
+        },
+        "remediation": {
+          "$ref": "#/$defs/non_empty_text"
+        }
+      },
+      "additionalProperties": false
+    },
+    "non_empty_text": {
       "type": "string",
       "minLength": 1
     }
