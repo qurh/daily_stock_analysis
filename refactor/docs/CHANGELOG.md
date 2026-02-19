@@ -2,6 +2,22 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.118-m3-summary-validator-json-errors] - 2026-02-19
+
+### Added
+
+- `validate-strict-gate-summary-schema.py` now supports structured error output:
+  - `--json-errors`
+  - emits JSON payload with `validator/code/message/context` on failures
+- New test:
+  - validates `--json-errors` outputs structured payload for consistency failures
+
+### Changed
+
+- README now documents `--json-errors` usage for schema validator.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.118-m3-summary-validator-json-errors`.
+
 ## [0.3.117-m3-summary-consistency-error-details] - 2026-02-19
 
 ### Added
