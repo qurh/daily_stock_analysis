@@ -83,6 +83,9 @@ class AppSettings:
     promtool_remote_soft_audit_max_lines: int
     promtool_remote_soft_audit_max_bytes: int
     promtool_remote_soft_audit_retention_days: int
+    feedback_event_optimization_enabled: bool
+    feedback_event_optimization_min_records: int
+    feedback_event_optimization_cooldown_seconds: int
     backtest_return_sample_min_size: int
     backtest_return_sample_medium_coverage_pct: float
     backtest_multi_window_alert_warn_low_windows: int
@@ -138,6 +141,12 @@ def load_settings() -> AppSettings:
     promtool_remote_soft_audit_max_lines = max(_read_int_env("PROMTOOL_REMOTE_SOFT_AUDIT_MAX_LINES", 0), 0)
     promtool_remote_soft_audit_max_bytes = max(_read_int_env("PROMTOOL_REMOTE_SOFT_AUDIT_MAX_BYTES", 0), 0)
     promtool_remote_soft_audit_retention_days = max(_read_int_env("PROMTOOL_REMOTE_SOFT_AUDIT_RETENTION_DAYS", 0), 0)
+    feedback_event_optimization_enabled = _read_bool_env("FEEDBACK_EVENT_OPTIMIZATION_ENABLED", True)
+    feedback_event_optimization_min_records = max(_read_int_env("FEEDBACK_EVENT_OPTIMIZATION_MIN_RECORDS", 3), 1)
+    feedback_event_optimization_cooldown_seconds = max(
+        _read_int_env("FEEDBACK_EVENT_OPTIMIZATION_COOLDOWN_SECONDS", 300),
+        0,
+    )
     backtest_return_sample_min_size = _read_int_env("BACKTEST_RETURN_SAMPLE_MIN_SIZE", 20)
     backtest_return_sample_medium_coverage_pct = _read_float_env("BACKTEST_RETURN_SAMPLE_MEDIUM_COVERAGE_PCT", 50.0)
     backtest_multi_window_alert_warn_low_windows_raw = _read_int_env("BACKTEST_MULTI_WINDOW_ALERT_WARN_LOW_WINDOWS", 1)
@@ -243,6 +252,9 @@ def load_settings() -> AppSettings:
         promtool_remote_soft_audit_max_lines=promtool_remote_soft_audit_max_lines,
         promtool_remote_soft_audit_max_bytes=promtool_remote_soft_audit_max_bytes,
         promtool_remote_soft_audit_retention_days=promtool_remote_soft_audit_retention_days,
+        feedback_event_optimization_enabled=feedback_event_optimization_enabled,
+        feedback_event_optimization_min_records=feedback_event_optimization_min_records,
+        feedback_event_optimization_cooldown_seconds=feedback_event_optimization_cooldown_seconds,
         backtest_return_sample_min_size=backtest_return_sample_min_size,
         backtest_return_sample_medium_coverage_pct=backtest_return_sample_medium_coverage_pct,
         backtest_multi_window_alert_warn_low_windows=backtest_multi_window_alert_warn_low_windows,

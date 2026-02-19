@@ -2,6 +2,26 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.90-m3-feedback-event-auto-trigger] - 2026-02-19
+
+### Added
+
+- Event-driven optimization auto-trigger path on feedback record API:
+  - `POST /api/v2/feedback/records` now returns `optimization_trigger`.
+  - when enabled, feedback writes can automatically create `event` optimization jobs.
+- New optimization trigger controls in backend settings:
+  - `FEEDBACK_EVENT_OPTIMIZATION_ENABLED`
+  - `FEEDBACK_EVENT_OPTIMIZATION_MIN_RECORDS`
+  - `FEEDBACK_EVENT_OPTIMIZATION_COOLDOWN_SECONDS`
+- New tests:
+  - verifies feedback API auto-triggers event optimization after threshold is met
+  - verifies settings loader reads feedback event trigger env vars
+
+### Changed
+
+- `OptimizationService` adds cooldown/threshold aware feedback-event trigger method.
+- Backend app version bumped to `0.3.90-m3-feedback-event-auto-trigger`.
+
 ## [0.3.89-m3-soft-audit-alert-rules] - 2026-02-19
 
 ### Added
