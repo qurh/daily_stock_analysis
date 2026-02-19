@@ -179,6 +179,12 @@ uvicorn app.main:app --app-dir src --reload --port 18000
 - Strategy rollback behavior:
   - rolling back an active strategy automatically deactivates its active bindings
 - Strategy publish gate behavior:
+  - publish request supports optional `proposal_id` for explicit proposal-strategy bind validation
+  - when `proposal_id` is provided:
+    - proposal must exist
+    - proposal must be linked to current strategy (`diff.strategy_id == strategy_id`)
+    - proposal status must be `approved`
+    - failures return `409` with `STR-GATE-007` / `STR-GATE-008`
   - if a linked `chatbot` change proposal exists for the strategy (`diff.strategy_id`),
     publish requires the latest linked proposal status to be `approved`
   - otherwise publish returns `409` with gate code `STR-GATE-006`
