@@ -442,6 +442,11 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
   - metadata override config: `refactor/backend/config/validator-error-code-metadata-overrides.json`
   - metadata override schema: `refactor/backend/config/schemas/validator-error-code-metadata-overrides.schema.json`
   - metadata lint config: `refactor/backend/config/validator-error-code-metadata-lint.json`
+  - metadata lint schema: `refactor/backend/config/schemas/validator-error-code-metadata-lint.schema.json`
+  - validate metadata lint config: `python3 scripts/validate-validator-error-code-metadata-lint.py`
+  - custom lint config/schema:
+    - `python3 scripts/validate-validator-error-code-metadata-lint.py --lint-config-file <path> --schema-file <path>`
+  - metadata lint validator supports `--json-errors` (`error_code_metadata_lint_*`)
   - validate metadata overrides: `python3 scripts/validate-validator-error-code-metadata-overrides.py`
   - custom overrides/schema/catalog:
     - `python3 scripts/validate-validator-error-code-metadata-overrides.py --overrides-file <path> --schema-file <path> --catalog-file <path>`

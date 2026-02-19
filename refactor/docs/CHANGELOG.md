@@ -2,6 +2,29 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.138-m3-error-code-lint-validator] - 2026-02-19
+
+### Added
+
+- New metadata lint schema file:
+  - `refactor/backend/config/schemas/validator-error-code-metadata-lint.schema.json`
+- New metadata lint validator script:
+  - `refactor/backend/scripts/validate-validator-error-code-metadata-lint.py`
+  - validates lint config payload against schema and action-verb constraints
+  - supports `--json-errors` with `error_code_metadata_lint_*` namespace
+- New tests:
+  - validates metadata lint schema file exists and matches JSON Schema contract
+  - validates metadata lint validator passes default config
+  - validates validator emits structured JSON error for schema violations
+
+### Changed
+
+- CI now enforces metadata lint config validation:
+  - `python3 scripts/validate-validator-error-code-metadata-lint.py`
+- README now documents metadata lint schema and validator usage.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.138-m3-error-code-lint-validator`.
+
 ## [0.3.137-m3-error-code-lint-configurable] - 2026-02-19
 
 ### Added
