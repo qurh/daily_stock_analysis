@@ -56,8 +56,10 @@ def test_validator_error_code_catalog_exists_and_has_prefix_groups() -> None:
     payload = json.loads(catalog_file.read_text(encoding="utf-8"))
     assert "summary_schema" in payload
     assert "summary_contract" in payload
+    assert "placeholder_markers" in payload
     assert isinstance(payload["summary_schema"], dict)
     assert isinstance(payload["summary_contract"], dict)
+    assert isinstance(payload["placeholder_markers"], dict)
 
 
 def test_validator_placeholder_markers_config_exists_and_is_non_empty() -> None:
@@ -475,17 +477,22 @@ def test_validator_scripts_expose_error_code_registries() -> None:
     backend_root = Path(__file__).resolve().parents[2]
     summary_script = backend_root / "scripts" / "validate-strict-gate-summary-schema.py"
     contract_script = backend_root / "scripts" / "validate-summary-contract-changelog.py"
+    placeholder_markers_script = backend_root / "scripts" / "validate-validator-placeholder-markers.py"
 
     assert summary_script.exists()
     assert contract_script.exists()
+    assert placeholder_markers_script.exists()
 
     summary_codes = set(_load_validator_error_codes(summary_script).values())
     contract_codes = set(_load_validator_error_codes(contract_script).values())
+    placeholder_markers_codes = set(_load_validator_error_codes(placeholder_markers_script).values())
 
     assert summary_codes
     assert contract_codes
+    assert placeholder_markers_codes
     assert all(code.startswith("summary_schema_") for code in summary_codes)
     assert all(code.startswith("summary_contract_") for code in contract_codes)
+    assert all(code.startswith("placeholder_markers_") for code in placeholder_markers_codes)
 
 
 def test_validator_error_code_catalog_covers_all_script_error_codes() -> None:
@@ -493,15 +500,18 @@ def test_validator_error_code_catalog_covers_all_script_error_codes() -> None:
     catalog_file = backend_root / "config" / "validator-error-codes.json"
     summary_script = backend_root / "scripts" / "validate-strict-gate-summary-schema.py"
     contract_script = backend_root / "scripts" / "validate-summary-contract-changelog.py"
+    placeholder_markers_script = backend_root / "scripts" / "validate-validator-placeholder-markers.py"
 
     assert catalog_file.exists()
     catalog_payload = json.loads(catalog_file.read_text(encoding="utf-8"))
     catalog_codes = {
-        code for group in ("summary_schema", "summary_contract") for code in catalog_payload.get(group, {}).keys()
+        code
+        for group in ("summary_schema", "summary_contract", "placeholder_markers")
+        for code in catalog_payload.get(group, {}).keys()
     }
 
     script_codes: set[str] = set()
-    for script_file in (summary_script, contract_script):
+    for script_file in (summary_script, contract_script, placeholder_markers_script):
         assert script_file.exists()
         content = script_file.read_text(encoding="utf-8")
         script_codes.update(VALIDATOR_CODE_PATTERN.findall(content))
