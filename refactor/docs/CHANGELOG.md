@@ -2,6 +2,29 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.135-m3-error-code-metadata-overrides-validator] - 2026-02-19
+
+### Added
+
+- New metadata overrides schema:
+  - `refactor/backend/config/schemas/validator-error-code-metadata-overrides.schema.json`
+- New metadata overrides validator script:
+  - `refactor/backend/scripts/validate-validator-error-code-metadata-overrides.py`
+  - validates override payload schema and override targets against catalog (`group.code`)
+  - supports `--json-errors` (`error_code_metadata_overrides_*`)
+- New tests:
+  - validates metadata overrides schema file exists
+  - validates overrides validator passes default config
+  - validates overrides validator emits structured error for unknown override code
+
+### Changed
+
+- CI now enforces metadata overrides validation:
+  - `python3 scripts/validate-validator-error-code-metadata-overrides.py`
+- README now documents metadata overrides schema and validator usage.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.135-m3-error-code-metadata-overrides-validator`.
+
 ## [0.3.134-m3-error-code-metadata-overrides] - 2026-02-19
 
 ### Added

@@ -440,6 +440,11 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
   - sync/check command: `python3 scripts/sync-validator-error-codes.py --check --strict-descriptions`
   - custom marker config: `python3 scripts/sync-validator-error-codes.py --check --strict-descriptions --placeholder-markers-file <path>`
   - metadata override config: `refactor/backend/config/validator-error-code-metadata-overrides.json`
+  - metadata override schema: `refactor/backend/config/schemas/validator-error-code-metadata-overrides.schema.json`
+  - validate metadata overrides: `python3 scripts/validate-validator-error-code-metadata-overrides.py`
+  - custom overrides/schema/catalog:
+    - `python3 scripts/validate-validator-error-code-metadata-overrides.py --overrides-file <path> --schema-file <path> --catalog-file <path>`
+  - metadata override validator supports `--json-errors` (`error_code_metadata_overrides_*`)
   - custom metadata overrides: `python3 scripts/sync-validator-error-codes.py --metadata-overrides-file <path>`
   - override rules:
     - payload format: `group -> code -> {description|severity|remediation}`
