@@ -2,6 +2,23 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.148-m3-error-code-profile-no-match-fallback] - 2026-02-19
+
+### Added
+
+- No-match fallback message for unknown profile:
+  - when fuzzy match returns no candidate, validators now append:
+    - `Available profiles: <profile-list>.`
+- New tests:
+  - validates lint validator no-match case returns empty suggestions and contains available profiles in message
+  - validates overrides validator no-match case returns empty suggestions and contains available profiles in message
+
+### Changed
+
+- README now documents no-match fallback behavior for unknown profile errors.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.148-m3-error-code-profile-no-match-fallback`.
+
 ## [0.3.147-m3-error-code-profile-suggestion-helper] - 2026-02-19
 
 ### Added

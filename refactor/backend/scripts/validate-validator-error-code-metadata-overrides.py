@@ -166,6 +166,8 @@ def _build_profile_suggestion_payload(
     if suggested_profiles:
         message += f". Did you mean: {', '.join(suggested_profiles)}?"
         message += f" Try: {suggested_cli_args}"
+    elif available_profiles:
+        message += f". Available profiles: {', '.join(available_profiles)}."
     return message, suggested_profiles, suggested_cli_args, suggested_command
 
 
