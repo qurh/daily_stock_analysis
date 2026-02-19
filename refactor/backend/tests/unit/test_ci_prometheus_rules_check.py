@@ -311,6 +311,82 @@ def test_validator_error_code_metadata_overrides_validator_script_json_errors_fo
     assert "unknown override code" in payload["message"].lower()
 
 
+def test_validator_error_code_metadata_overrides_validator_script_json_errors_for_placeholder_text(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-validator-error-code-metadata-overrides.py"
+    assert validate_script_file.exists()
+
+    overrides_file = tmp_path / "metadata-overrides-placeholder.json"
+    overrides_file.write_text(
+        json.dumps(
+            {"summary_schema": {"summary_schema_json_parse_error": {"remediation": "TODO: fill remediation later."}}},
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--overrides-file",
+            str(overrides_file),
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "validate-validator-error-code-metadata-overrides"
+    assert payload["code"] == "error_code_metadata_overrides_placeholder_text_detected"
+    assert "placeholder" in payload["message"].lower()
+
+
+def test_validator_error_code_metadata_overrides_validator_script_json_errors_for_non_actionable_remediation(
+    tmp_path,
+) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-validator-error-code-metadata-overrides.py"
+    assert validate_script_file.exists()
+
+    overrides_file = tmp_path / "metadata-overrides-non-actionable-remediation.json"
+    overrides_file.write_text(
+        json.dumps(
+            {"summary_schema": {"summary_schema_json_parse_error": {"remediation": "N/A"}}},
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--overrides-file",
+            str(overrides_file),
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "validate-validator-error-code-metadata-overrides"
+    assert payload["code"] == "error_code_metadata_overrides_remediation_quality_invalid"
+    assert "remediation" in payload["message"].lower()
+
+
 def test_validator_error_code_sync_script_applies_custom_metadata_overrides(tmp_path) -> None:
     backend_root = Path(__file__).resolve().parents[2]
     sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
