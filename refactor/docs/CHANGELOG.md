@@ -2,6 +2,31 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.126-m3-validator-placeholder-config] - 2026-02-19
+
+### Added
+
+- New placeholder marker config file:
+  - `refactor/backend/config/validator-placeholder-markers.json`
+  - default markers: `TODO`, `TBD`, `FIXME`
+- `sync-validator-error-codes.py` now supports:
+  - `--placeholder-markers-file <path>`
+  - loading strict-description marker vocabulary from config file
+- New tests:
+  - validates placeholder marker config file exists and is non-empty
+  - validates strict error output includes `group.code` entry and remediation hint
+  - validates custom placeholder marker file is honored in strict mode
+
+### Changed
+
+- Strict placeholder failure output is now structured with:
+  - marker list
+  - per-violation `group.code` line
+  - remediation guidance
+- README now documents marker config path and custom marker file usage.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.126-m3-validator-placeholder-config`.
+
 ## [0.3.125-m3-validator-placeholder-vocabulary] - 2026-02-19
 
 ### Added
