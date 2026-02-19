@@ -280,6 +280,7 @@ cd refactor/backend
   - shared installer script: `refactor/backend/scripts/install-promtool.sh`
   - promtool is installed from pinned release `v2.52.0` in workflow steps (not apt package).
   - workflow verifies archive SHA256 before extracting and installing `promtool`.
+  - installer script auto-detects `linux-amd64` / `linux-arm64` from machine architecture by default.
 
 ## Prometheus Alert Rule Template
 
