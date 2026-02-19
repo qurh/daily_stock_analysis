@@ -2,6 +2,22 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.74-m3-promtool-installer-multi-arch] - 2026-02-19
+
+### Added
+
+- New multi-arch auto-detection in promtool installer script:
+  - maps `x86_64/amd64` -> `linux-amd64`
+  - maps `aarch64/arm64` -> `linux-arm64`
+  - fails fast on unsupported machine architectures
+- New tests:
+  - verifies installer script includes multi-arch detection logic
+
+### Changed
+
+- `install-promtool.sh` now auto-detects architecture when `PROMTOOL_PLATFORM` is not explicitly set.
+- Backend app version bumped to `0.3.74-m3-promtool-installer-multi-arch`.
+
 ## [0.3.73-m3-promtool-installer-script-reuse] - 2026-02-19
 
 ### Added
