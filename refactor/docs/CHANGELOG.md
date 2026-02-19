@@ -2,6 +2,20 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.73-m3-promtool-installer-script-reuse] - 2026-02-19
+
+### Added
+
+- New reusable promtool installer script:
+  - `refactor/backend/scripts/install-promtool.sh`
+- New tests:
+  - verifies installer script exists and includes version pin + checksum verification flow
+
+### Changed
+
+- Backend CI workflows now call the shared installer script instead of duplicating inline installation commands.
+- Backend app version bumped to `0.3.73-m3-promtool-installer-script-reuse`.
+
 ## [0.3.72-m3-promtool-checksum-verification] - 2026-02-19
 
 ### Added

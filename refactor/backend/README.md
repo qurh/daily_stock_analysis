@@ -277,6 +277,7 @@ cd refactor/backend
 - GitHub Actions workflow:
   - active workflow: `.github/workflows/refactor-backend-ci.yml`
   - example template: `refactor/backend/ci/github-actions/refactor-backend-ci.example.yml`
+  - shared installer script: `refactor/backend/scripts/install-promtool.sh`
   - promtool is installed from pinned release `v2.52.0` in workflow steps (not apt package).
   - workflow verifies archive SHA256 before extracting and installing `promtool`.
 

@@ -78,11 +78,7 @@ def test_github_actions_refactor_ci_example_includes_promtool_install_and_ci_run
     assert "Install promtool" in content
     assert 'PROMTOOL_VERSION: "2.52.0"' in content
     assert f'PROMTOOL_SHA256: "{PROMTOOL_ARCHIVE_SHA256}"' in content
-    assert "github.com/prometheus/prometheus/releases/download" in content
-    assert "tar -xzf" in content
-    assert "sha256sum -c -" in content
-    assert "PROMTOOL_SHA256" in content
-    assert "sudo install" in content
+    assert "bash refactor/backend/scripts/install-promtool.sh" in content
     assert "apt-get install -y prometheus" not in content
     assert "cd refactor/backend" in content
     assert "bash scripts/ci.sh" in content
@@ -105,7 +101,20 @@ def test_github_actions_refactor_ci_workflow_exists_and_targets_backend_paths() 
     assert "Install promtool" in content
     assert 'PROMTOOL_VERSION: "2.52.0"' in content
     assert f'PROMTOOL_SHA256: "{PROMTOOL_ARCHIVE_SHA256}"' in content
-    assert "github.com/prometheus/prometheus/releases/download" in content
-    assert "sha256sum -c -" in content
+    assert "bash refactor/backend/scripts/install-promtool.sh" in content
     assert "apt-get install -y prometheus" not in content
     assert "bash scripts/ci.sh" in content
+
+
+def test_promtool_installer_script_exists_and_verifies_checksum() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    install_script_file = backend_root / "scripts" / "install-promtool.sh"
+    assert install_script_file.exists()
+
+    content = install_script_file.read_text(encoding="utf-8")
+    assert "PROMTOOL_VERSION" in content
+    assert "PROMTOOL_SHA256" in content
+    assert "github.com/prometheus/prometheus/releases/download" in content
+    assert "sha256sum -c -" in content
+    assert "tar -xzf" in content
+    assert "install" in content
