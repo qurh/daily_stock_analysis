@@ -1,5 +1,6 @@
 import json
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request
@@ -87,6 +88,46 @@ def _load_total_sum(request: Request, table_name: str, value_column: str) -> int
     if row is None:
         return 0
     return int(row["total"])
+
+
+def _load_promtool_soft_fallback_audit_stats(audit_file_path: str | None) -> dict[str, float]:
+    stats = {
+        "enabled": 0.0,
+        "events_total": 0.0,
+        "read_error": 0.0,
+        "last_seen_unixtime": 0.0,
+    }
+    if audit_file_path is None:
+        return stats
+
+    normalized_path = audit_file_path.strip()
+    if not normalized_path:
+        return stats
+
+    stats["enabled"] = 1.0
+    audit_file = Path(normalized_path)
+    if not audit_file.exists():
+        return stats
+
+    try:
+        lines = audit_file.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        stats["read_error"] = 1.0
+        return stats
+
+    for raw_line in lines:
+        line = raw_line.strip()
+        if not line:
+            continue
+        stats["events_total"] += 1.0
+        timestamp_token = line.split("\t", 1)[0].strip()
+        try:
+            parsed_timestamp = datetime.strptime(timestamp_token, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+        stats["last_seen_unixtime"] = max(stats["last_seen_unixtime"], parsed_timestamp.timestamp())
+
+    return stats
 
 
 def _append_total_gauge_line(lines: list[str], metric_name: str, help_text: str, total: int) -> None:
@@ -630,6 +671,9 @@ def get_global_metrics(
     )
     backtest_quality = _load_backtest_quality_snapshot(request=request)
     optimization_quality = _load_optimization_quality_snapshot(request=request)
+    promtool_soft_audit_stats = _load_promtool_soft_fallback_audit_stats(
+        audit_file_path=request.app.state.settings.promtool_remote_soft_audit_file
+    )
     lines = [
         "# HELP refactor_backend_build_info Backend build info.",
         "# TYPE refactor_backend_build_info gauge",
@@ -707,6 +751,30 @@ def get_global_metrics(
         metric_name="refactor_knowledge_chunks_token_count_total",
         help_text="Current summed token count across all knowledge chunks.",
         total=knowledge_chunks_token_total,
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_promtool_remote_soft_fallback_audit_enabled",
+        help_text="Whether promtool remote soft fallback audit file path is configured (1 enabled, 0 disabled).",
+        total=int(promtool_soft_audit_stats["enabled"]),
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_promtool_remote_soft_fallback_audit_events_total",
+        help_text="Current number of promtool remote soft fallback audit events in configured audit file.",
+        total=int(promtool_soft_audit_stats["events_total"]),
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_promtool_remote_soft_fallback_audit_read_error",
+        help_text="Whether reading promtool remote soft fallback audit file failed (1 failed, 0 success).",
+        total=int(promtool_soft_audit_stats["read_error"]),
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_promtool_remote_soft_fallback_audit_last_seen_unixtime",
+        help_text="Last observed UTC unix timestamp from promtool remote soft fallback audit events.",
+        value=promtool_soft_audit_stats["last_seen_unixtime"],
     )
     _append_labeled_gauge_lines(
         lines=lines,
