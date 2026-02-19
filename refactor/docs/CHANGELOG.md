@@ -2,6 +2,30 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.139-m3-error-code-lint-profile-support] - 2026-02-19
+
+### Added
+
+- Metadata lint profile mode support:
+  - lint config schema now supports `default_profile + profiles` structure.
+  - `validate-validator-error-code-metadata-lint.py` now supports:
+    - `--lint-profile <profile>`
+    - `error_code_metadata_lint_profile_not_found`
+  - `validate-validator-error-code-metadata-overrides.py` now supports:
+    - `--lint-profile <profile>`
+    - `error_code_metadata_overrides_lint_profile_not_found`
+- New tests:
+  - validates metadata lint validator supports profiled lint config
+  - validates metadata lint validator returns structured error for unknown profile
+  - validates metadata overrides validator supports lint profile selection
+  - validates metadata overrides validator returns structured error for unknown profile
+
+### Changed
+
+- README now documents lint profile config and `--lint-profile` usage.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.139-m3-error-code-lint-profile-support`.
+
 ## [0.3.138-m3-error-code-lint-validator] - 2026-02-19
 
 ### Added

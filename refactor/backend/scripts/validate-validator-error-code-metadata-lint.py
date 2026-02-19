@@ -22,6 +22,7 @@ VALIDATOR_ERROR_CODES = {
     "PAYLOAD_TYPE_INVALID": "error_code_metadata_lint_payload_type_invalid",
     "SCHEMA_INVALID": "error_code_metadata_lint_schema_invalid",
     "SCHEMA_VALIDATION_FAILED": "error_code_metadata_lint_schema_validation_failed",
+    "PROFILE_NOT_FOUND": "error_code_metadata_lint_profile_not_found",
     "ACTION_VERB_FORMAT_INVALID": "error_code_metadata_lint_action_verb_format_invalid",
     "ACTION_VERB_DUPLICATE_CASE_INSENSITIVE": "error_code_metadata_lint_action_verb_duplicate_case_insensitive",
     "UNEXPECTED_ERROR": "error_code_metadata_lint_unexpected_error",
@@ -95,6 +96,30 @@ def _validate_action_verbs(lint_config: dict) -> None:
         seen.add(verb)
 
 
+def _resolve_lint_profile(lint_config: dict, lint_profile: str | None) -> tuple[dict, str | None]:
+    profiles = lint_config.get("profiles")
+    if profiles is None:
+        if lint_profile is not None:
+            raise MetadataLintValidationError(
+                code=VALIDATOR_ERROR_CODES["PROFILE_NOT_FOUND"],
+                message=f"lint profile not found: {lint_profile}",
+                context={"lint_profile": lint_profile, "available_profiles": []},
+            )
+        return lint_config, None
+
+    assert isinstance(profiles, dict)
+    selected_profile = lint_profile or lint_config.get("default_profile")
+    assert isinstance(selected_profile, str)
+    profile_payload = profiles.get(selected_profile)
+    if not isinstance(profile_payload, dict):
+        raise MetadataLintValidationError(
+            code=VALIDATOR_ERROR_CODES["PROFILE_NOT_FOUND"],
+            message=f"lint profile not found: {selected_profile}",
+            context={"lint_profile": selected_profile, "available_profiles": sorted(profiles.keys())},
+        )
+    return profile_payload, selected_profile
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate validator error-code metadata lint config.")
     parser.add_argument(
@@ -108,6 +133,12 @@ def main() -> int:
         type=Path,
         default=DEFAULT_SCHEMA_FILE,
         help="Path to metadata lint schema file.",
+    )
+    parser.add_argument(
+        "--lint-profile",
+        type=str,
+        default=None,
+        help="Optional lint profile name when config contains profiles.",
     )
     parser.add_argument(
         "--json-errors",
@@ -132,8 +163,16 @@ def main() -> int:
         lint_config = _load_json_payload(path=args.lint_config_file, role="lint_config")
         schema = _load_json_payload(path=args.schema_file, role="schema")
         _validate_schema(lint_config=lint_config, schema=schema, schema_file=args.schema_file)
-        _validate_action_verbs(lint_config=lint_config)
-        print(f"[validate-validator-error-code-metadata-lint] lint config is valid: {args.lint_config_file}")
+        selected_lint_config, selected_profile = _resolve_lint_profile(
+            lint_config=lint_config,
+            lint_profile=args.lint_profile,
+        )
+        _validate_action_verbs(lint_config=selected_lint_config)
+        profile_suffix = f" (profile={selected_profile})" if selected_profile is not None else ""
+        print(
+            "[validate-validator-error-code-metadata-lint] "
+            f"lint config is valid: {args.lint_config_file}{profile_suffix}"
+        )
         return 0
     except Exception as exc:
         if args.json_errors:

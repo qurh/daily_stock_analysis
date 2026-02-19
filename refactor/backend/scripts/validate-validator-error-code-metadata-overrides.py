@@ -29,6 +29,7 @@ VALIDATOR_ERROR_CODES = {
     "UNKNOWN_OVERRIDE_CODE": "error_code_metadata_overrides_unknown_override_code",
     "LINT_CONFIG_FILE_NOT_FOUND": "error_code_metadata_overrides_lint_config_file_not_found",
     "LINT_CONFIG_INVALID": "error_code_metadata_overrides_lint_config_invalid",
+    "LINT_PROFILE_NOT_FOUND": "error_code_metadata_overrides_lint_profile_not_found",
     "PLACEHOLDER_MARKERS_FILE_NOT_FOUND": "error_code_metadata_overrides_placeholder_markers_file_not_found",
     "PLACEHOLDER_MARKERS_INVALID": "error_code_metadata_overrides_placeholder_markers_invalid",
     "PLACEHOLDER_TEXT_DETECTED": "error_code_metadata_overrides_placeholder_text_detected",
@@ -99,7 +100,47 @@ def _validate_override_targets(overrides: dict, catalog: dict) -> None:
                 )
 
 
-def _load_lint_config(path: Path) -> tuple[int, re.Pattern[str]]:
+def _resolve_lint_profile(payload: dict, lint_profile: str | None, path: Path) -> dict:
+    profiles = payload.get("profiles")
+    if profiles is None:
+        if lint_profile is not None:
+            raise MetadataOverridesValidationError(
+                code=VALIDATOR_ERROR_CODES["LINT_PROFILE_NOT_FOUND"],
+                message=f"lint profile not found: {lint_profile}",
+                context={"path": str(path), "lint_profile": lint_profile, "available_profiles": []},
+            )
+        return payload
+
+    if not isinstance(profiles, dict) or not profiles:
+        raise MetadataOverridesValidationError(
+            code=VALIDATOR_ERROR_CODES["LINT_CONFIG_INVALID"],
+            message=f"invalid lint config profiles: {path}",
+            context={"path": str(path), "field": "profiles"},
+        )
+
+    selected_profile = lint_profile or payload.get("default_profile")
+    if not isinstance(selected_profile, str) or not selected_profile.strip():
+        raise MetadataOverridesValidationError(
+            code=VALIDATOR_ERROR_CODES["LINT_CONFIG_INVALID"],
+            message=f"invalid lint config default_profile: {path}",
+            context={"path": str(path), "field": "default_profile"},
+        )
+    selected_profile = selected_profile.strip()
+    profile_payload = profiles.get(selected_profile)
+    if not isinstance(profile_payload, dict):
+        raise MetadataOverridesValidationError(
+            code=VALIDATOR_ERROR_CODES["LINT_PROFILE_NOT_FOUND"],
+            message=f"lint profile not found: {selected_profile}",
+            context={
+                "path": str(path),
+                "lint_profile": selected_profile,
+                "available_profiles": sorted(profiles.keys()),
+            },
+        )
+    return profile_payload
+
+
+def _load_lint_config(path: Path, lint_profile: str | None = None) -> tuple[int, re.Pattern[str]]:
     if not path.exists():
         raise MetadataOverridesValidationError(
             code=VALIDATOR_ERROR_CODES["LINT_CONFIG_FILE_NOT_FOUND"],
@@ -107,6 +148,7 @@ def _load_lint_config(path: Path) -> tuple[int, re.Pattern[str]]:
             context={"path": str(path)},
         )
     payload = _load_json_payload(path=path, role="lint_config")
+    payload = _resolve_lint_profile(payload=payload, lint_profile=lint_profile, path=path)
     min_remediation_length = payload.get("min_remediation_length")
     action_verbs = payload.get("action_verbs")
 
@@ -269,6 +311,12 @@ def main() -> int:
         help="Path to metadata lint config file.",
     )
     parser.add_argument(
+        "--lint-profile",
+        type=str,
+        default=None,
+        help="Optional lint profile name when lint config contains profiles.",
+    )
+    parser.add_argument(
         "--json-errors",
         action="store_true",
         help="Emit structured JSON errors to stderr.",
@@ -300,7 +348,10 @@ def main() -> int:
         catalog = _load_json_payload(path=args.catalog_file, role="catalog")
         _validate_overrides_schema(overrides=overrides, schema=schema, schema_file=args.schema_file)
         _validate_override_targets(overrides=overrides, catalog=catalog)
-        min_remediation_length, actionable_remediation_pattern = _load_lint_config(path=args.lint_config_file)
+        min_remediation_length, actionable_remediation_pattern = _load_lint_config(
+            path=args.lint_config_file,
+            lint_profile=args.lint_profile,
+        )
         placeholder_markers = _load_placeholder_markers(path=args.placeholder_markers_file)
         placeholder_pattern = _build_placeholder_pattern(markers=placeholder_markers)
         _validate_placeholder_text(overrides=overrides, placeholder_pattern=placeholder_pattern)
