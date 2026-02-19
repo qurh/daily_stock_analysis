@@ -18,6 +18,25 @@ DEFAULT_EXAMPLE_FILE = BACKEND_ROOT / "config" / "schemas" / "strict-gate-summar
 DEFAULT_SYNC_SCRIPT_FILE = BACKEND_ROOT / "scripts" / "sync-strict-gate-alert-thresholds.py"
 EXPECTED_SCHEMA_DRAFT = "https://json-schema.org/draft/2020-12/schema"
 SUMMARY_SCHEMA_VERSION_PATTERN = re.compile(r'^SUMMARY_SCHEMA_VERSION\s*=\s*"([^"]+)"\s*$')
+VALIDATOR_ERROR_CODES = {
+    "JSON_PARSE_ERROR": "summary_schema_json_parse_error",
+    "EXAMPLE_PAYLOAD_SCHEMA_VALIDATION_FAILED": "summary_schema_example_payload_schema_validation_failed",
+    "EXAMPLE_SCHEMA_VERSION_MISMATCH": "summary_schema_example_schema_version_mismatch",
+    "FILES_TYPE_INVALID": "summary_schema_files_type_invalid",
+    "MODULES_TYPE_INVALID": "summary_schema_modules_type_invalid",
+    "CHANGED_FILES_COUNT_MISMATCH": "summary_schema_changed_files_count_mismatch",
+    "TOTAL_ADDED_LINES_MISMATCH": "summary_schema_total_added_lines_mismatch",
+    "TOTAL_REMOVED_LINES_MISMATCH": "summary_schema_total_removed_lines_mismatch",
+    "MODULE_TOTAL_MISMATCH_STRICT": "summary_schema_module_total_mismatch_strict",
+    "MODULE_TOTAL_MISMATCH_GOVERNANCE": "summary_schema_module_total_mismatch_governance",
+    "MODULE_TOTAL_MISMATCH_SOFT_AUDIT": "summary_schema_module_total_mismatch_soft_audit",
+    "UNEXPECTED_ERROR": "summary_schema_unexpected_error",
+}
+MODULE_TOTAL_MISMATCH_CODE_BY_NAME = {
+    "strict": VALIDATOR_ERROR_CODES["MODULE_TOTAL_MISMATCH_STRICT"],
+    "governance": VALIDATOR_ERROR_CODES["MODULE_TOTAL_MISMATCH_GOVERNANCE"],
+    "soft_audit": VALIDATOR_ERROR_CODES["MODULE_TOTAL_MISMATCH_SOFT_AUDIT"],
+}
 
 
 class SummarySchemaValidationError(ValueError):
@@ -32,7 +51,7 @@ def _load_json(path: Path) -> dict:
         return json.loads(path.read_text(encoding="utf-8"))
     except JSONDecodeError as exc:
         raise SummarySchemaValidationError(
-            code="summary_schema_json_parse_error",
+            code=VALIDATOR_ERROR_CODES["JSON_PARSE_ERROR"],
             message=f"failed to parse json: {path}",
             context={"path": str(path)},
         ) from exc
@@ -84,12 +103,12 @@ def _validate_example_payload(example_payload: dict, schema: dict, expected_vers
         Draft202012Validator(schema).validate(example_payload)
     except ValidationError as exc:
         raise SummarySchemaValidationError(
-            code="summary_schema_example_payload_schema_validation_failed",
+            code=VALIDATOR_ERROR_CODES["EXAMPLE_PAYLOAD_SCHEMA_VALIDATION_FAILED"],
             message="example payload validation failed",
         ) from exc
     if example_payload.get("schema_version") != expected_version:
         raise SummarySchemaValidationError(
-            code="summary_schema_example_schema_version_mismatch",
+            code=VALIDATOR_ERROR_CODES["EXAMPLE_SCHEMA_VERSION_MISMATCH"],
             message=(
                 f"example payload schema_version mismatch: "
                 f"example={example_payload.get('schema_version')}, expected={expected_version}"
@@ -104,12 +123,12 @@ def _validate_example_payload(example_payload: dict, schema: dict, expected_vers
     modules = example_payload.get("modules")
     if not isinstance(files, list):
         raise SummarySchemaValidationError(
-            code="summary_schema_files_type_invalid",
+            code=VALIDATOR_ERROR_CODES["FILES_TYPE_INVALID"],
             message="example payload consistency check failed: files must be a list",
         )
     if not isinstance(modules, dict):
         raise SummarySchemaValidationError(
-            code="summary_schema_modules_type_invalid",
+            code=VALIDATOR_ERROR_CODES["MODULES_TYPE_INVALID"],
             message="example payload consistency check failed: modules must be an object",
         )
 
@@ -117,7 +136,7 @@ def _validate_example_payload(example_payload: dict, schema: dict, expected_vers
     expected_files_count = len(files)
     if changed_files_count != expected_files_count:
         raise SummarySchemaValidationError(
-            code="summary_schema_changed_files_count_mismatch",
+            code=VALIDATOR_ERROR_CODES["CHANGED_FILES_COUNT_MISMATCH"],
             message=(
                 f"example payload consistency check failed: "
                 f"changed_files_count mismatch (expected={expected_files_count}, actual={changed_files_count})"
@@ -131,7 +150,7 @@ def _validate_example_payload(example_payload: dict, schema: dict, expected_vers
     summary_total_removed = example_payload.get("total_removed_lines")
     if summary_total_added != total_added_lines:
         raise SummarySchemaValidationError(
-            code="summary_schema_total_added_lines_mismatch",
+            code=VALIDATOR_ERROR_CODES["TOTAL_ADDED_LINES_MISMATCH"],
             message=(
                 f"example payload consistency check failed: "
                 f"total_added_lines mismatch (expected={total_added_lines}, actual={summary_total_added})"
@@ -140,7 +159,7 @@ def _validate_example_payload(example_payload: dict, schema: dict, expected_vers
         )
     if summary_total_removed != total_removed_lines:
         raise SummarySchemaValidationError(
-            code="summary_schema_total_removed_lines_mismatch",
+            code=VALIDATOR_ERROR_CODES["TOTAL_REMOVED_LINES_MISMATCH"],
             message=(
                 f"example payload consistency check failed: "
                 f"total_removed_lines mismatch (expected={total_removed_lines}, actual={summary_total_removed})"
@@ -160,7 +179,7 @@ def _validate_example_payload(example_payload: dict, schema: dict, expected_vers
                 file_total += item_modules.get(module_name, {}).get("changed_alerts_count", 0)
         if module_total != file_total:
             raise SummarySchemaValidationError(
-                code=f"summary_schema_module_total_mismatch_{module_name}",
+                code=MODULE_TOTAL_MISMATCH_CODE_BY_NAME[module_name],
                 message=(
                     f"example payload consistency check failed: "
                     f"module total mismatch for {module_name} (expected={file_total}, actual={module_total})"
@@ -233,7 +252,7 @@ def main() -> int:
             else:
                 payload = {
                     "validator": "validate-strict-gate-summary-schema",
-                    "code": "summary_schema_unexpected_error",
+                    "code": VALIDATOR_ERROR_CODES["UNEXPECTED_ERROR"],
                     "message": str(exc),
                     "context": {},
                 }
