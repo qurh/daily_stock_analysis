@@ -1516,6 +1516,63 @@ def test_global_metrics_endpoint_includes_backtest_and_optimization_status_count
     assert 'refactor_optimization_jobs_total{status="completed"} 1' in body
 
 
+def test_global_metrics_endpoint_includes_strategy_publish_strict_gate_metrics() -> None:
+    client = TestClient(create_app())
+    now = datetime.now(timezone.utc).isoformat()
+    strategy_id = str(uuid4())
+
+    with client.app.state.database.connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO strategy_artifacts (
+                strategy_id, strategy_type, version, rules_json, thresholds_json,
+                conditions_json, source_memo_ids_json, status, gate_result_json,
+                backtest_job_id, created_at, updated_at
+            ) VALUES (?, 'analysis', 1, ?, ?, ?, ?, 'candidate', NULL, NULL, ?, ?)
+            """,
+            (
+                strategy_id,
+                json.dumps([], ensure_ascii=False),
+                json.dumps({}, ensure_ascii=False),
+                json.dumps({}, ensure_ascii=False),
+                json.dumps([], ensure_ascii=False),
+                now,
+                now,
+            ),
+        )
+        conn.execute(
+            """
+            INSERT INTO strategy_publish_gate_events (
+                event_id, strategy_id, gate_code, require_proposal_id, blocked, created_at
+            ) VALUES (?, ?, 'STR-GATE-009', 1, 1, ?)
+            """,
+            (str(uuid4()), strategy_id, now),
+        )
+        conn.execute(
+            """
+            INSERT INTO strategy_publish_gate_events (
+                event_id, strategy_id, gate_code, require_proposal_id, blocked, created_at
+            ) VALUES (?, ?, 'STR-GATE-009', 1, 0, ?)
+            """,
+            (str(uuid4()), strategy_id, now),
+        )
+        conn.execute(
+            """
+            INSERT INTO strategy_publish_gate_events (
+                event_id, strategy_id, gate_code, require_proposal_id, blocked, created_at
+            ) VALUES (?, ?, 'STR-GATE-007', 0, 1, ?)
+            """,
+            (str(uuid4()), strategy_id, now),
+        )
+
+    response = client.get("/api/v2/metrics")
+    assert response.status_code == 200
+    body = response.text
+    assert "refactor_strategy_publish_strict_gate_hits_total 2" in body
+    assert "refactor_strategy_publish_strict_gate_blocked_total 1" in body
+    assert "refactor_strategy_publish_strict_gate_block_ratio 0.5" in body
+
+
 def test_global_metrics_endpoint_includes_analysis_and_workflow_status_counts() -> None:
     client = TestClient(create_app())
     now = datetime.now(timezone.utc).isoformat()
