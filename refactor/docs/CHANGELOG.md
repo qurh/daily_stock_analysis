@@ -2,6 +2,26 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.86-m3-promtool-soft-audit-rotation] - 2026-02-19
+
+### Added
+
+- New composite rotation controls for promtool soft-mode audit file:
+  - `PROMTOOL_REMOTE_SOFT_AUDIT_MAX_BYTES` (`0` disables byte trimming)
+  - `PROMTOOL_REMOTE_SOFT_AUDIT_RETENTION_DAYS` (`0` disables age-based prune)
+- New tests:
+  - verifies soft audit file trims to max bytes
+  - verifies soft audit file prunes records by retention days
+  - verifies invalid `PROMTOOL_REMOTE_SOFT_AUDIT_MAX_BYTES` fails validation
+
+### Changed
+
+- `validate-promtool-installer-config.sh` now applies composite soft audit rotation in order:
+  - retention-days prune
+  - max-lines trim
+  - max-bytes trim
+- Backend app version bumped to `0.3.86-m3-promtool-soft-audit-rotation`.
+
 ## [0.3.85-m3-promtool-soft-audit-retention] - 2026-02-19
 
 ### Added

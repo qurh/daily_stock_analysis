@@ -278,6 +278,8 @@ cd refactor/backend
   - `soft` mode emits metric-style log: `remote_soft_fallback_total=1`.
   - optional audit log sink: `PROMTOOL_REMOTE_SOFT_AUDIT_FILE=<path>`.
   - optional audit retention: `PROMTOOL_REMOTE_SOFT_AUDIT_MAX_LINES=<N>` (`0` disables trimming).
+  - optional audit size cap: `PROMTOOL_REMOTE_SOFT_AUDIT_MAX_BYTES=<N>` (`0` disables byte trimming).
+  - optional audit time window: `PROMTOOL_REMOTE_SOFT_AUDIT_RETENTION_DAYS=<N>` (`0` disables age prune).
   - `/api/v2/metrics` can export audit counters from the same file when `PROMTOOL_REMOTE_SOFT_AUDIT_FILE` is set in backend env.
 - Remote checksum validation supports fetch hardening knobs:
   - `PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS` (default: `3`)
