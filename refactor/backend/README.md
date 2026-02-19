@@ -277,6 +277,7 @@ cd refactor/backend
   - `soft`: remote validation failure is logged as warning and validation continues.
   - `soft` mode emits metric-style log: `remote_soft_fallback_total=1`.
   - optional audit log sink: `PROMTOOL_REMOTE_SOFT_AUDIT_FILE=<path>`.
+  - `/api/v2/metrics` can export audit counters from the same file when `PROMTOOL_REMOTE_SOFT_AUDIT_FILE` is set in backend env.
 - Remote checksum validation supports fetch hardening knobs:
   - `PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS` (default: `3`)
   - `PROMTOOL_REMOTE_FETCH_CONNECT_TIMEOUT_SECONDS` (default: `10`)

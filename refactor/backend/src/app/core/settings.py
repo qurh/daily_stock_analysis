@@ -79,6 +79,7 @@ class AppSettings:
     prompt_lock_overview_timeout_summary_sec: float
     prompt_lock_overview_timeout_grouped_sec: float
     prompt_lock_overview_timeout_trends_sec: float
+    promtool_remote_soft_audit_file: str | None
     backtest_return_sample_min_size: int
     backtest_return_sample_medium_coverage_pct: float
     backtest_multi_window_alert_warn_low_windows: int
@@ -128,6 +129,9 @@ def load_settings() -> AppSettings:
     prompt_lock_overview_timeout_summary_sec = _read_float_env("PROMPT_LOCK_OVERVIEW_TIMEOUT_SUMMARY_SEC", 0.0)
     prompt_lock_overview_timeout_grouped_sec = _read_float_env("PROMPT_LOCK_OVERVIEW_TIMEOUT_GROUPED_SEC", 0.0)
     prompt_lock_overview_timeout_trends_sec = _read_float_env("PROMPT_LOCK_OVERVIEW_TIMEOUT_TRENDS_SEC", 0.0)
+    promtool_remote_soft_audit_file = os.getenv("PROMTOOL_REMOTE_SOFT_AUDIT_FILE")
+    if promtool_remote_soft_audit_file is not None:
+        promtool_remote_soft_audit_file = promtool_remote_soft_audit_file.strip() or None
     backtest_return_sample_min_size = _read_int_env("BACKTEST_RETURN_SAMPLE_MIN_SIZE", 20)
     backtest_return_sample_medium_coverage_pct = _read_float_env("BACKTEST_RETURN_SAMPLE_MEDIUM_COVERAGE_PCT", 50.0)
     backtest_multi_window_alert_warn_low_windows_raw = _read_int_env("BACKTEST_MULTI_WINDOW_ALERT_WARN_LOW_WINDOWS", 1)
@@ -229,6 +233,7 @@ def load_settings() -> AppSettings:
         prompt_lock_overview_timeout_summary_sec=prompt_lock_overview_timeout_summary_sec,
         prompt_lock_overview_timeout_grouped_sec=prompt_lock_overview_timeout_grouped_sec,
         prompt_lock_overview_timeout_trends_sec=prompt_lock_overview_timeout_trends_sec,
+        promtool_remote_soft_audit_file=promtool_remote_soft_audit_file,
         backtest_return_sample_min_size=backtest_return_sample_min_size,
         backtest_return_sample_medium_coverage_pct=backtest_return_sample_medium_coverage_pct,
         backtest_multi_window_alert_warn_low_windows=backtest_multi_window_alert_warn_low_windows,
