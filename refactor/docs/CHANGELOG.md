@@ -2,6 +2,20 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.110-m3-threshold-summary-schema-version] - 2026-02-19
+
+### Added
+
+- JSON summary payload now includes a schema contract field:
+  - `schema_version: \"1\"`
+- New test:
+  - verifies summary JSON contains `schema_version`
+
+### Changed
+
+- README now documents `schema_version` in JSON summary payload.
+- Backend app version bumped to `0.3.110-m3-threshold-summary-schema-version`.
+
 ## [0.3.109-m3-threshold-sync-summary-output-file] - 2026-02-19
 
 ### Added

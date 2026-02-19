@@ -442,3 +442,35 @@ def test_strict_gate_alert_threshold_sync_summary_output_requires_json_format(tm
 
     assert result.returncode != 0
     assert "requires --summary-format json" in result.stderr.lower()
+
+
+def test_strict_gate_alert_threshold_sync_summary_json_includes_schema_version(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script = backend_root / "scripts" / "sync-strict-gate-alert-thresholds.py"
+
+    payload = _base_threshold_config(backend_root)
+    payload["profiles"]["dev"]["warn_for"] = "6m"
+    config_file = _write_threshold_config(tmp_path=tmp_path, payload=payload)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script),
+            "--dry-run",
+            "--summary-only",
+            "--summary-format",
+            "json",
+            "--profile",
+            "dev",
+            "--config",
+            str(config_file),
+        ],
+        cwd=str(backend_root),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+    summary = json.loads(result.stdout)
+    assert summary["schema_version"] == "1"
