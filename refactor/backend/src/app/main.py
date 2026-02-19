@@ -104,7 +104,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Daily Stock Analysis Refactor API",
-        version="0.3.133-m3-error-code-metadata-policy",
+        version="0.3.134-m3-error-code-metadata-overrides",
     )
     app.state.workflow_service = workflow_service
     app.state.analysis_service = analysis_service

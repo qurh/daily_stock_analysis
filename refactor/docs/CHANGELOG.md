@@ -2,6 +2,27 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.134-m3-error-code-metadata-overrides] - 2026-02-19
+
+### Added
+
+- New metadata override config file:
+  - `refactor/backend/config/validator-error-code-metadata-overrides.json`
+- `sync-validator-error-codes.py` now supports:
+  - `--metadata-overrides-file <path>`
+  - override payload format: `group -> code -> {description|severity|remediation}`
+  - strict validation: unknown override group/code is rejected
+- New tests:
+  - validates metadata overrides config file exists
+  - validates custom metadata overrides are applied
+  - validates script fails on unknown override code
+
+### Changed
+
+- README now documents metadata override config and override rules.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.134-m3-error-code-metadata-overrides`.
+
 ## [0.3.133-m3-error-code-metadata-policy] - 2026-02-19
 
 ### Added
