@@ -11,6 +11,8 @@ PROMTOOL_REMOTE_FETCH_TIMEOUT_SECONDS="${PROMTOOL_REMOTE_FETCH_TIMEOUT_SECONDS:-
 PROMTOOL_REMOTE_FETCH_RETRY_DELAY_SECONDS="${PROMTOOL_REMOTE_FETCH_RETRY_DELAY_SECONDS:-1}"
 PROMTOOL_REMOTE_FETCH_CACHE_FILE="${PROMTOOL_REMOTE_FETCH_CACHE_FILE:-}"
 PROMTOOL_REMOTE_FETCH_CACHE_TTL_SECONDS="${PROMTOOL_REMOTE_FETCH_CACHE_TTL_SECONDS:-3600}"
+PROMTOOL_REMOTE_SOFT_AUDIT_FILE="${PROMTOOL_REMOTE_SOFT_AUDIT_FILE:-}"
+PROMTOOL_REMOTE_VALIDATION_LAST_ERROR=""
 
 if [[ ! -f "${PROMTOOL_CONFIG_FILE}" ]]; then
   echo "[validate-promtool-installer-config] config file not found: ${PROMTOOL_CONFIG_FILE}" >&2
@@ -85,6 +87,7 @@ run_remote_checksum_validation() {
   local remote_amd64
   local remote_arm64
 
+  PROMTOOL_REMOTE_VALIDATION_LAST_ERROR=""
   PROMTOOL_SHA256SUMS_URL="${PROMTOOL_SHA256SUMS_URL:-https://github.com/prometheus/prometheus/releases/download/v${PROMTOOL_DEFAULT_VERSION}/sha256sums.txt}"
   sha256sums_file="$(mktemp)"
 
@@ -129,7 +132,8 @@ run_remote_checksum_validation() {
 
     if (( fetch_succeeded != 1 )); then
       rm -f "${sha256sums_file}"
-      echo "[validate-promtool-installer-config] failed to fetch sha256sums after ${PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS} attempt(s): ${PROMTOOL_SHA256SUMS_URL}" >&2
+      PROMTOOL_REMOTE_VALIDATION_LAST_ERROR="failed to fetch sha256sums after ${PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS} attempt(s): ${PROMTOOL_SHA256SUMS_URL}"
+      echo "[validate-promtool-installer-config] ${PROMTOOL_REMOTE_VALIDATION_LAST_ERROR}" >&2
       return 1
     fi
 
@@ -151,22 +155,26 @@ run_remote_checksum_validation() {
 
   if [[ -z "${remote_amd64}" ]]; then
     rm -f "${sha256sums_file}"
-    echo "[validate-promtool-installer-config] checksum entry not found for ${archive_amd64}" >&2
+    PROMTOOL_REMOTE_VALIDATION_LAST_ERROR="checksum entry not found for ${archive_amd64}"
+    echo "[validate-promtool-installer-config] ${PROMTOOL_REMOTE_VALIDATION_LAST_ERROR}" >&2
     return 1
   fi
   if [[ -z "${remote_arm64}" ]]; then
     rm -f "${sha256sums_file}"
-    echo "[validate-promtool-installer-config] checksum entry not found for ${archive_arm64}" >&2
+    PROMTOOL_REMOTE_VALIDATION_LAST_ERROR="checksum entry not found for ${archive_arm64}"
+    echo "[validate-promtool-installer-config] ${PROMTOOL_REMOTE_VALIDATION_LAST_ERROR}" >&2
     return 1
   fi
   if [[ "${remote_amd64}" != "${PROMTOOL_DEFAULT_SHA256_LINUX_AMD64}" ]]; then
     rm -f "${sha256sums_file}"
-    echo "[validate-promtool-installer-config] checksum mismatch for ${archive_amd64}" >&2
+    PROMTOOL_REMOTE_VALIDATION_LAST_ERROR="checksum mismatch for ${archive_amd64}"
+    echo "[validate-promtool-installer-config] ${PROMTOOL_REMOTE_VALIDATION_LAST_ERROR}" >&2
     return 1
   fi
   if [[ "${remote_arm64}" != "${PROMTOOL_DEFAULT_SHA256_LINUX_ARM64}" ]]; then
     rm -f "${sha256sums_file}"
-    echo "[validate-promtool-installer-config] checksum mismatch for ${archive_arm64}" >&2
+    PROMTOOL_REMOTE_VALIDATION_LAST_ERROR="checksum mismatch for ${archive_arm64}"
+    echo "[validate-promtool-installer-config] ${PROMTOOL_REMOTE_VALIDATION_LAST_ERROR}" >&2
     return 1
   fi
 
@@ -192,7 +200,21 @@ if [[ "${normalized_validate_remote}" == "1" || "${normalized_validate_remote}" 
 
   if ! run_remote_checksum_validation; then
     if [[ "${normalized_validate_remote_mode}" == "soft" ]]; then
+      soft_reason="${PROMTOOL_REMOTE_VALIDATION_LAST_ERROR:-unknown}"
+      soft_reason="${soft_reason//$'\n'/ }"
+      soft_reason="${soft_reason//$'\t'/ }"
       echo "[validate-promtool-installer-config] remote checksum validation failed in soft mode, continue." >&2
+      echo "[validate-promtool-installer-config] metric remote_soft_fallback_total=1 mode=soft reason=\"${soft_reason}\"" >&2
+      if [[ -n "${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}" ]]; then
+        soft_audit_dir="$(dirname "${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}")"
+        soft_audit_ts="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+        if mkdir -p "${soft_audit_dir}" \
+          && printf "%s\tmode=soft\tversion=%s\turl=%s\treason=%s\n" "${soft_audit_ts}" "${PROMTOOL_DEFAULT_VERSION}" "${PROMTOOL_SHA256SUMS_URL}" "${soft_reason}" >> "${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}"; then
+          echo "[validate-promtool-installer-config] wrote soft-mode audit record: ${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}" >&2
+        else
+          echo "[validate-promtool-installer-config] warning: failed to write soft-mode audit record: ${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}" >&2
+        fi
+      fi
     else
       exit 1
     fi
