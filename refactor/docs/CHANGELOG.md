@@ -2,6 +2,26 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.127-m3-placeholder-marker-validator] - 2026-02-19
+
+### Added
+
+- New marker config validator script:
+  - `refactor/backend/scripts/validate-validator-placeholder-markers.py`
+  - validates placeholder marker config shape, non-empty values, format, and duplicate markers
+- New tests:
+  - validates marker validator script passes default config
+  - validates marker validator script fails when duplicate markers exist
+
+### Changed
+
+- CI now enforces marker config validation before strict catalog sync:
+  - `python3 scripts/validate-validator-placeholder-markers.py`
+- `sync-validator-error-codes.py` now fails on duplicate markers in loaded marker config.
+- README now documents marker config validation command.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.127-m3-placeholder-marker-validator`.
+
 ## [0.3.126-m3-validator-placeholder-config] - 2026-02-19
 
 ### Added
