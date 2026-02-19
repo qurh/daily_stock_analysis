@@ -2,6 +2,22 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.80-m3-promtool-remote-metadata-cache] - 2026-02-19
+
+### Added
+
+- New optional metadata cache controls for remote checksum linkage validation:
+  - `PROMTOOL_REMOTE_FETCH_CACHE_FILE`
+  - `PROMTOOL_REMOTE_FETCH_CACHE_TTL_SECONDS`
+- New tests:
+  - verifies fresh cache skips remote fetch
+  - verifies stale cache refreshes from remote and updates cache metadata
+
+### Changed
+
+- `validate-promtool-installer-config.sh` now reuses fresh local `sha256sums` cache and refreshes stale cache after successful remote fetch.
+- Backend app version bumped to `0.3.80-m3-promtool-remote-metadata-cache`.
+
 ## [0.3.79-m3-promtool-remote-fetch-hardening] - 2026-02-19
 
 ### Added

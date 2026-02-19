@@ -277,6 +277,9 @@ cd refactor/backend
   - `PROMTOOL_REMOTE_FETCH_CONNECT_TIMEOUT_SECONDS` (default: `10`)
   - `PROMTOOL_REMOTE_FETCH_TIMEOUT_SECONDS` (default: `30`)
   - `PROMTOOL_REMOTE_FETCH_RETRY_DELAY_SECONDS` (default: `1`)
+  - `PROMTOOL_REMOTE_FETCH_CACHE_FILE` (optional local cache path for `sha256sums.txt`)
+  - `PROMTOOL_REMOTE_FETCH_CACHE_TTL_SECONDS` (default: `3600`)
+  - when cache is fresh, remote fetch is skipped; stale cache triggers a refresh fetch
 - If `promtool` is unavailable, rule validation is skipped with a warning.
 - Override binary path with `PROMTOOL_BIN` when needed.
 - Set `PROMTOOL_REQUIRED=1` to fail immediately when `promtool` is missing.
