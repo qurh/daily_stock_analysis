@@ -40,6 +40,7 @@ def test_ci_script_invokes_prometheus_rules_check() -> None:
     assert "./scripts/validate-promtool-installer-config.sh" in ci_content
     assert "./scripts/sync-strict-gate-alert-thresholds.py --check" in ci_content
     assert "./scripts/sync-validator-error-codes.py --check --strict-descriptions" in ci_content
+    assert "./scripts/validate-validator-placeholder-markers.py" in ci_content
     assert "./scripts/validate-strict-gate-summary-schema.py" in ci_content
     assert "./scripts/validate-summary-contract-changelog.py" in ci_content
     assert "promtool check rules" in check_content
@@ -69,6 +70,51 @@ def test_validator_placeholder_markers_config_exists_and_is_non_empty() -> None:
     assert isinstance(markers, list)
     assert markers
     assert all(isinstance(marker, str) and marker.strip() for marker in markers)
+
+
+def test_validator_placeholder_markers_validator_script_passes_default_config() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-validator-placeholder-markers.py"
+    assert validate_script_file.exists()
+
+    completed = subprocess.run(
+        [sys.executable, str(validate_script_file)],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0
+    assert "is valid" in completed.stdout.lower()
+
+
+def test_validator_placeholder_markers_validator_script_fails_on_duplicate_markers(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-validator-placeholder-markers.py"
+    assert validate_script_file.exists()
+
+    invalid_markers_file = tmp_path / "validator-placeholder-markers.json"
+    invalid_markers_file.write_text(
+        json.dumps({"markers": ["TODO", "todo", "FIXME"]}, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--markers-file",
+            str(invalid_markers_file),
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "duplicate marker" in completed.stderr.lower()
 
 
 def test_validator_error_code_sync_script_passes_default_catalog() -> None:

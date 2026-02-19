@@ -104,7 +104,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Daily Stock Analysis Refactor API",
-        version="0.3.126-m3-validator-placeholder-config",
+        version="0.3.127-m3-placeholder-marker-validator",
     )
     app.state.workflow_service = workflow_service
     app.state.analysis_service = analysis_service

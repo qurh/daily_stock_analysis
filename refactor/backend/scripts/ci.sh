@@ -20,6 +20,9 @@ $PYTHON_BIN -m flake8 src tests --max-line-length=120
 # Strict gate alert threshold sync check
 $PYTHON_BIN ./scripts/sync-strict-gate-alert-thresholds.py --check
 
+# Placeholder marker config validation
+$PYTHON_BIN ./scripts/validate-validator-placeholder-markers.py
+
 # Validator error code catalog sync check
 $PYTHON_BIN ./scripts/sync-validator-error-codes.py --check --strict-descriptions
 
