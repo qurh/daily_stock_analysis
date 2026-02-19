@@ -1425,6 +1425,37 @@ def test_global_metrics_endpoint_includes_prompt_lock_and_build_info(monkeypatch
     assert "refactor_prompt_lock_overview_request_total" in response.text
 
 
+def test_global_metrics_endpoint_includes_promtool_soft_fallback_audit_metrics(tmp_path, monkeypatch) -> None:
+    audit_file = tmp_path / "promtool-soft-fallback.log"
+    audit_file.write_text(
+        "\n".join(
+            [
+                (
+                    "2026-02-19T12:00:00Z\tmode=soft\tversion=2.52.0\turl=https://example.invalid"
+                    "\treason=checksum mismatch"
+                ),
+                (
+                    "2026-02-19T13:30:00Z\tmode=soft\tversion=2.52.0\turl=https://example.invalid"
+                    "\treason=network timeout"
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("PROMTOOL_REMOTE_SOFT_AUDIT_FILE", str(audit_file))
+    client = TestClient(create_app())
+
+    response = client.get("/api/v2/metrics")
+    assert response.status_code == 200
+    body = response.text
+    assert "refactor_promtool_remote_soft_fallback_audit_enabled 1" in body
+    assert "refactor_promtool_remote_soft_fallback_audit_events_total 2" in body
+    assert "refactor_promtool_remote_soft_fallback_audit_read_error 0" in body
+    expected_last_seen = datetime(2026, 2, 19, 13, 30, tzinfo=timezone.utc).timestamp()
+    assert f"refactor_promtool_remote_soft_fallback_audit_last_seen_unixtime {expected_last_seen}" in body
+
+
 def test_global_metrics_endpoint_includes_backtest_and_optimization_status_counts() -> None:
     client = TestClient(create_app())
     now = datetime.now(timezone.utc).isoformat()

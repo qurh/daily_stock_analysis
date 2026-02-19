@@ -2,6 +2,25 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.84-m3-promtool-soft-audit-metrics] - 2026-02-19
+
+### Added
+
+- New global metrics series for promtool soft fallback audit integration:
+  - `refactor_promtool_remote_soft_fallback_audit_enabled`
+  - `refactor_promtool_remote_soft_fallback_audit_events_total`
+  - `refactor_promtool_remote_soft_fallback_audit_read_error`
+  - `refactor_promtool_remote_soft_fallback_audit_last_seen_unixtime`
+- New tests:
+  - verifies `/api/v2/metrics` exports promtool soft fallback audit counters
+  - verifies settings loader reads `PROMTOOL_REMOTE_SOFT_AUDIT_FILE`
+
+### Changed
+
+- `AppSettings` now includes `promtool_remote_soft_audit_file` sourced from `PROMTOOL_REMOTE_SOFT_AUDIT_FILE`.
+- `/api/v2/metrics` now parses configured soft audit file and exports audit count/health gauge lines.
+- Backend app version bumped to `0.3.84-m3-promtool-soft-audit-metrics`.
+
 ## [0.3.83-m3-promtool-soft-mode-audit] - 2026-02-19
 
 ### Added
