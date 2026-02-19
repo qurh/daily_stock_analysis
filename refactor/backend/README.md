@@ -441,6 +441,11 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
   - custom marker config: `python3 scripts/sync-validator-error-codes.py --check --strict-descriptions --placeholder-markers-file <path>`
   - `--strict-descriptions` rejects placeholder text in `description/remediation` (`TODO:`, `TBD:`, `FIXME:`; case-insensitive)
   - strict error output includes marker list, `group.code.field` entries, and remediation hint
+  - metadata policy defaults:
+    - `*_unexpected_error` -> `severity=critical` and stack-trace remediation
+    - `*_json_parse_error` -> JSON syntax remediation
+    - `*_file_not_found` -> file path/existence remediation
+    - `*_schema_invalid` / `*_schema_validation_failed` -> schema/payload remediation
 
 ## Run Real LLM Smoke
 
