@@ -14,6 +14,17 @@ DEFAULT_APP_FILE = BACKEND_ROOT / "src" / "app" / "main.py"
 
 APP_VERSION_PATTERN = re.compile(r'version="([^"]+)"')
 CHANGELOG_ENTRY_PATTERN = re.compile(r"^## \[([^\]]+)\].*$", re.MULTILINE)
+VALIDATOR_ERROR_CODES = {
+    "APP_VERSION_NOT_FOUND": "summary_contract_app_version_not_found",
+    "SCHEMA_PROPERTIES_MISSING": "summary_contract_schema_properties_missing",
+    "SCHEMA_VERSION_FIELD_MISSING": "summary_contract_schema_version_field_missing",
+    "SCHEMA_VERSION_CONST_MISSING": "summary_contract_schema_version_const_missing",
+    "LATEST_CHANGELOG_ENTRY_NOT_FOUND": "summary_contract_latest_changelog_entry_not_found",
+    "MISSING_SUMMARY_SCHEMA_VERSION_NOTE": "summary_contract_missing_summary_schema_version_note",
+    "REQUIRED_FILE_NOT_FOUND": "summary_contract_required_file_not_found",
+    "CHANGELOG_APP_VERSION_MISMATCH": "summary_contract_changelog_app_version_mismatch",
+    "UNEXPECTED_ERROR": "summary_contract_unexpected_error",
+}
 
 
 class SummaryContractValidationError(ValueError):
@@ -28,7 +39,7 @@ def _extract_app_version(path: Path) -> str:
     match = APP_VERSION_PATTERN.search(content)
     if match is None:
         raise SummaryContractValidationError(
-            code="summary_contract_app_version_not_found",
+            code=VALIDATOR_ERROR_CODES["APP_VERSION_NOT_FOUND"],
             message=f"unable to locate app version in file: {path}",
             context={"path": str(path)},
         )
@@ -40,21 +51,21 @@ def _extract_schema_version(path: Path) -> str:
     properties = payload.get("properties")
     if not isinstance(properties, dict):
         raise SummaryContractValidationError(
-            code="summary_contract_schema_properties_missing",
+            code=VALIDATOR_ERROR_CODES["SCHEMA_PROPERTIES_MISSING"],
             message="schema missing 'properties' object",
             context={"path": str(path)},
         )
     schema_version = properties.get("schema_version")
     if not isinstance(schema_version, dict):
         raise SummaryContractValidationError(
-            code="summary_contract_schema_version_field_missing",
+            code=VALIDATOR_ERROR_CODES["SCHEMA_VERSION_FIELD_MISSING"],
             message="schema missing 'properties.schema_version' object",
             context={"path": str(path)},
         )
     schema_version_const = schema_version.get("const")
     if not isinstance(schema_version_const, str):
         raise SummaryContractValidationError(
-            code="summary_contract_schema_version_const_missing",
+            code=VALIDATOR_ERROR_CODES["SCHEMA_VERSION_CONST_MISSING"],
             message="schema missing 'properties.schema_version.const' string",
             context={"path": str(path)},
         )
@@ -66,7 +77,7 @@ def _extract_latest_changelog_entry(path: Path) -> tuple[str, str]:
     first_match = CHANGELOG_ENTRY_PATTERN.search(content)
     if first_match is None:
         raise SummaryContractValidationError(
-            code="summary_contract_latest_changelog_entry_not_found",
+            code=VALIDATOR_ERROR_CODES["LATEST_CHANGELOG_ENTRY_NOT_FOUND"],
             message="unable to locate latest changelog entry",
             context={"path": str(path)},
         )
@@ -84,7 +95,7 @@ def _validate_summary_schema_note(latest_section: str, schema_version: str) -> N
     )
     if note_pattern.search(latest_section) is None:
         raise SummaryContractValidationError(
-            code="summary_contract_missing_summary_schema_version_note",
+            code=VALIDATOR_ERROR_CODES["MISSING_SUMMARY_SCHEMA_VERSION_NOTE"],
             message="missing summary schema version note in latest changelog entry",
             context={"expected_schema_version": schema_version},
         )
@@ -106,7 +117,7 @@ def main() -> int:
         for path in (args.schema_file, args.changelog_file, args.app_file):
             if not path.exists():
                 raise SummaryContractValidationError(
-                    code="summary_contract_required_file_not_found",
+                    code=VALIDATOR_ERROR_CODES["REQUIRED_FILE_NOT_FOUND"],
                     message=f"required file not found: {path}",
                     context={"path": str(path)},
                 )
@@ -117,7 +128,7 @@ def main() -> int:
 
         if changelog_version != app_version:
             raise SummaryContractValidationError(
-                code="summary_contract_changelog_app_version_mismatch",
+                code=VALIDATOR_ERROR_CODES["CHANGELOG_APP_VERSION_MISMATCH"],
                 message=f"changelog/app version mismatch: changelog={changelog_version}, app={app_version}",
                 context={"expected": app_version, "actual": changelog_version},
             )
@@ -137,7 +148,7 @@ def main() -> int:
             else:
                 payload = {
                     "validator": "validate-summary-contract-changelog",
-                    "code": "summary_contract_unexpected_error",
+                    "code": VALIDATOR_ERROR_CODES["UNEXPECTED_ERROR"],
                     "message": str(exc),
                     "context": {},
                 }

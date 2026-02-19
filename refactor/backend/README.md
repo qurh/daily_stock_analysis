@@ -422,6 +422,9 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
   - validates latest changelog version and summary schema version note
   - supports `--json-errors` for structured stderr payloads (`code/message/context`)
   - json error `code` namespace: `summary_contract_*`
+- Validator error code catalog:
+  - `refactor/backend/config/validator-error-codes.json`
+  - validator scripts must expose `VALIDATOR_ERROR_CODES` registry for coverage checks
 
 ## Run Real LLM Smoke
 
