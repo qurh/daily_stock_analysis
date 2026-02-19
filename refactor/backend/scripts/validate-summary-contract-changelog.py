@@ -16,11 +16,22 @@ APP_VERSION_PATTERN = re.compile(r'version="([^"]+)"')
 CHANGELOG_ENTRY_PATTERN = re.compile(r"^## \[([^\]]+)\].*$", re.MULTILINE)
 
 
+class SummaryContractValidationError(ValueError):
+    def __init__(self, code: str, message: str, context: dict | None = None):
+        super().__init__(message)
+        self.code = code
+        self.context = context or {}
+
+
 def _extract_app_version(path: Path) -> str:
     content = path.read_text(encoding="utf-8")
     match = APP_VERSION_PATTERN.search(content)
     if match is None:
-        raise ValueError(f"unable to locate app version in file: {path}")
+        raise SummaryContractValidationError(
+            code="app_version_not_found",
+            message=f"unable to locate app version in file: {path}",
+            context={"path": str(path)},
+        )
     return match.group(1)
 
 
@@ -28,13 +39,25 @@ def _extract_schema_version(path: Path) -> str:
     payload = json.loads(path.read_text(encoding="utf-8"))
     properties = payload.get("properties")
     if not isinstance(properties, dict):
-        raise ValueError("schema missing 'properties' object")
+        raise SummaryContractValidationError(
+            code="schema_properties_missing",
+            message="schema missing 'properties' object",
+            context={"path": str(path)},
+        )
     schema_version = properties.get("schema_version")
     if not isinstance(schema_version, dict):
-        raise ValueError("schema missing 'properties.schema_version' object")
+        raise SummaryContractValidationError(
+            code="schema_version_field_missing",
+            message="schema missing 'properties.schema_version' object",
+            context={"path": str(path)},
+        )
     schema_version_const = schema_version.get("const")
     if not isinstance(schema_version_const, str):
-        raise ValueError("schema missing 'properties.schema_version.const' string")
+        raise SummaryContractValidationError(
+            code="schema_version_const_missing",
+            message="schema missing 'properties.schema_version.const' string",
+            context={"path": str(path)},
+        )
     return schema_version_const
 
 
@@ -42,7 +65,11 @@ def _extract_latest_changelog_entry(path: Path) -> tuple[str, str]:
     content = path.read_text(encoding="utf-8")
     first_match = CHANGELOG_ENTRY_PATTERN.search(content)
     if first_match is None:
-        raise ValueError("unable to locate latest changelog entry")
+        raise SummaryContractValidationError(
+            code="latest_changelog_entry_not_found",
+            message="unable to locate latest changelog entry",
+            context={"path": str(path)},
+        )
     latest_version = first_match.group(1)
     next_match = CHANGELOG_ENTRY_PATTERN.search(content, first_match.end())
     section_end = next_match.start() if next_match is not None else len(content)
@@ -56,7 +83,11 @@ def _validate_summary_schema_note(latest_section: str, schema_version: str) -> N
         re.IGNORECASE,
     )
     if note_pattern.search(latest_section) is None:
-        raise ValueError("missing summary schema version note in latest changelog entry")
+        raise SummaryContractValidationError(
+            code="missing_summary_schema_version_note",
+            message="missing summary schema version note in latest changelog entry",
+            context={"expected_schema_version": schema_version},
+        )
 
 
 def main() -> int:
@@ -64,27 +95,57 @@ def main() -> int:
     parser.add_argument("--schema-file", type=Path, default=DEFAULT_SCHEMA_FILE, help="Path to summary schema file.")
     parser.add_argument("--changelog-file", type=Path, default=DEFAULT_CHANGELOG_FILE, help="Path to changelog file.")
     parser.add_argument("--app-file", type=Path, default=DEFAULT_APP_FILE, help="Path to app file with version field.")
+    parser.add_argument(
+        "--json-errors",
+        action="store_true",
+        help="Emit structured JSON errors to stderr.",
+    )
     args = parser.parse_args()
 
-    for path in (args.schema_file, args.changelog_file, args.app_file):
-        if not path.exists():
-            raise FileNotFoundError(f"required file not found: {path}")
+    try:
+        for path in (args.schema_file, args.changelog_file, args.app_file):
+            if not path.exists():
+                raise SummaryContractValidationError(
+                    code="required_file_not_found",
+                    message=f"required file not found: {path}",
+                    context={"path": str(path)},
+                )
 
-    app_version = _extract_app_version(path=args.app_file)
-    schema_version = _extract_schema_version(path=args.schema_file)
-    changelog_version, latest_section = _extract_latest_changelog_entry(path=args.changelog_file)
+        app_version = _extract_app_version(path=args.app_file)
+        schema_version = _extract_schema_version(path=args.schema_file)
+        changelog_version, latest_section = _extract_latest_changelog_entry(path=args.changelog_file)
 
-    if changelog_version != app_version:
-        raise ValueError(f"changelog/app version mismatch: changelog={changelog_version}, app={app_version}")
+        if changelog_version != app_version:
+            raise SummaryContractValidationError(
+                code="changelog_app_version_mismatch",
+                message=f"changelog/app version mismatch: changelog={changelog_version}, app={app_version}",
+                context={"expected": app_version, "actual": changelog_version},
+            )
 
-    _validate_summary_schema_note(latest_section=latest_section, schema_version=schema_version)
-    print(f"[validate-summary-contract-changelog] contract changelog is valid: {args.changelog_file}")
-    return 0
+        _validate_summary_schema_note(latest_section=latest_section, schema_version=schema_version)
+        print(f"[validate-summary-contract-changelog] contract changelog is valid: {args.changelog_file}")
+        return 0
+    except Exception as exc:
+        if args.json_errors:
+            if isinstance(exc, SummaryContractValidationError):
+                payload = {
+                    "validator": "validate-summary-contract-changelog",
+                    "code": exc.code,
+                    "message": str(exc),
+                    "context": exc.context,
+                }
+            else:
+                payload = {
+                    "validator": "validate-summary-contract-changelog",
+                    "code": "unexpected_error",
+                    "message": str(exc),
+                    "context": {},
+                }
+            print(json.dumps(payload, ensure_ascii=False), file=sys.stderr)
+        else:
+            print(f"[validate-summary-contract-changelog] {exc}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":
-    try:
-        sys.exit(main())
-    except Exception as exc:
-        print(f"[validate-summary-contract-changelog] {exc}", file=sys.stderr)
-        sys.exit(1)
+    sys.exit(main())
