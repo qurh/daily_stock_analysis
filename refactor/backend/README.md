@@ -416,10 +416,12 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
   - validates example payload internal consistency (file counts / line sums / module sums)
   - emits field-level mismatch details for consistency failures
   - supports `--json-errors` for structured stderr payloads (`code/message/context`)
+  - json error `code` namespace: `summary_schema_*`
 - Validate changelog linkage:
   - `python3 scripts/validate-summary-contract-changelog.py`
   - validates latest changelog version and summary schema version note
   - supports `--json-errors` for structured stderr payloads (`code/message/context`)
+  - json error `code` namespace: `summary_contract_*`
 
 ## Run Real LLM Smoke
 
