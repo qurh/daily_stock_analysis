@@ -426,3 +426,15 @@ def test_strategy_publish_requires_proposal_id_in_strict_mode(monkeypatch) -> No
     )
     assert published.status_code == 200
     assert published.json()["status"] == "active"
+
+    with client.app.state.database.connection() as conn:
+        rows = conn.execute("""
+            SELECT gate_code, require_proposal_id, blocked
+            FROM strategy_publish_gate_events
+            ORDER BY created_at ASC
+            """).fetchall()
+
+    assert len(rows) == 2
+    assert [int(row["blocked"]) for row in rows] == [1, 0]
+    assert all(str(row["gate_code"]) == "STR-GATE-009" for row in rows)
+    assert all(int(row["require_proposal_id"]) == 1 for row in rows)

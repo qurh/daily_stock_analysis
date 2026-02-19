@@ -2,6 +2,25 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.97-m3-strict-publish-gate-metrics] - 2026-02-19
+
+### Added
+
+- New strict publish gate audit table:
+  - `strategy_publish_gate_events`
+- New global metrics for strict publish gate `STR-GATE-009`:
+  - `refactor_strategy_publish_strict_gate_hits_total`
+  - `refactor_strategy_publish_strict_gate_blocked_total`
+  - `refactor_strategy_publish_strict_gate_block_ratio`
+- New tests:
+  - verifies strict mode publish attempts persist gate audit events (`blocked` + `passed`)
+  - verifies `/api/v2/metrics` exports strict gate hit/block/ratio series
+
+### Changed
+
+- `StrategyService.publish_strategy` now records strict gate evaluation events when strict mode is enabled.
+- Backend app version bumped to `0.3.97-m3-strict-publish-gate-metrics`.
+
 ## [0.3.96-m3-publish-strict-proposal-mode] - 2026-02-19
 
 ### Added

@@ -194,6 +194,22 @@ CREATE TABLE IF NOT EXISTS strategy_bindings (
 CREATE INDEX IF NOT EXISTS idx_strategy_bindings_flow_status
 ON strategy_bindings (flow_id, status, created_at);
 
+CREATE TABLE IF NOT EXISTS strategy_publish_gate_events (
+    event_id TEXT PRIMARY KEY,
+    strategy_id TEXT NOT NULL,
+    gate_code TEXT NOT NULL,
+    require_proposal_id INTEGER NOT NULL,
+    blocked INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (strategy_id) REFERENCES strategy_artifacts(strategy_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_strategy_publish_gate_events_created_at
+ON strategy_publish_gate_events (created_at);
+
+CREATE INDEX IF NOT EXISTS idx_strategy_publish_gate_events_gate_code
+ON strategy_publish_gate_events (gate_code, require_proposal_id, blocked, created_at);
+
 CREATE TABLE IF NOT EXISTS prompt_lock_events (
     event_id TEXT PRIMARY KEY,
     flow_id TEXT NOT NULL,
