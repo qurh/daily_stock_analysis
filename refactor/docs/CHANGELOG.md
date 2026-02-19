@@ -2,6 +2,22 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.105-m3-threshold-sync-dry-run-diff] - 2026-02-19
+
+### Added
+
+- `sync-strict-gate-alert-thresholds.py` now supports dry-run mode:
+  - `--dry-run` prints unified diffs without writing files
+  - `--check --dry-run` prints diffs and still fails when out of sync
+- New tests:
+  - verifies dry-run outputs unified diff and does not mutate rule files
+  - verifies check + dry-run fails when config and rules are out of sync
+
+### Changed
+
+- README now documents `--dry-run` usage examples.
+- Backend app version bumped to `0.3.105-m3-threshold-sync-dry-run-diff`.
+
 ## [0.3.104-m3-governance-threshold-param-sync] - 2026-02-19
 
 ### Added

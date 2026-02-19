@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
 import re
 import sys
@@ -335,9 +336,21 @@ def _render_profile(content: str, profile: StrictGateThresholdProfile) -> str:
     return updated
 
 
+def _build_unified_diff(original: str, rendered: str, relative_path: str) -> str:
+    diff_lines = difflib.unified_diff(
+        original.splitlines(),
+        rendered.splitlines(),
+        fromfile=f"a/{relative_path}",
+        tofile=f"b/{relative_path}",
+        lineterm="",
+    )
+    return "\n".join(diff_lines)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Sync strict gate alert thresholds into Prometheus rule profiles.")
     parser.add_argument("--check", action="store_true", help="Check mode: fail if any file is out of sync.")
+    parser.add_argument("--dry-run", action="store_true", help="Print unified diff without writing files.")
     parser.add_argument("--config", type=Path, default=CONFIG_PATH, help="Path to threshold config JSON file.")
     parser.add_argument(
         "--profile",
@@ -351,6 +364,7 @@ def main() -> int:
     selected_profiles = list(args.profile or RULE_FILE_BY_PROFILE.keys())
 
     changed_files: list[Path] = []
+    diff_outputs: list[str] = []
     for profile_name in selected_profiles:
         rule_file = RULE_FILE_BY_PROFILE[profile_name]
         if not rule_file.exists():
@@ -360,8 +374,14 @@ def main() -> int:
         rendered = _render_profile(content=original, profile=profiles[profile_name])
         if rendered != original:
             changed_files.append(rule_file)
-            if not args.check:
+            relative_path = str(rule_file.relative_to(BACKEND_ROOT))
+            if args.dry_run:
+                diff_outputs.append(_build_unified_diff(original=original, rendered=rendered, relative_path=relative_path))
+            if not args.check and not args.dry_run:
                 rule_file.write_text(rendered, encoding="utf-8")
+
+    for diff_output in diff_outputs:
+        print(diff_output)
 
     if changed_files and args.check:
         for file_path in changed_files:
@@ -370,10 +390,12 @@ def main() -> int:
         print("[sync-strict-gate-alert-thresholds] run script without --check to update files.")
         return 1
 
-    if changed_files and not args.check:
+    if changed_files and not args.check and not args.dry_run:
         for file_path in changed_files:
             rel = file_path.relative_to(BACKEND_ROOT)
             print(f"[sync-strict-gate-alert-thresholds] updated: {rel}")
+    elif changed_files and args.dry_run:
+        print("[sync-strict-gate-alert-thresholds] dry-run completed; no files were written.")
     else:
         print("[sync-strict-gate-alert-thresholds] all strict gate threshold rules are in sync.")
     return 0
