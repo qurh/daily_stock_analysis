@@ -2,6 +2,24 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.124-m3-validator-description-strict-check] - 2026-02-19
+
+### Added
+
+- `sync-validator-error-codes.py` now supports `--strict-descriptions`:
+  - fails when any error-code description uses `TODO:` placeholder text
+- New tests:
+  - validates strict mode passes on current catalog
+  - validates strict mode fails when catalog contains TODO placeholder description
+
+### Changed
+
+- CI now enforces strict description checks:
+  - `python3 scripts/sync-validator-error-codes.py --check --strict-descriptions`
+- README now documents strict description behavior.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.124-m3-validator-description-strict-check`.
+
 ## [0.3.123-m3-validator-error-code-sync] - 2026-02-19
 
 ### Added
