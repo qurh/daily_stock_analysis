@@ -2,6 +2,22 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.77-m3-promtool-installer-config-validation] - 2026-02-19
+
+### Added
+
+- New config validation script for promtool installer defaults:
+  - `refactor/backend/scripts/validate-promtool-installer-config.sh`
+- New tests:
+  - verifies `ci.sh` invokes promtool installer config validation
+  - verifies config validation passes with default config
+  - verifies config validation fails for invalid checksum format
+
+### Changed
+
+- `refactor/backend/scripts/ci.sh` now runs promtool installer config validation before Prometheus rule checks.
+- Backend app version bumped to `0.3.77-m3-promtool-installer-config-validation`.
+
 ## [0.3.76-m3-promtool-installer-centralized-config] - 2026-02-19
 
 ### Added

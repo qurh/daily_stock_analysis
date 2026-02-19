@@ -269,6 +269,8 @@ cd refactor/backend
 ```
 
 - `ci.sh` now runs `./scripts/check-prometheus-rules.sh`.
+- `ci.sh` now runs `./scripts/validate-promtool-installer-config.sh` before rule checks.
+- `validate-promtool-installer-config.sh` validates required config keys, version format, and SHA256 checksum format.
 - If `promtool` is unavailable, rule validation is skipped with a warning.
 - Override binary path with `PROMTOOL_BIN` when needed.
 - Set `PROMTOOL_REQUIRED=1` to fail immediately when `promtool` is missing.
