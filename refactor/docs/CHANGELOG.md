@@ -2,6 +2,24 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.116-m3-summary-example-consistency-guard] - 2026-02-19
+
+### Added
+
+- `validate-strict-gate-summary-schema.py` now validates example payload consistency:
+  - `changed_files_count == len(files)`
+  - `total_added_lines == sum(files[].added_lines)`
+  - `total_removed_lines == sum(files[].removed_lines)`
+  - module totals equal per-file module sums
+- New test:
+  - validator fails when example totals are inconsistent
+
+### Changed
+
+- README now documents consistency checks for summary example payload.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.116-m3-summary-example-consistency-guard`.
+
 ## [0.3.115-m3-summary-contract-changelog-link] - 2026-02-19
 
 ### Added
