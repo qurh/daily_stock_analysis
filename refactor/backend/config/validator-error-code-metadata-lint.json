@@ -1,0 +1,23 @@
+{
+  "min_remediation_length": 12,
+  "action_verbs": [
+    "add",
+    "adjust",
+    "apply",
+    "check",
+    "create",
+    "debug",
+    "document",
+    "ensure",
+    "fix",
+    "inspect",
+    "remove",
+    "replace",
+    "rerun",
+    "review",
+    "set",
+    "update",
+    "validate",
+    "verify"
+  ]
+}

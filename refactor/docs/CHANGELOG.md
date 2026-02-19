@@ -2,6 +2,28 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.137-m3-error-code-lint-configurable] - 2026-02-19
+
+### Added
+
+- New metadata lint config file:
+  - `refactor/backend/config/validator-error-code-metadata-lint.json`
+  - includes `min_remediation_length` and `action_verbs`
+- Metadata overrides validator now supports:
+  - `--lint-config-file <path>`
+  - loading remediation quality rules from lint config instead of hardcoded values
+- New tests:
+  - validates lint config file exists and contains valid contract fields
+  - validates custom lint config is honored by validator
+  - validates invalid lint config returns structured JSON error
+
+### Changed
+
+- `validate-validator-error-code-metadata-overrides.py` now enforces lint rules from external config.
+- README now documents metadata lint config path and custom lint-config flag.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.137-m3-error-code-lint-configurable`.
+
 ## [0.3.136-m3-error-code-overrides-semantic-lint] - 2026-02-19
 
 ### Added
