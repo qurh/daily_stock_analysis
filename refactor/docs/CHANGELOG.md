@@ -2,6 +2,25 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.143-m3-error-code-lint-profile-cli-hint] - 2026-02-19
+
+### Added
+
+- Unknown profile plain stderr hints now include quick-fix CLI args:
+  - `validate-validator-error-code-metadata-lint.py`
+    - `Try: --lint-profile <suggested_profile>`
+  - `validate-validator-error-code-metadata-overrides.py`
+    - `Try: --lint-profile <suggested_profile>`
+- New tests:
+  - validates lint validator plain stderr contains `--lint-profile <suggested>`
+  - validates overrides validator plain stderr contains `--lint-profile <suggested>`
+
+### Changed
+
+- README now documents quick-fix CLI args in unknown profile stderr hints.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.143-m3-error-code-lint-profile-cli-hint`.
+
 ## [0.3.142-m3-error-code-lint-profile-message-hint] - 2026-02-19
 
 ### Added

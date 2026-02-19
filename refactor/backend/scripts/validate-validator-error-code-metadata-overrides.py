@@ -136,6 +136,7 @@ def _resolve_lint_profile(payload: dict, lint_profile: str | None, path: Path) -
         message = f"lint profile not found: {selected_profile}"
         if suggested_profiles:
             message += f". Did you mean: {', '.join(suggested_profiles)}?"
+            message += f" Try: --lint-profile {suggested_profiles[0]}"
         raise MetadataOverridesValidationError(
             code=VALIDATOR_ERROR_CODES["LINT_PROFILE_NOT_FOUND"],
             message=message,
