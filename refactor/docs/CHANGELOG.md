@@ -2,6 +2,27 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.91-m3-chatbot-proposal-publish-gate] - 2026-02-19
+
+### Added
+
+- New strategy publish gate for linked chatbot proposals:
+  - when a linked chatbot proposal exists (`diff.strategy_id == strategy_id`),
+    `POST /api/v2/strategy/{strategy_id}/publish` requires latest proposal status `approved`
+  - otherwise publish is blocked with `STR-GATE-006`
+- New tests:
+  - verifies strategy publish is blocked when linked chatbot proposal is still `review_pending`
+  - verifies publish succeeds after linked chatbot proposal approval
+  - verifies M3 acceptance rehearsal loop remains passing with approved proposal flow
+
+### Changed
+
+- `StrategyService.publish_strategy` now includes chatbot proposal gate metadata in `gate_result`:
+  - `proposal_id`
+  - `proposal_source`
+  - `proposal_status`
+- Backend app version bumped to `0.3.91-m3-chatbot-proposal-publish-gate`.
+
 ## [0.3.90-m3-feedback-event-auto-trigger] - 2026-02-19
 
 ### Added
