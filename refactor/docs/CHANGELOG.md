@@ -2,6 +2,23 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.147-m3-error-code-profile-suggestion-helper] - 2026-02-19
+
+### Added
+
+- Shared profile suggestion helper in both validators:
+  - `_build_profile_suggestion_payload(...)` added in lint validator
+  - `_build_profile_suggestion_payload(...)` added in overrides validator
+- New tests:
+  - verifies lint validator script contains the shared helper entry point
+  - verifies overrides validator script contains the shared helper entry point
+
+### Changed
+
+- Unknown profile suggestion building logic is centralized per script to reduce duplication.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.147-m3-error-code-profile-suggestion-helper`.
+
 ## [0.3.146-m3-error-code-lint-profile-config-aware-command] - 2026-02-19
 
 ### Added

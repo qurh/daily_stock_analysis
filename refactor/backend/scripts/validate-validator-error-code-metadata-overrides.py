@@ -132,18 +132,13 @@ def _resolve_lint_profile(payload: dict, lint_profile: str | None, path: Path) -
     profile_payload = profiles.get(selected_profile)
     if not isinstance(profile_payload, dict):
         available_profiles = sorted(profiles.keys())
-        suggested_profiles = get_close_matches(selected_profile, available_profiles, n=3, cutoff=0.5)
-        suggested_cli_args = f"--lint-profile {suggested_profiles[0]}" if suggested_profiles else None
-        suggested_command = (
-            "python3 scripts/validate-validator-error-code-metadata-overrides.py "
-            f'--lint-config-file "{path}" {suggested_cli_args}'
-            if suggested_cli_args
-            else None
+        message, suggested_profiles, suggested_cli_args, suggested_command = _build_profile_suggestion_payload(
+            selected_profile=selected_profile,
+            available_profiles=available_profiles,
+            command_prefix=(
+                "python3 scripts/validate-validator-error-code-metadata-overrides.py " f'--lint-config-file "{path}"'
+            ),
         )
-        message = f"lint profile not found: {selected_profile}"
-        if suggested_profiles:
-            message += f". Did you mean: {', '.join(suggested_profiles)}?"
-            message += f" Try: {suggested_cli_args}"
         raise MetadataOverridesValidationError(
             code=VALIDATOR_ERROR_CODES["LINT_PROFILE_NOT_FOUND"],
             message=message,
@@ -157,6 +152,21 @@ def _resolve_lint_profile(payload: dict, lint_profile: str | None, path: Path) -
             },
         )
     return profile_payload
+
+
+def _build_profile_suggestion_payload(
+    selected_profile: str,
+    available_profiles: list[str],
+    command_prefix: str,
+) -> tuple[str, list[str], str | None, str | None]:
+    suggested_profiles = get_close_matches(selected_profile, available_profiles, n=3, cutoff=0.5)
+    suggested_cli_args = f"--lint-profile {suggested_profiles[0]}" if suggested_profiles else None
+    suggested_command = f"{command_prefix} {suggested_cli_args}" if suggested_cli_args else None
+    message = f"lint profile not found: {selected_profile}"
+    if suggested_profiles:
+        message += f". Did you mean: {', '.join(suggested_profiles)}?"
+        message += f" Try: {suggested_cli_args}"
+    return message, suggested_profiles, suggested_cli_args, suggested_command
 
 
 def _load_lint_config(path: Path, lint_profile: str | None = None) -> tuple[int, re.Pattern[str]]:
