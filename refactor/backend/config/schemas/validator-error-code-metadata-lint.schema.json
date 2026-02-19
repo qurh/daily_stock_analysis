@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Validator Error Code Metadata Lint Config",
+  "type": "object",
+  "required": [
+    "min_remediation_length",
+    "action_verbs"
+  ],
+  "properties": {
+    "min_remediation_length": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "action_verbs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "additionalProperties": false
+}
