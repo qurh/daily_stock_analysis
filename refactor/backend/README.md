@@ -137,6 +137,17 @@ uvicorn app.main:app --app-dir src --reload --port 18000
 - `GET /api/v2/prompt-lock/overview/metrics/prometheus`
 - `GET /api/v2/metrics`
 
+## Feedback Event Trigger
+
+- `POST /api/v2/feedback/records` includes `optimization_trigger` in response.
+- When `FEEDBACK_EVENT_OPTIMIZATION_ENABLED=true`, feedback recording can auto-trigger
+  `event` optimization jobs based on:
+  - `FEEDBACK_EVENT_OPTIMIZATION_MIN_RECORDS`
+  - `FEEDBACK_EVENT_OPTIMIZATION_COOLDOWN_SECONDS`
+- Manual trigger and chatbot proposal entrypoints remain unchanged:
+  - `POST /api/v2/optimization/jobs/trigger`
+  - `POST /api/v2/optimization/proposals`
+
 ## Prompt Binding
 
 - Chat generation resolves active prompt template `prompt.chat.reply`.

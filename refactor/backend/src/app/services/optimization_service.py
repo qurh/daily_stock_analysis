@@ -66,6 +66,64 @@ class OptimizationService:
             self._task_queue.process_all()
         return self.get_job(job_id=job_id)
 
+    def maybe_trigger_from_feedback_event(
+        self,
+        feedback_id: str,
+        min_records: int,
+        cooldown_seconds: int,
+    ) -> dict[str, Any]:
+        safe_min_records = max(int(min_records), 1)
+        safe_cooldown_seconds = max(int(cooldown_seconds), 0)
+        now = datetime.now(timezone.utc)
+
+        with self._database.connection() as conn:
+            count_row = conn.execute("SELECT COUNT(*) AS total FROM feedback_records").fetchone()
+            feedback_count = int(count_row["total"]) if count_row is not None else 0
+            if feedback_count < safe_min_records:
+                return {
+                    "triggered": False,
+                    "reason": "threshold_not_met",
+                    "feedback_count": feedback_count,
+                    "min_records": safe_min_records,
+                    "cooldown_seconds": safe_cooldown_seconds,
+                }
+
+            if safe_cooldown_seconds > 0:
+                recent_event_row = conn.execute("""
+                    SELECT updated_at
+                    FROM optimization_jobs
+                    WHERE trigger_source = 'event'
+                    ORDER BY updated_at DESC
+                    LIMIT 1
+                    """).fetchone()
+                if recent_event_row is not None:
+                    last_updated_raw = str(recent_event_row["updated_at"])
+                    last_updated = datetime.fromisoformat(last_updated_raw.replace("Z", "+00:00"))
+                    elapsed_seconds = max((now - last_updated).total_seconds(), 0.0)
+                    if elapsed_seconds < safe_cooldown_seconds:
+                        return {
+                            "triggered": False,
+                            "reason": "cooldown_active",
+                            "feedback_count": feedback_count,
+                            "min_records": safe_min_records,
+                            "cooldown_seconds": safe_cooldown_seconds,
+                            "elapsed_seconds": int(elapsed_seconds),
+                        }
+
+        job = self.trigger_job(
+            trigger_source="event",
+            reason=f"feedback.recorded:{feedback_id}",
+            backtest_job_id=None,
+        )
+        return {
+            "triggered": True,
+            "reason": "event_triggered",
+            "feedback_count": feedback_count,
+            "min_records": safe_min_records,
+            "cooldown_seconds": safe_cooldown_seconds,
+            "job": job,
+        }
+
     def get_job(self, job_id: str) -> dict[str, Any]:
         with self._database.connection() as conn:
             row = conn.execute(

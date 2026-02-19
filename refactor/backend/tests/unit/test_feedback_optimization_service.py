@@ -72,6 +72,34 @@ def test_optimization_trigger_uses_feedback_and_backtest_features() -> None:
     assert trigger_payload["result"]["quality_score"] is not None
 
 
+def test_feedback_record_auto_triggers_event_optimization_when_threshold_met(monkeypatch) -> None:
+    monkeypatch.setenv("FEEDBACK_EVENT_OPTIMIZATION_ENABLED", "1")
+    monkeypatch.setenv("FEEDBACK_EVENT_OPTIMIZATION_MIN_RECORDS", "2")
+    monkeypatch.setenv("FEEDBACK_EVENT_OPTIMIZATION_COOLDOWN_SECONDS", "0")
+
+    client = TestClient(create_app())
+
+    first = client.post(
+        "/api/v2/feedback/records",
+        json={"target_type": "analysis", "target_id": "evt-1", "score": 5, "source": "user"},
+    )
+    assert first.status_code == 201
+    first_payload = first.json()
+    assert first_payload["optimization_trigger"]["triggered"] is False
+    assert first_payload["optimization_trigger"]["reason"] == "threshold_not_met"
+
+    second = client.post(
+        "/api/v2/feedback/records",
+        json={"target_type": "analysis", "target_id": "evt-2", "score": 4, "source": "chatbot"},
+    )
+    assert second.status_code == 201
+    second_payload = second.json()
+    assert second_payload["optimization_trigger"]["triggered"] is True
+    assert second_payload["optimization_trigger"]["job"]["trigger_source"] == "event"
+    assert second_payload["optimization_trigger"]["job"]["status"] == "completed"
+    assert second_payload["optimization_trigger"]["job"]["result"]["quality_score"] is not None
+
+
 def test_chatbot_proposal_review_flow() -> None:
     client = TestClient(create_app())
     created = client.post(
