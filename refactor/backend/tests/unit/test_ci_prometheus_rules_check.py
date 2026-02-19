@@ -806,6 +806,7 @@ def test_promtool_installer_config_validation_remote_soft_mode_ignores_mismatch(
     assert completed.returncode == 0
     assert "remote checksum validation failed in soft mode" in completed.stderr
     assert "checksum mismatch for" in completed.stderr
+    assert "metric remote_soft_fallback_total=1" in completed.stderr
 
 
 def test_promtool_installer_config_validation_fails_for_invalid_remote_mode() -> None:
@@ -827,3 +828,61 @@ def test_promtool_installer_config_validation_fails_for_invalid_remote_mode() ->
 
     assert completed.returncode != 0
     assert "PROMTOOL_VALIDATE_REMOTE_MODE must be one of: strict, soft" in completed.stderr
+
+
+def test_promtool_installer_config_validation_soft_mode_writes_audit_record() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-promtool-installer-config.sh"
+    assert validate_script_file.exists()
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        config_file = tmp_path / "promtool-installer.defaults"
+        config_file.write_text(
+            "\n".join(
+                [
+                    f"PROMTOOL_DEFAULT_VERSION={PROMTOOL_DEFAULT_VERSION}",
+                    (
+                        "PROMTOOL_DEFAULT_SHA256_LINUX_AMD64="
+                        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    ),
+                    f"PROMTOOL_DEFAULT_SHA256_LINUX_ARM64={PROMTOOL_ARCHIVE_SHA256_LINUX_ARM64}",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        sha256sums_file = tmp_path / "sha256sums.txt"
+        sha256sums_file.write_text(
+            "\n".join(
+                [
+                    f"{PROMTOOL_ARCHIVE_SHA256_LINUX_AMD64}  prometheus-{PROMTOOL_DEFAULT_VERSION}.linux-amd64.tar.gz",
+                    f"{PROMTOOL_ARCHIVE_SHA256_LINUX_ARM64}  prometheus-{PROMTOOL_DEFAULT_VERSION}.linux-arm64.tar.gz",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        audit_file = tmp_path / "audit" / "remote-soft-fallback.log"
+
+        env = dict(os.environ)
+        env["PROMTOOL_CONFIG_FILE"] = str(config_file)
+        env["PROMTOOL_VALIDATE_REMOTE"] = "1"
+        env["PROMTOOL_VALIDATE_REMOTE_MODE"] = "soft"
+        env["PROMTOOL_SHA256SUMS_URL"] = f"file://{sha256sums_file}"
+        env["PROMTOOL_REMOTE_SOFT_AUDIT_FILE"] = str(audit_file)
+        completed = subprocess.run(
+            ["bash", str(validate_script_file)],
+            cwd=backend_root,
+            env=env,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        audit_content = audit_file.read_text(encoding="utf-8")
+
+    assert completed.returncode == 0
+    assert "wrote soft-mode audit record" in completed.stderr
+    assert "mode=soft" in audit_content
+    assert f"version={PROMTOOL_DEFAULT_VERSION}" in audit_content
+    assert "reason=checksum mismatch for" in audit_content

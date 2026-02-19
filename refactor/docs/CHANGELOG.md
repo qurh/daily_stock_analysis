@@ -2,6 +2,22 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.83-m3-promtool-soft-mode-audit] - 2026-02-19
+
+### Added
+
+- New soft-mode observability outputs for remote checksum validation:
+  - metric-style stderr log: `remote_soft_fallback_total=1`
+  - optional audit sink: `PROMTOOL_REMOTE_SOFT_AUDIT_FILE`
+- New tests:
+  - verifies soft fallback emits metric log
+  - verifies soft fallback writes audit record when audit file is configured
+
+### Changed
+
+- `validate-promtool-installer-config.sh` now tracks remote validation failure reason and includes it in soft-mode logs/audit records.
+- Backend app version bumped to `0.3.83-m3-promtool-soft-mode-audit`.
+
 ## [0.3.82-m3-promtool-workflow-explicit-strict-mode] - 2026-02-19
 
 ### Added
