@@ -2,6 +2,23 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.145-m3-error-code-lint-profile-command-context] - 2026-02-19
+
+### Added
+
+- Unknown profile JSON error context now includes full command template:
+  - `suggested_command` for `validate-validator-error-code-metadata-lint.py`
+  - `suggested_command` for `validate-validator-error-code-metadata-overrides.py`
+- New tests:
+  - validates lint validator JSON context contains `suggested_command`
+  - validates overrides validator JSON context contains `suggested_command`
+
+### Changed
+
+- README now documents `suggested_command` in unknown profile JSON context.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.145-m3-error-code-lint-profile-command-context`.
+
 ## [0.3.144-m3-error-code-lint-profile-cli-args-context] - 2026-02-19
 
 ### Added

@@ -456,6 +456,7 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
   - unknown lint profile errors include:
     - `available_profiles` and `suggested_profiles` in JSON `context`
     - `suggested_cli_args` in JSON `context`
+    - `suggested_command` in JSON `context`
     - plain stderr now includes "Did you mean: <profile>" when suggestion exists
     - plain stderr now includes quick fix args: `Try: --lint-profile <profile>`
   - validate metadata overrides: `python3 scripts/validate-validator-error-code-metadata-overrides.py`
@@ -473,6 +474,7 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
   - unknown overrides lint profile errors include:
     - `available_profiles` and `suggested_profiles` in JSON `context`
     - `suggested_cli_args` in JSON `context`
+    - `suggested_command` in JSON `context`
     - plain stderr now includes "Did you mean: <profile>" when suggestion exists
     - plain stderr now includes quick fix args: `Try: --lint-profile <profile>`
   - metadata override semantic lint:
