@@ -104,7 +104,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Daily Stock Analysis Refactor API",
-        version="0.3.99-m3-strict-gate-alert-runbook",
+        version="0.3.100-m3-strict-gate-threshold-param-sync",
     )
     app.state.workflow_service = workflow_service
     app.state.analysis_service = analysis_service
