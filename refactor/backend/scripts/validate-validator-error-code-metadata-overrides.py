@@ -135,7 +135,8 @@ def _resolve_lint_profile(payload: dict, lint_profile: str | None, path: Path) -
         suggested_profiles = get_close_matches(selected_profile, available_profiles, n=3, cutoff=0.5)
         suggested_cli_args = f"--lint-profile {suggested_profiles[0]}" if suggested_profiles else None
         suggested_command = (
-            f"python3 scripts/validate-validator-error-code-metadata-overrides.py {suggested_cli_args}"
+            "python3 scripts/validate-validator-error-code-metadata-overrides.py "
+            f'--lint-config-file "{path}" {suggested_cli_args}'
             if suggested_cli_args
             else None
         )
