@@ -20,6 +20,48 @@ DEFAULT_ENTRY_SEVERITY = "error"
 DEFAULT_ENTRY_REMEDIATION = "Review validator output and update configuration or input data for this error."
 
 
+def _infer_default_severity(code: str) -> str:
+    if code.endswith("_unexpected_error"):
+        return "critical"
+    return DEFAULT_ENTRY_SEVERITY
+
+
+def _infer_default_remediation(code: str) -> str:
+    if code.endswith("_json_parse_error"):
+        return "Fix JSON syntax/encoding in the target file and rerun the validator."
+    if code.endswith("_file_not_found"):
+        return "Ensure the target file path exists and is readable in the current environment."
+    if code.endswith("_schema_invalid"):
+        return "Fix schema definition to satisfy JSON Schema Draft 2020-12 requirements."
+    if "schema_validation_failed" in code:
+        return "Update payload fields to satisfy schema constraints and required properties."
+    if code.endswith("_unexpected_error"):
+        return "Check stack trace and validator logs, then patch runtime defect before retry."
+    return DEFAULT_ENTRY_REMEDIATION
+
+
+def _resolve_severity(existing_severity: object, code: str) -> str:
+    inferred = _infer_default_severity(code=code)
+    if not isinstance(existing_severity, str) or not existing_severity.strip():
+        return inferred
+    current = existing_severity.strip()
+    # Upgrade legacy default when a more specific severity is now available.
+    if current == DEFAULT_ENTRY_SEVERITY and inferred != DEFAULT_ENTRY_SEVERITY:
+        return inferred
+    return current
+
+
+def _resolve_remediation(existing_remediation: object, code: str) -> str:
+    inferred = _infer_default_remediation(code=code)
+    if not isinstance(existing_remediation, str) or not existing_remediation.strip():
+        return inferred
+    current = existing_remediation.strip()
+    # Upgrade legacy generic remediation to specific code-level guidance.
+    if current == DEFAULT_ENTRY_REMEDIATION and inferred != DEFAULT_ENTRY_REMEDIATION:
+        return inferred
+    return current
+
+
 def _load_validator_registry_codes(script_file: Path) -> list[str]:
     namespace = runpy.run_path(str(script_file))
     payload = namespace.get("VALIDATOR_ERROR_CODES")
@@ -67,8 +109,8 @@ def _load_existing_catalog(path: Path) -> dict[str, dict[str, dict[str, str]]]:
 def _build_catalog_entry(existing_entry: object, code: str) -> dict[str, str]:
     entry: dict[str, str] = {
         "description": f"TODO: document {code}.",
-        "severity": DEFAULT_ENTRY_SEVERITY,
-        "remediation": DEFAULT_ENTRY_REMEDIATION,
+        "severity": _infer_default_severity(code=code),
+        "remediation": _infer_default_remediation(code=code),
     }
     if isinstance(existing_entry, str):
         if existing_entry.strip():
@@ -81,13 +123,8 @@ def _build_catalog_entry(existing_entry: object, code: str) -> dict[str, str]:
     if isinstance(existing_description, str) and existing_description.strip():
         entry["description"] = existing_description
 
-    existing_severity = existing_entry.get("severity")
-    if isinstance(existing_severity, str) and existing_severity.strip():
-        entry["severity"] = existing_severity
-
-    existing_remediation = existing_entry.get("remediation")
-    if isinstance(existing_remediation, str) and existing_remediation.strip():
-        entry["remediation"] = existing_remediation
+    entry["severity"] = _resolve_severity(existing_severity=existing_entry.get("severity"), code=code)
+    entry["remediation"] = _resolve_remediation(existing_remediation=existing_entry.get("remediation"), code=code)
     return entry
 
 

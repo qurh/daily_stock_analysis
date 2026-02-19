@@ -8,7 +8,7 @@
     "summary_schema_example_payload_schema_validation_failed": {
       "description": "Example payload does not satisfy summary schema.",
       "severity": "error",
-      "remediation": "Review validator output and update configuration or input data for this error."
+      "remediation": "Update payload fields to satisfy schema constraints and required properties."
     },
     "summary_schema_example_schema_version_mismatch": {
       "description": "Example payload schema_version differs from expected schema version.",
@@ -23,7 +23,7 @@
     "summary_schema_json_parse_error": {
       "description": "Failed to parse JSON input file.",
       "severity": "error",
-      "remediation": "Review validator output and update configuration or input data for this error."
+      "remediation": "Fix JSON syntax/encoding in the target file and rerun the validator."
     },
     "summary_schema_module_total_mismatch_governance": {
       "description": "Top-level governance module total does not match per-file governance total.",
@@ -57,8 +57,8 @@
     },
     "summary_schema_unexpected_error": {
       "description": "Unexpected runtime error in summary schema validator.",
-      "severity": "error",
-      "remediation": "Review validator output and update configuration or input data for this error."
+      "severity": "critical",
+      "remediation": "Check stack trace and validator logs, then patch runtime defect before retry."
     }
   },
   "summary_contract": {
@@ -85,7 +85,7 @@
     "summary_contract_required_file_not_found": {
       "description": "One or more required files are missing.",
       "severity": "error",
-      "remediation": "Review validator output and update configuration or input data for this error."
+      "remediation": "Ensure the target file path exists and is readable in the current environment."
     },
     "summary_contract_schema_properties_missing": {
       "description": "Schema file does not contain properties object.",
@@ -104,8 +104,8 @@
     },
     "summary_contract_unexpected_error": {
       "description": "Unexpected runtime error in summary contract changelog validator.",
-      "severity": "error",
-      "remediation": "Review validator output and update configuration or input data for this error."
+      "severity": "critical",
+      "remediation": "Check stack trace and validator logs, then patch runtime defect before retry."
     }
   },
   "placeholder_markers": {
@@ -117,7 +117,7 @@
     "placeholder_markers_json_parse_error": {
       "description": "Failed to parse JSON marker or schema file.",
       "severity": "error",
-      "remediation": "Review validator output and update configuration or input data for this error."
+      "remediation": "Fix JSON syntax/encoding in the target file and rerun the validator."
     },
     "placeholder_markers_marker_empty": {
       "description": "Marker value is empty after trimming.",
@@ -137,7 +137,7 @@
     "placeholder_markers_markers_file_not_found": {
       "description": "Marker config file does not exist.",
       "severity": "error",
-      "remediation": "Review validator output and update configuration or input data for this error."
+      "remediation": "Ensure the target file path exists and is readable in the current environment."
     },
     "placeholder_markers_markers_list_missing_or_empty": {
       "description": "Marker config markers list is missing or empty.",
@@ -152,22 +152,22 @@
     "placeholder_markers_schema_file_not_found": {
       "description": "Marker schema file does not exist.",
       "severity": "error",
-      "remediation": "Review validator output and update configuration or input data for this error."
+      "remediation": "Ensure the target file path exists and is readable in the current environment."
     },
     "placeholder_markers_schema_invalid": {
       "description": "Marker schema file is not a valid JSON Schema.",
       "severity": "error",
-      "remediation": "Review validator output and update configuration or input data for this error."
+      "remediation": "Fix schema definition to satisfy JSON Schema Draft 2020-12 requirements."
     },
     "placeholder_markers_schema_validation_failed": {
       "description": "Marker config does not satisfy marker schema constraints.",
       "severity": "error",
-      "remediation": "Review validator output and update configuration or input data for this error."
+      "remediation": "Update payload fields to satisfy schema constraints and required properties."
     },
     "placeholder_markers_unexpected_error": {
       "description": "Unexpected runtime error in marker validator.",
-      "severity": "error",
-      "remediation": "Review validator output and update configuration or input data for this error."
+      "severity": "critical",
+      "remediation": "Check stack trace and validator logs, then patch runtime defect before retry."
     }
   }
 }
