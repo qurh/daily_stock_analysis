@@ -87,6 +87,7 @@ def test_github_actions_refactor_ci_example_includes_promtool_install_and_ci_run
     assert "cd refactor/backend" in content
     assert "bash scripts/ci.sh" in content
     assert 'PROMTOOL_REQUIRED: "1"' in content
+    assert 'PROMTOOL_VALIDATE_REMOTE: "1"' in content
 
 
 def test_github_actions_refactor_ci_workflow_exists_and_targets_backend_paths() -> None:
@@ -108,6 +109,7 @@ def test_github_actions_refactor_ci_workflow_exists_and_targets_backend_paths() 
     assert "bash refactor/backend/scripts/install-promtool.sh" in content
     assert "apt-get install -y prometheus" not in content
     assert "bash scripts/ci.sh" in content
+    assert 'PROMTOOL_VALIDATE_REMOTE: "1"' in content
 
 
 def test_promtool_installer_config_file_exists_with_pinned_defaults() -> None:
@@ -272,3 +274,100 @@ def test_promtool_installer_config_validation_fails_for_invalid_checksum() -> No
 
     assert completed.returncode != 0
     assert "must be a 64-character lowercase hex string" in completed.stderr
+
+
+def test_promtool_installer_config_validation_remote_check_passes() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-promtool-installer-config.sh"
+    assert validate_script_file.exists()
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        config_file = Path(tmp_dir) / "promtool-installer.defaults"
+        config_file.write_text(
+            "\n".join(
+                [
+                    f"PROMTOOL_DEFAULT_VERSION={PROMTOOL_DEFAULT_VERSION}",
+                    f"PROMTOOL_DEFAULT_SHA256_LINUX_AMD64={PROMTOOL_ARCHIVE_SHA256_LINUX_AMD64}",
+                    f"PROMTOOL_DEFAULT_SHA256_LINUX_ARM64={PROMTOOL_ARCHIVE_SHA256_LINUX_ARM64}",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        sha256sums_file = Path(tmp_dir) / "sha256sums.txt"
+        sha256sums_file.write_text(
+            "\n".join(
+                [
+                    f"{PROMTOOL_ARCHIVE_SHA256_LINUX_AMD64}  prometheus-{PROMTOOL_DEFAULT_VERSION}.linux-amd64.tar.gz",
+                    f"{PROMTOOL_ARCHIVE_SHA256_LINUX_ARM64}  prometheus-{PROMTOOL_DEFAULT_VERSION}.linux-arm64.tar.gz",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        env = dict(os.environ)
+        env["PROMTOOL_CONFIG_FILE"] = str(config_file)
+        env["PROMTOOL_VALIDATE_REMOTE"] = "1"
+        env["PROMTOOL_SHA256SUMS_URL"] = f"file://{sha256sums_file}"
+        completed = subprocess.run(
+            ["bash", str(validate_script_file)],
+            cwd=backend_root,
+            env=env,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+    assert completed.returncode == 0
+    assert "remote checksum validation passed" in completed.stderr
+
+
+def test_promtool_installer_config_validation_remote_check_fails_on_mismatch() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-promtool-installer-config.sh"
+    assert validate_script_file.exists()
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        config_file = Path(tmp_dir) / "promtool-installer.defaults"
+        config_file.write_text(
+            "\n".join(
+                [
+                    f"PROMTOOL_DEFAULT_VERSION={PROMTOOL_DEFAULT_VERSION}",
+                    (
+                        "PROMTOOL_DEFAULT_SHA256_LINUX_AMD64="
+                        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    ),
+                    f"PROMTOOL_DEFAULT_SHA256_LINUX_ARM64={PROMTOOL_ARCHIVE_SHA256_LINUX_ARM64}",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        sha256sums_file = Path(tmp_dir) / "sha256sums.txt"
+        sha256sums_file.write_text(
+            "\n".join(
+                [
+                    f"{PROMTOOL_ARCHIVE_SHA256_LINUX_AMD64}  prometheus-{PROMTOOL_DEFAULT_VERSION}.linux-amd64.tar.gz",
+                    f"{PROMTOOL_ARCHIVE_SHA256_LINUX_ARM64}  prometheus-{PROMTOOL_DEFAULT_VERSION}.linux-arm64.tar.gz",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        env = dict(os.environ)
+        env["PROMTOOL_CONFIG_FILE"] = str(config_file)
+        env["PROMTOOL_VALIDATE_REMOTE"] = "1"
+        env["PROMTOOL_SHA256SUMS_URL"] = f"file://{sha256sums_file}"
+        completed = subprocess.run(
+            ["bash", str(validate_script_file)],
+            cwd=backend_root,
+            env=env,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+    assert completed.returncode != 0
+    assert "checksum mismatch for" in completed.stderr

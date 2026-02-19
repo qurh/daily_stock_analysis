@@ -38,6 +38,7 @@ jobs:
         env:
           CI: "true"
           PROMTOOL_REQUIRED: "1"
+          PROMTOOL_VALIDATE_REMOTE: "1"
         run: |
           cd refactor/backend
           bash scripts/ci.sh
