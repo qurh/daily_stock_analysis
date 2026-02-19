@@ -162,6 +162,47 @@ def test_validator_error_code_sync_script_strict_descriptions_fail_on_todo(tmp_p
     assert "placeholder descriptions" in completed.stderr.lower()
 
 
+def test_validator_error_code_sync_script_strict_descriptions_fail_on_tbd_fixme(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+
+    assert sync_script_file.exists()
+    assert catalog_file.exists()
+
+    placeholder_cases = [
+        ("summary_schema", "summary_schema_json_parse_error", "TBD: fill later."),
+        ("summary_contract", "summary_contract_unexpected_error", "fixme: fill later."),
+    ]
+
+    for group_name, code_name, placeholder_description in placeholder_cases:
+        payload = json.loads(catalog_file.read_text(encoding="utf-8"))
+        payload[group_name][code_name] = placeholder_description
+        placeholder_catalog_file = tmp_path / f"{group_name}-{code_name}.json"
+        placeholder_catalog_file.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(sync_script_file),
+                "--check",
+                "--strict-descriptions",
+                "--output-file",
+                str(placeholder_catalog_file),
+            ],
+            cwd=backend_root,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        assert completed.returncode != 0
+        assert "placeholder descriptions" in completed.stderr.lower()
+
+
 def test_validator_scripts_expose_error_code_registries() -> None:
     backend_root = Path(__file__).resolve().parents[2]
     summary_script = backend_root / "scripts" / "validate-strict-gate-summary-schema.py"

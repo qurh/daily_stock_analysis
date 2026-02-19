@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import runpy
 import sys
 from pathlib import Path
@@ -13,6 +14,7 @@ VALIDATOR_SCRIPT_FILES = {
     "summary_schema": BACKEND_ROOT / "scripts" / "validate-strict-gate-summary-schema.py",
     "summary_contract": BACKEND_ROOT / "scripts" / "validate-summary-contract-changelog.py",
 }
+PLACEHOLDER_DESCRIPTION_PATTERN = re.compile(r"^\s*(todo|tbd|fixme)\s*:", re.IGNORECASE)
 
 
 def _load_validator_registry_codes(script_file: Path) -> list[str]:
@@ -73,7 +75,7 @@ def _collect_placeholder_codes(catalog: dict[str, dict[str, str]]) -> list[str]:
     placeholder_codes: list[str] = []
     for group_payload in catalog.values():
         for code, description in group_payload.items():
-            if description.strip().lower().startswith("todo:"):
+            if PLACEHOLDER_DESCRIPTION_PATTERN.match(description):
                 placeholder_codes.append(code)
     return sorted(set(placeholder_codes))
 
