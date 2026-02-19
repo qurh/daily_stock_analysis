@@ -3,6 +3,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import jsonschema
+
 
 def _base_threshold_config(backend_root: Path) -> dict:
     config_file = backend_root / "config" / "strict-gate-alert-thresholds.json"
@@ -474,3 +476,37 @@ def test_strict_gate_alert_threshold_sync_summary_json_includes_schema_version(t
     assert result.returncode == 0, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
     summary = json.loads(result.stdout)
     assert summary["schema_version"] == "1"
+
+
+def test_strict_gate_alert_threshold_sync_summary_json_matches_schema(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script = backend_root / "scripts" / "sync-strict-gate-alert-thresholds.py"
+    schema_file = backend_root / "config" / "schemas" / "strict-gate-summary.schema.json"
+
+    payload = _base_threshold_config(backend_root)
+    payload["profiles"]["dev"]["warn_for"] = "6m"
+    config_file = _write_threshold_config(tmp_path=tmp_path, payload=payload)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script),
+            "--dry-run",
+            "--summary-only",
+            "--summary-format",
+            "json",
+            "--profile",
+            "dev",
+            "--config",
+            str(config_file),
+        ],
+        cwd=str(backend_root),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+    summary = json.loads(result.stdout)
+    schema = json.loads(schema_file.read_text(encoding="utf-8"))
+    jsonschema.validate(instance=summary, schema=schema)
