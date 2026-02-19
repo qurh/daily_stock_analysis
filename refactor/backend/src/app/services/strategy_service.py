@@ -246,6 +246,13 @@ class StrategyService:
             if strategy_row["status"] not in {"candidate", "approved", "rolled_back"}:
                 raise RuntimeError(f"Strategy state conflict: {strategy_row['status']}")
 
+            linked_chatbot_proposal = self._find_latest_linked_chatbot_proposal(
+                conn=conn,
+                strategy_id=strategy_id,
+            )
+            if linked_chatbot_proposal is not None and linked_chatbot_proposal["status"] != "approved":
+                raise RuntimeError("STR-GATE-006: linked chatbot proposal must be approved before publish")
+
             backtest_row = conn.execute(
                 "SELECT status, metrics_json FROM backtest_jobs WHERE job_id = ?",
                 (backtest_job_id,),
@@ -268,6 +275,10 @@ class StrategyService:
                 "win_rate_pct": win_rate_pct,
                 "backtest_job_id": backtest_job_id,
             }
+            if linked_chatbot_proposal is not None:
+                gate_result["proposal_id"] = linked_chatbot_proposal["proposal_id"]
+                gate_result["proposal_source"] = linked_chatbot_proposal["source"]
+                gate_result["proposal_status"] = linked_chatbot_proposal["status"]
             if not is_passed:
                 raise RuntimeError("STR-GATE-005: strategy did not pass backtest gate")
 
@@ -608,6 +619,44 @@ class StrategyService:
         if len(compact) <= max_len:
             return compact
         return f"{compact[: max_len - 3]}..."
+
+    def _find_latest_linked_chatbot_proposal(self, conn: Any, strategy_id: str) -> dict[str, Any] | None:
+        rows = conn.execute("""
+            SELECT proposal_id, source, target, diff_json, status, updated_at
+            FROM change_proposals
+            WHERE source = 'chatbot'
+            ORDER BY updated_at DESC
+            LIMIT 200
+            """).fetchall()
+        normalized_strategy_id = (strategy_id or "").strip()
+        for row in rows:
+            diff = self._database.json_load(row["diff_json"], {})
+            linked_strategy_id = self._extract_linked_strategy_id(diff=diff)
+            if linked_strategy_id == normalized_strategy_id:
+                return {
+                    "proposal_id": row["proposal_id"],
+                    "source": row["source"],
+                    "target": row["target"],
+                    "status": row["status"],
+                    "updated_at": row["updated_at"],
+                }
+        return None
+
+    @staticmethod
+    def _extract_linked_strategy_id(diff: Any) -> str | None:
+        if not isinstance(diff, dict):
+            return None
+        direct_value = diff.get("strategy_id")
+        if direct_value is not None:
+            normalized = str(direct_value).strip()
+            return normalized or None
+        nested_strategy = diff.get("strategy")
+        if isinstance(nested_strategy, dict):
+            nested_value = nested_strategy.get("strategy_id")
+            if nested_value is not None:
+                normalized_nested = str(nested_value).strip()
+                return normalized_nested or None
+        return None
 
     @staticmethod
     def _require_memo(conn: Any, memo_id: str) -> Any:

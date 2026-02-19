@@ -164,6 +164,10 @@ uvicorn app.main:app --app-dir src --reload --port 18000
   - `strategy_flow_id`
 - Strategy rollback behavior:
   - rolling back an active strategy automatically deactivates its active bindings
+- Strategy publish gate behavior:
+  - if a linked `chatbot` change proposal exists for the strategy (`diff.strategy_id`),
+    publish requires the latest linked proposal status to be `approved`
+  - otherwise publish returns `409` with gate code `STR-GATE-006`
 - Chat prompt selection order:
   - strategy binding `prompt_refs` (first resolvable prompt)
   - fallback to `prompt.chat.reply`
