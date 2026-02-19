@@ -61,6 +61,12 @@ def test_validator_error_code_catalog_exists_and_has_prefix_groups() -> None:
     assert isinstance(payload["summary_schema"], dict)
     assert isinstance(payload["summary_contract"], dict)
     assert isinstance(payload["placeholder_markers"], dict)
+    for group_payload in payload.values():
+        for entry_payload in group_payload.values():
+            assert isinstance(entry_payload, dict)
+            assert isinstance(entry_payload.get("description"), str)
+            assert isinstance(entry_payload.get("severity"), str)
+            assert isinstance(entry_payload.get("remediation"), str)
 
 
 def test_validator_error_code_catalog_schema_exists_and_has_required_fields() -> None:
@@ -124,6 +130,44 @@ def test_validator_error_code_catalog_validator_script_json_errors_for_schema_vi
     assert payload["validator"] == "validate-validator-error-code-catalog"
     assert payload["code"] == "error_code_catalog_schema_validation_failed"
     assert "schema validation failed" in payload["message"].lower()
+
+
+def test_validator_error_code_sync_script_migrates_legacy_string_catalog_entries(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+
+    assert sync_script_file.exists()
+    assert catalog_file.exists()
+
+    payload = json.loads(catalog_file.read_text(encoding="utf-8"))
+    payload["summary_schema"]["summary_schema_json_parse_error"] = "Legacy plain string description."
+    legacy_catalog_file = tmp_path / "validator-error-codes-legacy.json"
+    legacy_catalog_file.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--output-file",
+            str(legacy_catalog_file),
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0
+    migrated_payload = json.loads(legacy_catalog_file.read_text(encoding="utf-8"))
+    migrated_entry = migrated_payload["summary_schema"]["summary_schema_json_parse_error"]
+    assert isinstance(migrated_entry, dict)
+    assert migrated_entry["description"] == "Legacy plain string description."
+    assert migrated_entry["severity"] == "error"
+    assert "validator output" in migrated_entry["remediation"].lower()
 
 
 def test_validator_placeholder_markers_config_exists_and_is_non_empty() -> None:
@@ -391,7 +435,9 @@ def test_validator_error_code_sync_script_strict_descriptions_fail_on_todo(tmp_p
     assert catalog_file.exists()
 
     payload = json.loads(catalog_file.read_text(encoding="utf-8"))
-    payload["summary_schema"]["summary_schema_json_parse_error"] = "TODO: document summary_schema_json_parse_error."
+    payload["summary_schema"]["summary_schema_json_parse_error"][
+        "description"
+    ] = "TODO: document summary_schema_json_parse_error."
     todo_catalog_file = tmp_path / "validator-error-codes.json"
     todo_catalog_file.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
@@ -426,7 +472,9 @@ def test_validator_error_code_sync_script_strict_error_includes_group_and_remedi
     assert catalog_file.exists()
 
     payload = json.loads(catalog_file.read_text(encoding="utf-8"))
-    payload["summary_schema"]["summary_schema_json_parse_error"] = "TODO: document summary_schema_json_parse_error."
+    payload["summary_schema"]["summary_schema_json_parse_error"][
+        "description"
+    ] = "TODO: document summary_schema_json_parse_error."
     todo_catalog_file = tmp_path / "validator-error-codes-with-todo.json"
     todo_catalog_file.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
@@ -453,6 +501,41 @@ def test_validator_error_code_sync_script_strict_error_includes_group_and_remedi
     assert "remediation" in completed.stderr.lower()
 
 
+def test_validator_error_code_sync_script_strict_descriptions_fail_on_remediation_placeholder(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+
+    assert sync_script_file.exists()
+    assert catalog_file.exists()
+
+    payload = json.loads(catalog_file.read_text(encoding="utf-8"))
+    payload["summary_schema"]["summary_schema_json_parse_error"]["remediation"] = "TODO: fill remediation later."
+    todo_catalog_file = tmp_path / "validator-error-codes-remediation-todo.json"
+    todo_catalog_file.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--check",
+            "--strict-descriptions",
+            "--output-file",
+            str(todo_catalog_file),
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "summary_schema.summary_schema_json_parse_error.remediation" in completed.stderr.lower()
+
+
 def test_validator_error_code_sync_script_supports_custom_placeholder_marker_file(tmp_path) -> None:
     backend_root = Path(__file__).resolve().parents[2]
     sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
@@ -462,7 +545,7 @@ def test_validator_error_code_sync_script_supports_custom_placeholder_marker_fil
     assert catalog_file.exists()
 
     payload = json.loads(catalog_file.read_text(encoding="utf-8"))
-    payload["summary_schema"]["summary_schema_json_parse_error"] = "DRAFTTODO: fill later."
+    payload["summary_schema"]["summary_schema_json_parse_error"]["description"] = "DRAFTTODO: fill later."
     custom_catalog_file = tmp_path / "validator-error-codes-custom-marker.json"
     custom_catalog_file.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
@@ -511,7 +594,7 @@ def test_validator_error_code_sync_script_strict_descriptions_fail_on_tbd_fixme(
 
     for group_name, code_name, placeholder_description in placeholder_cases:
         payload = json.loads(catalog_file.read_text(encoding="utf-8"))
-        payload[group_name][code_name] = placeholder_description
+        payload[group_name][code_name]["description"] = placeholder_description
         placeholder_catalog_file = tmp_path / f"{group_name}-{code_name}.json"
         placeholder_catalog_file.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n",

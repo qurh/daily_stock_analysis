@@ -1,41 +1,173 @@
 {
   "summary_schema": {
-    "summary_schema_changed_files_count_mismatch": "changed_files_count does not match files length.",
-    "summary_schema_example_payload_schema_validation_failed": "Example payload does not satisfy summary schema.",
-    "summary_schema_example_schema_version_mismatch": "Example payload schema_version differs from expected schema version.",
-    "summary_schema_files_type_invalid": "Example payload field files is not a list.",
-    "summary_schema_json_parse_error": "Failed to parse JSON input file.",
-    "summary_schema_module_total_mismatch_governance": "Top-level governance module total does not match per-file governance total.",
-    "summary_schema_module_total_mismatch_soft_audit": "Top-level soft_audit module total does not match per-file soft_audit total.",
-    "summary_schema_module_total_mismatch_strict": "Top-level strict module total does not match per-file strict total.",
-    "summary_schema_modules_type_invalid": "Example payload field modules is not an object.",
-    "summary_schema_total_added_lines_mismatch": "total_added_lines does not match per-file added_lines sum.",
-    "summary_schema_total_removed_lines_mismatch": "total_removed_lines does not match per-file removed_lines sum.",
-    "summary_schema_unexpected_error": "Unexpected runtime error in summary schema validator."
+    "summary_schema_changed_files_count_mismatch": {
+      "description": "changed_files_count does not match files length.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    },
+    "summary_schema_example_payload_schema_validation_failed": {
+      "description": "Example payload does not satisfy summary schema.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    },
+    "summary_schema_example_schema_version_mismatch": {
+      "description": "Example payload schema_version differs from expected schema version.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    },
+    "summary_schema_files_type_invalid": {
+      "description": "Example payload field files is not a list.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    },
+    "summary_schema_json_parse_error": {
+      "description": "Failed to parse JSON input file.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    },
+    "summary_schema_module_total_mismatch_governance": {
+      "description": "Top-level governance module total does not match per-file governance total.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    },
+    "summary_schema_module_total_mismatch_soft_audit": {
+      "description": "Top-level soft_audit module total does not match per-file soft_audit total.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    },
+    "summary_schema_module_total_mismatch_strict": {
+      "description": "Top-level strict module total does not match per-file strict total.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    },
+    "summary_schema_modules_type_invalid": {
+      "description": "Example payload field modules is not an object.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    },
+    "summary_schema_total_added_lines_mismatch": {
+      "description": "total_added_lines does not match per-file added_lines sum.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    },
+    "summary_schema_total_removed_lines_mismatch": {
+      "description": "total_removed_lines does not match per-file removed_lines sum.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    },
+    "summary_schema_unexpected_error": {
+      "description": "Unexpected runtime error in summary schema validator.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    }
   },
   "summary_contract": {
-    "summary_contract_app_version_not_found": "Unable to locate app version in backend app file.",
-    "summary_contract_changelog_app_version_mismatch": "Latest changelog version does not match backend app version.",
-    "summary_contract_latest_changelog_entry_not_found": "Unable to locate latest changelog entry heading.",
-    "summary_contract_missing_summary_schema_version_note": "Latest changelog entry is missing Summary schema version note.",
-    "summary_contract_required_file_not_found": "One or more required files are missing.",
-    "summary_contract_schema_properties_missing": "Schema file does not contain properties object.",
-    "summary_contract_schema_version_const_missing": "Schema file does not contain properties.schema_version.const string.",
-    "summary_contract_schema_version_field_missing": "Schema file does not contain properties.schema_version object.",
-    "summary_contract_unexpected_error": "Unexpected runtime error in summary contract changelog validator."
+    "summary_contract_app_version_not_found": {
+      "description": "Unable to locate app version in backend app file.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    },
+    "summary_contract_changelog_app_version_mismatch": {
+      "description": "Latest changelog version does not match backend app version.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    },
+    "summary_contract_latest_changelog_entry_not_found": {
+      "description": "Unable to locate latest changelog entry heading.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    },
+    "summary_contract_missing_summary_schema_version_note": {
+      "description": "Latest changelog entry is missing Summary schema version note.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    },
+    "summary_contract_required_file_not_found": {
+      "description": "One or more required files are missing.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    },
+    "summary_contract_schema_properties_missing": {
+      "description": "Schema file does not contain properties object.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    },
+    "summary_contract_schema_version_const_missing": {
+      "description": "Schema file does not contain properties.schema_version.const string.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    },
+    "summary_contract_schema_version_field_missing": {
+      "description": "Schema file does not contain properties.schema_version object.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    },
+    "summary_contract_unexpected_error": {
+      "description": "Unexpected runtime error in summary contract changelog validator.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    }
   },
   "placeholder_markers": {
-    "placeholder_markers_duplicate_marker": "Marker list contains duplicate marker after normalization.",
-    "placeholder_markers_json_parse_error": "Failed to parse JSON marker or schema file.",
-    "placeholder_markers_marker_empty": "Marker value is empty after trimming.",
-    "placeholder_markers_marker_format_invalid": "Marker value does not match required format.",
-    "placeholder_markers_marker_not_string": "Marker entry is not a string value.",
-    "placeholder_markers_markers_file_not_found": "Marker config file does not exist.",
-    "placeholder_markers_markers_list_missing_or_empty": "Marker config markers list is missing or empty.",
-    "placeholder_markers_payload_type_invalid": "Marker or schema payload is not a JSON object.",
-    "placeholder_markers_schema_file_not_found": "Marker schema file does not exist.",
-    "placeholder_markers_schema_invalid": "Marker schema file is not a valid JSON Schema.",
-    "placeholder_markers_schema_validation_failed": "Marker config does not satisfy marker schema constraints.",
-    "placeholder_markers_unexpected_error": "Unexpected runtime error in marker validator."
+    "placeholder_markers_duplicate_marker": {
+      "description": "Marker list contains duplicate marker after normalization.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    },
+    "placeholder_markers_json_parse_error": {
+      "description": "Failed to parse JSON marker or schema file.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    },
+    "placeholder_markers_marker_empty": {
+      "description": "Marker value is empty after trimming.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    },
+    "placeholder_markers_marker_format_invalid": {
+      "description": "Marker value does not match required format.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    },
+    "placeholder_markers_marker_not_string": {
+      "description": "Marker entry is not a string value.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    },
+    "placeholder_markers_markers_file_not_found": {
+      "description": "Marker config file does not exist.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    },
+    "placeholder_markers_markers_list_missing_or_empty": {
+      "description": "Marker config markers list is missing or empty.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    },
+    "placeholder_markers_payload_type_invalid": {
+      "description": "Marker or schema payload is not a JSON object.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    },
+    "placeholder_markers_schema_file_not_found": {
+      "description": "Marker schema file does not exist.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    },
+    "placeholder_markers_schema_invalid": {
+      "description": "Marker schema file is not a valid JSON Schema.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    },
+    "placeholder_markers_schema_validation_failed": {
+      "description": "Marker config does not satisfy marker schema constraints.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    },
+    "placeholder_markers_unexpected_error": {
+      "description": "Unexpected runtime error in marker validator.",
+      "severity": "error",
+      "remediation": "Review validator output and update configuration or input data for this error."
+    }
   }
 }
