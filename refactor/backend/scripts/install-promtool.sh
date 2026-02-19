@@ -3,9 +3,25 @@ set -euo pipefail
 
 PROMTOOL_VERSION="${PROMTOOL_VERSION:-2.52.0}"
 PROMTOOL_SHA256="${PROMTOOL_SHA256:-7f31c5d6474bbff3e514e627e0b7a7fbbd4e5cea3f315fd0b76cad50be4c1ba3}"
-PROMTOOL_PLATFORM="${PROMTOOL_PLATFORM:-linux-amd64}"
+PROMTOOL_PLATFORM="${PROMTOOL_PLATFORM:-}"
 PROMTOOL_TMP_DIR="${PROMTOOL_TMP_DIR:-/tmp}"
 PROMTOOL_INSTALL_DIR="${PROMTOOL_INSTALL_DIR:-/usr/local/bin}"
+
+if [[ -z "${PROMTOOL_PLATFORM}" ]]; then
+  machine_arch="$(uname -m)"
+  case "${machine_arch}" in
+    x86_64 | amd64)
+      PROMTOOL_PLATFORM="linux-amd64"
+      ;;
+    aarch64 | arm64)
+      PROMTOOL_PLATFORM="linux-arm64"
+      ;;
+    *)
+      echo "[install-promtool] unsupported machine architecture: ${machine_arch}" >&2
+      exit 1
+      ;;
+  esac
+fi
 
 archive="prometheus-${PROMTOOL_VERSION}.${PROMTOOL_PLATFORM}.tar.gz"
 download_url="https://github.com/prometheus/prometheus/releases/download/v${PROMTOOL_VERSION}/${archive}"
@@ -14,6 +30,7 @@ extract_dir="${PROMTOOL_TMP_DIR}/prometheus-${PROMTOOL_VERSION}.${PROMTOOL_PLATF
 binary_path="${extract_dir}/promtool"
 target_path="${PROMTOOL_INSTALL_DIR}/promtool"
 
+echo "[install-promtool] platform: ${PROMTOOL_PLATFORM}" >&2
 echo "[install-promtool] downloading ${download_url}" >&2
 curl -fsSL -o "${archive_path}" "${download_url}"
 

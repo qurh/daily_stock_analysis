@@ -118,3 +118,18 @@ def test_promtool_installer_script_exists_and_verifies_checksum() -> None:
     assert "sha256sum -c -" in content
     assert "tar -xzf" in content
     assert "install" in content
+
+
+def test_promtool_installer_script_supports_multi_arch_auto_detection() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    install_script_file = backend_root / "scripts" / "install-promtool.sh"
+    assert install_script_file.exists()
+
+    content = install_script_file.read_text(encoding="utf-8")
+    assert "uname -m" in content
+    assert "x86_64" in content
+    assert "linux-amd64" in content
+    assert "aarch64" in content
+    assert "arm64" in content
+    assert "linux-arm64" in content
+    assert "unsupported machine architecture" in content
