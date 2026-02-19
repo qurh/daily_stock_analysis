@@ -445,6 +445,9 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
   - custom overrides/schema/catalog:
     - `python3 scripts/validate-validator-error-code-metadata-overrides.py --overrides-file <path> --schema-file <path> --catalog-file <path>`
   - metadata override validator supports `--json-errors` (`error_code_metadata_overrides_*`)
+  - metadata override semantic lint:
+    - rejects placeholder text in `description/remediation` using marker config
+    - requires remediation text to be actionable (contains action verbs and minimum text length)
   - custom metadata overrides: `python3 scripts/sync-validator-error-codes.py --metadata-overrides-file <path>`
   - override rules:
     - payload format: `group -> code -> {description|severity|remediation}`
