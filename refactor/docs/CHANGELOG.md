@@ -2,6 +2,23 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.102-m3-soft-audit-threshold-param-sync] - 2026-02-19
+
+### Added
+
+- Strict gate threshold config now also includes soft-audit alert profile fields:
+  - `soft_audit_max_lines_for`
+  - `soft_audit_max_lines_severity`
+  - `soft_audit_max_bytes_for`
+  - `soft_audit_max_bytes_severity`
+  - `soft_audit_rotation_unbounded_for`
+  - `soft_audit_rotation_unbounded_severity`
+
+### Changed
+
+- `sync-strict-gate-alert-thresholds.py` now syncs soft-audit alert `for` and `severity` values from config.
+- Backend app version bumped to `0.3.102-m3-soft-audit-threshold-param-sync`.
+
 ## [0.3.101-m3-strict-gate-threshold-profile-sync] - 2026-02-19
 
 ### Added
