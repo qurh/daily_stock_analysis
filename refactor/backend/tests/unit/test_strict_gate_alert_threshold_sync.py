@@ -18,6 +18,15 @@ def test_strict_gate_alert_threshold_config_has_required_profiles() -> None:
         assert isinstance(profile, dict), f"missing profile: {profile_name}"
         for key in ("min_hits", "warn_ratio", "warn_for", "critical_ratio", "critical_for"):
             assert key in profile, f"missing key {key} in profile {profile_name}"
+        for key in (
+            "soft_audit_max_lines_for",
+            "soft_audit_max_lines_severity",
+            "soft_audit_max_bytes_for",
+            "soft_audit_max_bytes_severity",
+            "soft_audit_rotation_unbounded_for",
+            "soft_audit_rotation_unbounded_severity",
+        ):
+            assert key in profile, f"missing key {key} in profile {profile_name}"
 
 
 def test_strict_gate_alert_threshold_sync_check_mode_passes() -> None:

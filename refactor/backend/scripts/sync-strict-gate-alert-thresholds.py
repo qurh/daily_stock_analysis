@@ -16,6 +16,12 @@ class StrictGateThresholdProfile:
     warn_for: str
     critical_ratio: float
     critical_for: str
+    soft_audit_max_lines_for: str
+    soft_audit_max_lines_severity: str
+    soft_audit_max_bytes_for: str
+    soft_audit_max_bytes_severity: str
+    soft_audit_rotation_unbounded_for: str
+    soft_audit_rotation_unbounded_severity: str
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -62,7 +68,19 @@ def _load_profiles(path: Path) -> dict[str, StrictGateThresholdProfile]:
         if not isinstance(raw_profile, dict):
             raise ValueError(f"Missing profile definition: {profile_name}")
 
-        required_fields = ("min_hits", "warn_ratio", "warn_for", "critical_ratio", "critical_for")
+        required_fields = (
+            "min_hits",
+            "warn_ratio",
+            "warn_for",
+            "critical_ratio",
+            "critical_for",
+            "soft_audit_max_lines_for",
+            "soft_audit_max_lines_severity",
+            "soft_audit_max_bytes_for",
+            "soft_audit_max_bytes_severity",
+            "soft_audit_rotation_unbounded_for",
+            "soft_audit_rotation_unbounded_severity",
+        )
         for field in required_fields:
             if field not in raw_profile:
                 raise ValueError(f"Missing field '{field}' in profile '{profile_name}'")
@@ -73,6 +91,12 @@ def _load_profiles(path: Path) -> dict[str, StrictGateThresholdProfile]:
             warn_for=str(raw_profile["warn_for"]),
             critical_ratio=float(raw_profile["critical_ratio"]),
             critical_for=str(raw_profile["critical_for"]),
+            soft_audit_max_lines_for=str(raw_profile["soft_audit_max_lines_for"]),
+            soft_audit_max_lines_severity=str(raw_profile["soft_audit_max_lines_severity"]),
+            soft_audit_max_bytes_for=str(raw_profile["soft_audit_max_bytes_for"]),
+            soft_audit_max_bytes_severity=str(raw_profile["soft_audit_max_bytes_severity"]),
+            soft_audit_rotation_unbounded_for=str(raw_profile["soft_audit_rotation_unbounded_for"]),
+            soft_audit_rotation_unbounded_severity=str(raw_profile["soft_audit_rotation_unbounded_severity"]),
         )
     return profiles
 
@@ -111,6 +135,42 @@ def _render_profile(content: str, profile: StrictGateThresholdProfile) -> str:
         alert_name="RefactorStrategyPublishStrictGateBlockRatioCritical",
         field_name="for",
         value=profile.critical_for,
+    )
+    updated = _replace_alert_field(
+        content=updated,
+        alert_name="RefactorPromtoolSoftAuditMaxLinesExceeded",
+        field_name="for",
+        value=profile.soft_audit_max_lines_for,
+    )
+    updated = _replace_alert_field(
+        content=updated,
+        alert_name="RefactorPromtoolSoftAuditMaxLinesExceeded",
+        field_name="severity",
+        value=profile.soft_audit_max_lines_severity,
+    )
+    updated = _replace_alert_field(
+        content=updated,
+        alert_name="RefactorPromtoolSoftAuditMaxBytesExceeded",
+        field_name="for",
+        value=profile.soft_audit_max_bytes_for,
+    )
+    updated = _replace_alert_field(
+        content=updated,
+        alert_name="RefactorPromtoolSoftAuditMaxBytesExceeded",
+        field_name="severity",
+        value=profile.soft_audit_max_bytes_severity,
+    )
+    updated = _replace_alert_field(
+        content=updated,
+        alert_name="RefactorPromtoolSoftAuditRotationUnbounded",
+        field_name="for",
+        value=profile.soft_audit_rotation_unbounded_for,
+    )
+    updated = _replace_alert_field(
+        content=updated,
+        alert_name="RefactorPromtoolSoftAuditRotationUnbounded",
+        field_name="severity",
+        value=profile.soft_audit_rotation_unbounded_severity,
     )
     return updated
 
