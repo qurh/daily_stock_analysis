@@ -206,6 +206,83 @@ def test_summary_contract_changelog_validator_script_fails_without_schema_versio
     assert "missing summary schema version note" in completed.stderr.lower()
 
 
+def test_summary_contract_changelog_validator_script_json_errors_for_missing_schema_note(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-summary-contract-changelog.py"
+    app_file = backend_root / "src" / "app" / "main.py"
+    assert validate_script_file.exists()
+    assert app_file.exists()
+
+    app_version = _extract_app_version_from_file(path=app_file)
+    temp_app_file = tmp_path / "main.py"
+    temp_app_file.write_text(f'app = FastAPI(version="{app_version}")\n', encoding="utf-8")
+
+    changelog_file = tmp_path / "CHANGELOG.md"
+    changelog_file.write_text(
+        "\n".join(
+            [
+                "# Changelog",
+                "",
+                f"## [{app_version}] - 2026-02-19",
+                "",
+                "### Changed",
+                "",
+                "- Dummy line without schema version marker.",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--json-errors",
+            "--changelog-file",
+            str(changelog_file),
+            "--app-file",
+            str(temp_app_file),
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "validate-summary-contract-changelog"
+    assert payload["code"] == "missing_summary_schema_version_note"
+
+
+def test_summary_contract_changelog_validator_script_json_errors_for_version_mismatch(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-summary-contract-changelog.py"
+    assert validate_script_file.exists()
+
+    temp_app_file = tmp_path / "main.py"
+    temp_app_file.write_text('app = FastAPI(version="0.0.0-test")\n', encoding="utf-8")
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--json-errors",
+            "--app-file",
+            str(temp_app_file),
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "validate-summary-contract-changelog"
+    assert payload["code"] == "changelog_app_version_mismatch"
+
+
 def test_summary_schema_validator_script_fails_on_inconsistent_totals(tmp_path) -> None:
     backend_root = Path(__file__).resolve().parents[2]
     validate_script_file = backend_root / "scripts" / "validate-strict-gate-summary-schema.py"

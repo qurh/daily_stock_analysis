@@ -2,6 +2,23 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.119-m3-contract-validator-json-errors] - 2026-02-19
+
+### Added
+
+- `validate-summary-contract-changelog.py` now supports structured error output:
+  - `--json-errors`
+  - emits JSON payload with `validator/code/message/context` on failures
+- New tests:
+  - verifies `--json-errors` payload for missing summary schema note
+  - verifies `--json-errors` payload for changelog/app version mismatch
+
+### Changed
+
+- README now documents `--json-errors` usage for contract changelog validator.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.119-m3-contract-validator-json-errors`.
+
 ## [0.3.118-m3-summary-validator-json-errors] - 2026-02-19
 
 ### Added

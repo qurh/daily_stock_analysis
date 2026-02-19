@@ -419,6 +419,7 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
 - Validate changelog linkage:
   - `python3 scripts/validate-summary-contract-changelog.py`
   - validates latest changelog version and summary schema version note
+  - supports `--json-errors` for structured stderr payloads (`code/message/context`)
 
 ## Run Real LLM Smoke
 
