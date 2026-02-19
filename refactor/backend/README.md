@@ -356,10 +356,12 @@ cd refactor/backend
   - `monitoring/prometheus/rules/refactor-threshold-governance-alerts.dev.yml`
   - `monitoring/prometheus/rules/refactor-threshold-governance-alerts.staging.yml`
   - `monitoring/prometheus/rules/refactor-threshold-governance-alerts.prod.yml`
-- Includes six baseline rules:
+- Includes eight baseline rules:
   - `RefactorThresholdGovernanceWarn`
   - `RefactorThresholdGovernanceCritical`
   - `RefactorThresholdGovernanceNormalizationApplied`
+  - `RefactorStrategyPublishStrictGateBlockRatioWarn`
+  - `RefactorStrategyPublishStrictGateBlockRatioCritical`
   - `RefactorPromtoolSoftAuditMaxLinesExceeded`
   - `RefactorPromtoolSoftAuditMaxBytesExceeded`
   - `RefactorPromtoolSoftAuditRotationUnbounded`

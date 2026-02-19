@@ -15,6 +15,8 @@ def test_threshold_governance_alert_rule_template_exists_with_required_alerts() 
     assert "alert: RefactorPromtoolSoftAuditMaxLinesExceeded" in content
     assert "alert: RefactorPromtoolSoftAuditMaxBytesExceeded" in content
     assert "alert: RefactorPromtoolSoftAuditRotationUnbounded" in content
+    assert "alert: RefactorStrategyPublishStrictGateBlockRatioWarn" in content
+    assert "alert: RefactorStrategyPublishStrictGateBlockRatioCritical" in content
     assert (
         'refactor_backtest_records_return_sample_multi_window_alert_threshold_governance_level{level="warn"} == 1'
         in content
@@ -42,6 +44,9 @@ def test_threshold_governance_alert_rule_template_exists_with_required_alerts() 
         "refactor_promtool_remote_soft_fallback_audit_config_max_bytes == 0 and "
         "refactor_promtool_remote_soft_fallback_audit_config_retention_days == 0" in content
     )
+    assert "refactor_strategy_publish_strict_gate_hits_total >= 10" in content
+    assert "refactor_strategy_publish_strict_gate_block_ratio >= 0.2" in content
+    assert "refactor_strategy_publish_strict_gate_block_ratio >= 0.5" in content
 
 
 def test_threshold_governance_alert_rule_profile_templates_exist() -> None:
@@ -66,6 +71,13 @@ def test_threshold_governance_alert_rule_profile_templates_exist() -> None:
     assert "alert: RefactorPromtoolSoftAuditMaxLinesExceeded" in dev_content
     assert "alert: RefactorPromtoolSoftAuditMaxBytesExceeded" in dev_content
     assert "alert: RefactorPromtoolSoftAuditRotationUnbounded" in dev_content
+    assert "alert: RefactorStrategyPublishStrictGateBlockRatioWarn" in dev_content
+    assert "alert: RefactorStrategyPublishStrictGateBlockRatioCritical" in dev_content
+    assert "refactor_strategy_publish_strict_gate_hits_total >= 10" in dev_content
+    assert "refactor_strategy_publish_strict_gate_block_ratio >= 0.25" in dev_content
+    assert "refactor_strategy_publish_strict_gate_block_ratio >= 0.6" in dev_content
+    assert "for: 5m" in dev_content
+    assert "for: 2m" in dev_content
     assert 'description: "Soft audit file line count exceeded configured max lines for 3m."' in dev_content
     assert 'description: "All soft audit rotation guards are disabled (lines/bytes/retention) for 20m."' in dev_content
 
@@ -75,6 +87,13 @@ def test_threshold_governance_alert_rule_profile_templates_exist() -> None:
     assert "alert: RefactorPromtoolSoftAuditMaxLinesExceeded" in staging_content
     assert "alert: RefactorPromtoolSoftAuditMaxBytesExceeded" in staging_content
     assert "alert: RefactorPromtoolSoftAuditRotationUnbounded" in staging_content
+    assert "alert: RefactorStrategyPublishStrictGateBlockRatioWarn" in staging_content
+    assert "alert: RefactorStrategyPublishStrictGateBlockRatioCritical" in staging_content
+    assert "refactor_strategy_publish_strict_gate_hits_total >= 10" in staging_content
+    assert "refactor_strategy_publish_strict_gate_block_ratio >= 0.2" in staging_content
+    assert "refactor_strategy_publish_strict_gate_block_ratio >= 0.5" in staging_content
+    assert "for: 10m" in staging_content
+    assert "for: 5m" in staging_content
     assert 'description: "Soft audit file line count exceeded configured max lines for 8m."' in staging_content
     assert (
         'description: "All soft audit rotation guards are disabled (lines/bytes/retention) for 30m."' in staging_content
@@ -86,5 +105,12 @@ def test_threshold_governance_alert_rule_profile_templates_exist() -> None:
     assert "alert: RefactorPromtoolSoftAuditMaxLinesExceeded" in prod_content
     assert "alert: RefactorPromtoolSoftAuditMaxBytesExceeded" in prod_content
     assert "alert: RefactorPromtoolSoftAuditRotationUnbounded" in prod_content
+    assert "alert: RefactorStrategyPublishStrictGateBlockRatioWarn" in prod_content
+    assert "alert: RefactorStrategyPublishStrictGateBlockRatioCritical" in prod_content
+    assert "refactor_strategy_publish_strict_gate_hits_total >= 10" in prod_content
+    assert "refactor_strategy_publish_strict_gate_block_ratio >= 0.2" in prod_content
+    assert "refactor_strategy_publish_strict_gate_block_ratio >= 0.5" in prod_content
+    assert "for: 15m" in prod_content
+    assert "for: 5m" in prod_content
     assert 'description: "Soft audit file line count exceeded configured max lines for 10m."' in prod_content
     assert 'description: "All soft audit rotation guards are disabled (lines/bytes/retention) for 45m."' in prod_content
