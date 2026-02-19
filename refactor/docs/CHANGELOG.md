@@ -2,6 +2,24 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.140-m3-error-code-lint-profile-env] - 2026-02-19
+
+### Added
+
+- `LINT_PROFILE` environment variable support for metadata lint profile selection:
+  - `validate-validator-error-code-metadata-lint.py`
+  - `validate-validator-error-code-metadata-overrides.py`
+- New tests:
+  - validates metadata lint validator can use `LINT_PROFILE` when `--lint-profile` is not provided
+  - validates metadata overrides validator can use `LINT_PROFILE` when `--lint-profile` is not provided
+
+### Changed
+
+- Lint profile precedence is now explicit: `--lint-profile` > `LINT_PROFILE` > `default_profile`.
+- README now documents env-based profile selection and precedence.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.140-m3-error-code-lint-profile-env`.
+
 ## [0.3.139-m3-error-code-lint-profile-support] - 2026-02-19
 
 ### Added

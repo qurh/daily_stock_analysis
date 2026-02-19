@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from json import JSONDecodeError
@@ -17,6 +18,7 @@ DEFAULT_SCHEMA_FILE = BACKEND_ROOT / "config" / "schemas" / "validator-error-cod
 DEFAULT_CATALOG_FILE = BACKEND_ROOT / "config" / "validator-error-codes.json"
 DEFAULT_PLACEHOLDER_MARKERS_FILE = BACKEND_ROOT / "config" / "validator-placeholder-markers.json"
 DEFAULT_LINT_CONFIG_FILE = BACKEND_ROOT / "config" / "validator-error-code-metadata-lint.json"
+LINT_PROFILE_ENV_VAR = "LINT_PROFILE"
 VALIDATOR_ERROR_CODES = {
     "OVERRIDES_FILE_NOT_FOUND": "error_code_metadata_overrides_overrides_file_not_found",
     "SCHEMA_FILE_NOT_FOUND": "error_code_metadata_overrides_schema_file_not_found",
@@ -322,6 +324,8 @@ def main() -> int:
         help="Emit structured JSON errors to stderr.",
     )
     args = parser.parse_args()
+    env_lint_profile = os.getenv(LINT_PROFILE_ENV_VAR)
+    effective_lint_profile = args.lint_profile if args.lint_profile is not None else env_lint_profile
 
     try:
         if not args.overrides_file.exists():
@@ -350,7 +354,7 @@ def main() -> int:
         _validate_override_targets(overrides=overrides, catalog=catalog)
         min_remediation_length, actionable_remediation_pattern = _load_lint_config(
             path=args.lint_config_file,
-            lint_profile=args.lint_profile,
+            lint_profile=effective_lint_profile,
         )
         placeholder_markers = _load_placeholder_markers(path=args.placeholder_markers_file)
         placeholder_pattern = _build_placeholder_pattern(markers=placeholder_markers)
