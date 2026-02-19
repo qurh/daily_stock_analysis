@@ -2,6 +2,29 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.103-m3-threshold-config-schema-validation] - 2026-02-19
+
+### Added
+
+- `sync-strict-gate-alert-thresholds.py` now supports custom config input:
+  - `--config <path>`
+- New config schema validation rules:
+  - duration fields must match `^[1-9][0-9]*(ms|s|m|h|d|w|y)$`
+  - severity fields must be one of `info|warning|critical`
+  - ratio fields must be in `[0, 1]`
+  - `critical_ratio` must be greater than or equal to `warn_ratio`
+  - `min_hits` must be greater than `0`
+- New tests for invalid config rejection:
+  - invalid duration format
+  - invalid severity enum
+  - out-of-range ratio
+  - invalid ratio relation (`critical_ratio < warn_ratio`)
+
+### Changed
+
+- README now documents threshold config schema constraints and `--config` usage.
+- Backend app version bumped to `0.3.103-m3-threshold-config-schema-validation`.
+
 ## [0.3.102-m3-soft-audit-threshold-param-sync] - 2026-02-19
 
 ### Added
