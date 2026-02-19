@@ -86,6 +86,7 @@ class AppSettings:
     feedback_event_optimization_enabled: bool
     feedback_event_optimization_min_records: int
     feedback_event_optimization_cooldown_seconds: int
+    strategy_publish_require_proposal_id: bool
     backtest_return_sample_min_size: int
     backtest_return_sample_medium_coverage_pct: float
     backtest_multi_window_alert_warn_low_windows: int
@@ -147,6 +148,7 @@ def load_settings() -> AppSettings:
         _read_int_env("FEEDBACK_EVENT_OPTIMIZATION_COOLDOWN_SECONDS", 300),
         0,
     )
+    strategy_publish_require_proposal_id = _read_bool_env("STRATEGY_PUBLISH_REQUIRE_PROPOSAL_ID", False)
     backtest_return_sample_min_size = _read_int_env("BACKTEST_RETURN_SAMPLE_MIN_SIZE", 20)
     backtest_return_sample_medium_coverage_pct = _read_float_env("BACKTEST_RETURN_SAMPLE_MEDIUM_COVERAGE_PCT", 50.0)
     backtest_multi_window_alert_warn_low_windows_raw = _read_int_env("BACKTEST_MULTI_WINDOW_ALERT_WARN_LOW_WINDOWS", 1)
@@ -255,6 +257,7 @@ def load_settings() -> AppSettings:
         feedback_event_optimization_enabled=feedback_event_optimization_enabled,
         feedback_event_optimization_min_records=feedback_event_optimization_min_records,
         feedback_event_optimization_cooldown_seconds=feedback_event_optimization_cooldown_seconds,
+        strategy_publish_require_proposal_id=strategy_publish_require_proposal_id,
         backtest_return_sample_min_size=backtest_return_sample_min_size,
         backtest_return_sample_medium_coverage_pct=backtest_return_sample_medium_coverage_pct,
         backtest_multi_window_alert_warn_low_windows=backtest_multi_window_alert_warn_low_windows,
