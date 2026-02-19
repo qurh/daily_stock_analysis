@@ -99,6 +99,21 @@ def _validate_action_verbs(lint_config: dict) -> None:
         seen.add(verb)
 
 
+def _build_profile_suggestion_payload(
+    selected_profile: str,
+    available_profiles: list[str],
+    command_prefix: str,
+) -> tuple[str, list[str], str | None, str | None]:
+    suggested_profiles = get_close_matches(selected_profile, available_profiles, n=3, cutoff=0.5)
+    suggested_cli_args = f"--lint-profile {suggested_profiles[0]}" if suggested_profiles else None
+    suggested_command = f"{command_prefix} {suggested_cli_args}" if suggested_cli_args else None
+    message = f"lint profile not found: {selected_profile}"
+    if suggested_profiles:
+        message += f". Did you mean: {', '.join(suggested_profiles)}?"
+        message += f" Try: {suggested_cli_args}"
+    return message, suggested_profiles, suggested_cli_args, suggested_command
+
+
 def _resolve_lint_profile(
     lint_config: dict, lint_profile: str | None, lint_config_file: Path
 ) -> tuple[dict, str | None]:
@@ -118,18 +133,14 @@ def _resolve_lint_profile(
     profile_payload = profiles.get(selected_profile)
     if not isinstance(profile_payload, dict):
         available_profiles = sorted(profiles.keys())
-        suggested_profiles = get_close_matches(selected_profile, available_profiles, n=3, cutoff=0.5)
-        suggested_cli_args = f"--lint-profile {suggested_profiles[0]}" if suggested_profiles else None
-        suggested_command = (
-            "python3 scripts/validate-validator-error-code-metadata-lint.py "
-            f'--lint-config-file "{lint_config_file}" {suggested_cli_args}'
-            if suggested_cli_args
-            else None
+        message, suggested_profiles, suggested_cli_args, suggested_command = _build_profile_suggestion_payload(
+            selected_profile=selected_profile,
+            available_profiles=available_profiles,
+            command_prefix=(
+                "python3 scripts/validate-validator-error-code-metadata-lint.py "
+                f'--lint-config-file "{lint_config_file}"'
+            ),
         )
-        message = f"lint profile not found: {selected_profile}"
-        if suggested_profiles:
-            message += f". Did you mean: {', '.join(suggested_profiles)}?"
-            message += f" Try: {suggested_cli_args}"
         raise MetadataLintValidationError(
             code=VALIDATOR_ERROR_CODES["PROFILE_NOT_FOUND"],
             message=message,

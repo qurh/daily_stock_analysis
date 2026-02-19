@@ -428,6 +428,7 @@ def test_validator_error_code_metadata_lint_validator_script_suggests_nearby_pro
     backend_root = Path(__file__).resolve().parents[2]
     validate_script_file = backend_root / "scripts" / "validate-validator-error-code-metadata-lint.py"
     assert validate_script_file.exists()
+    assert "_build_profile_suggestion_payload" in validate_script_file.read_text(encoding="utf-8")
 
     lint_config_file = tmp_path / "metadata-lint-profiled.json"
     lint_config_file.write_text(
@@ -793,6 +794,7 @@ def test_validator_error_code_metadata_overrides_validator_script_suggests_nearb
     backend_root = Path(__file__).resolve().parents[2]
     validate_script_file = backend_root / "scripts" / "validate-validator-error-code-metadata-overrides.py"
     assert validate_script_file.exists()
+    assert "_build_profile_suggestion_payload" in validate_script_file.read_text(encoding="utf-8")
 
     lint_config_file = tmp_path / "metadata-lint-config-profiled.json"
     lint_config_file.write_text(
