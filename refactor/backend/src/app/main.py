@@ -104,7 +104,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Daily Stock Analysis Refactor API",
-        version="0.3.140-m3-error-code-lint-profile-env",
+        version="0.3.141-m3-error-code-lint-profile-suggestion",
     )
     app.state.workflow_service = workflow_service
     app.state.analysis_service = analysis_service

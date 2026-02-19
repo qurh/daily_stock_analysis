@@ -2,6 +2,27 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.141-m3-error-code-lint-profile-suggestion] - 2026-02-19
+
+### Added
+
+- Unknown lint profile errors now include nearby profile suggestions:
+  - `validate-validator-error-code-metadata-lint.py` JSON error `context` includes:
+    - `available_profiles`
+    - `suggested_profiles` (from fuzzy matching)
+  - `validate-validator-error-code-metadata-overrides.py` JSON error `context` includes:
+    - `available_profiles`
+    - `suggested_profiles`
+- New tests:
+  - validates lint validator returns suggested profile for typo input
+  - validates overrides validator returns suggested profile for typo input
+
+### Changed
+
+- README now documents suggested profile fields in JSON error payloads.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.141-m3-error-code-lint-profile-suggestion`.
+
 ## [0.3.140-m3-error-code-lint-profile-env] - 2026-02-19
 
 ### Added
