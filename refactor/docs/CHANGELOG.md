@@ -2,6 +2,24 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.120-m3-validator-error-code-prefix] - 2026-02-19
+
+### Added
+
+- Validator json error codes now use explicit namespaces:
+  - summary schema validator: `summary_schema_*`
+  - contract changelog validator: `summary_contract_*`
+- New tests:
+  - validates summary schema validator json error code prefix
+  - validates contract changelog validator json error code prefix
+
+### Changed
+
+- Existing json-error tests now assert namespaced error codes.
+- README now documents json error code namespace conventions.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.120-m3-validator-error-code-prefix`.
+
 ## [0.3.119-m3-contract-validator-json-errors] - 2026-02-19
 
 ### Added
