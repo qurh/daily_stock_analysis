@@ -2,6 +2,22 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.107-m3-threshold-sync-summary-json] - 2026-02-19
+
+### Added
+
+- `sync-strict-gate-alert-thresholds.py` now supports summary format selection:
+  - `--summary-format text|json`
+  - `json` mode emits a machine-readable summary object for CI consumption
+- New tests:
+  - verifies `--summary-only --summary-format json` output structure
+  - verifies `--summary-format` requires `--summary-only`
+
+### Changed
+
+- README now includes JSON summary mode example.
+- Backend app version bumped to `0.3.107-m3-threshold-sync-summary-json`.
+
 ## [0.3.106-m3-threshold-sync-summary-only] - 2026-02-19
 
 ### Added
