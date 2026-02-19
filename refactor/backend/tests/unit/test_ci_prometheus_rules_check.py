@@ -167,7 +167,68 @@ def test_validator_error_code_sync_script_migrates_legacy_string_catalog_entries
     assert isinstance(migrated_entry, dict)
     assert migrated_entry["description"] == "Legacy plain string description."
     assert migrated_entry["severity"] == "error"
-    assert "validator output" in migrated_entry["remediation"].lower()
+    assert "json" in migrated_entry["remediation"].lower()
+    assert "syntax" in migrated_entry["remediation"].lower()
+
+
+def test_validator_error_code_catalog_has_specific_metadata_for_key_codes() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+    assert catalog_file.exists()
+
+    payload = json.loads(catalog_file.read_text(encoding="utf-8"))
+    unexpected_error_cases = [
+        ("summary_schema", "summary_schema_unexpected_error"),
+        ("summary_contract", "summary_contract_unexpected_error"),
+        ("placeholder_markers", "placeholder_markers_unexpected_error"),
+    ]
+    for group_name, code_name in unexpected_error_cases:
+        entry = payload[group_name][code_name]
+        assert entry["severity"] == "critical"
+        assert "stack trace" in entry["remediation"].lower()
+
+    parse_entry = payload["summary_schema"]["summary_schema_json_parse_error"]
+    assert parse_entry["severity"] == "error"
+    assert "json" in parse_entry["remediation"].lower()
+    assert "syntax" in parse_entry["remediation"].lower()
+
+
+def test_validator_error_code_sync_script_upgrades_legacy_default_metadata(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+    assert sync_script_file.exists()
+    assert catalog_file.exists()
+
+    payload = json.loads(catalog_file.read_text(encoding="utf-8"))
+    payload["summary_schema"]["summary_schema_unexpected_error"]["severity"] = "error"
+    payload["summary_schema"]["summary_schema_unexpected_error"][
+        "remediation"
+    ] = "Review validator output and update configuration or input data for this error."
+    downgraded_catalog_file = tmp_path / "validator-error-codes-downgraded.json"
+    downgraded_catalog_file.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--output-file",
+            str(downgraded_catalog_file),
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0
+    upgraded_payload = json.loads(downgraded_catalog_file.read_text(encoding="utf-8"))
+    upgraded_entry = upgraded_payload["summary_schema"]["summary_schema_unexpected_error"]
+    assert upgraded_entry["severity"] == "critical"
+    assert "stack trace" in upgraded_entry["remediation"].lower()
 
 
 def test_validator_placeholder_markers_config_exists_and_is_non_empty() -> None:

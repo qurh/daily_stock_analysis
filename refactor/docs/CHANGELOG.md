@@ -2,6 +2,28 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.133-m3-error-code-metadata-policy] - 2026-02-19
+
+### Added
+
+- Sync policy now auto-infers severity/remediation by error-code family:
+  - `*_unexpected_error` -> `severity=critical` + stack-trace remediation
+  - `*_json_parse_error` -> JSON syntax remediation
+  - `*_file_not_found` -> file path/existence remediation
+  - `*_schema_invalid` / `*_schema_validation_failed` -> schema/payload remediation
+- Legacy metadata upgrade behavior in sync script:
+  - when legacy default values are present, sync upgrades to inferred specific metadata
+- New tests:
+  - validates key codes use specific metadata policy
+  - validates sync upgrades downgraded legacy metadata for unexpected errors
+
+### Changed
+
+- `refactor/backend/config/validator-error-codes.json` refreshed with policy-based metadata values.
+- README now documents metadata policy defaults for validator error catalog.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.133-m3-error-code-metadata-policy`.
+
 ## [0.3.132-m3-error-code-catalog-structured-entries] - 2026-02-19
 
 ### Added
