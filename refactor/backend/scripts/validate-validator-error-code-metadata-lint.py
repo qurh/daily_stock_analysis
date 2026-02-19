@@ -120,6 +120,13 @@ def _build_profile_suggestion_payload(
     return message, fallback_reason, suggested_profiles, suggested_cli_args, suggested_command
 
 
+def _build_ordered_available_profiles(profiles: dict, default_profile: str | None) -> list[str]:
+    ordered_profiles = sorted(profiles.keys())
+    if isinstance(default_profile, str) and default_profile in profiles:
+        ordered_profiles = [default_profile] + [item for item in ordered_profiles if item != default_profile]
+    return ordered_profiles
+
+
 def _resolve_lint_profile(
     lint_config: dict, lint_profile: str | None, lint_config_file: Path
 ) -> tuple[dict, str | None]:
@@ -141,11 +148,12 @@ def _resolve_lint_profile(
         return lint_config, None
 
     assert isinstance(profiles, dict)
+    default_profile = lint_config.get("default_profile")
     selected_profile = lint_profile or lint_config.get("default_profile")
     assert isinstance(selected_profile, str)
     profile_payload = profiles.get(selected_profile)
     if not isinstance(profile_payload, dict):
-        available_profiles = sorted(profiles.keys())
+        available_profiles = _build_ordered_available_profiles(profiles=profiles, default_profile=default_profile)
         (
             message,
             fallback_reason,
