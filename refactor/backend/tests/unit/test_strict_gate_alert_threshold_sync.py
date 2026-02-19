@@ -307,6 +307,44 @@ def test_strict_gate_alert_threshold_sync_summary_only_json_outputs_machine_read
     assert summary["total_removed_lines"] >= 0
     assert len(summary["files"]) == 1
     assert summary["files"][0]["path"].endswith("refactor-threshold-governance-alerts.dev.yml")
+    assert "modules" in summary
+    assert summary["modules"]["strict"]["changed_alerts_count"] >= 1
+    assert summary["modules"]["governance"]["changed_alerts_count"] >= 0
+    assert summary["modules"]["soft_audit"]["changed_alerts_count"] >= 0
+
+
+def test_strict_gate_alert_threshold_sync_summary_only_json_tracks_governance_module_changes(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script = backend_root / "scripts" / "sync-strict-gate-alert-thresholds.py"
+
+    payload = _base_threshold_config(backend_root)
+    payload["profiles"]["dev"]["governance_warn_for"] = "7m"
+    config_file = _write_threshold_config(tmp_path=tmp_path, payload=payload)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script),
+            "--dry-run",
+            "--summary-only",
+            "--summary-format",
+            "json",
+            "--profile",
+            "dev",
+            "--config",
+            str(config_file),
+        ],
+        cwd=str(backend_root),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+    summary = json.loads(result.stdout)
+    assert summary["modules"]["governance"]["changed_alerts_count"] >= 1
+    assert summary["modules"]["strict"]["changed_alerts_count"] == 0
+    assert summary["modules"]["soft_audit"]["changed_alerts_count"] == 0
 
 
 def test_strict_gate_alert_threshold_sync_summary_format_requires_summary_only(tmp_path) -> None:

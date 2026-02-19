@@ -399,6 +399,11 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
 python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --summary-format json --profile dev
 ```
 
+- In JSON summary mode, `modules` includes changed alert counts for:
+  - `strict`
+  - `governance`
+  - `soft_audit`
+
 ## Run Real LLM Smoke
 
 ```bash
