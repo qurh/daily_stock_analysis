@@ -2,6 +2,19 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.82-m3-promtool-workflow-explicit-strict-mode] - 2026-02-19
+
+### Added
+
+- New workflow-level gate-mode lock assertions in CI tests:
+  - verifies active/example workflows explicitly set `PROMTOOL_VALIDATE_REMOTE_MODE: "strict"`
+
+### Changed
+
+- `.github/workflows/refactor-backend-ci.yml` now explicitly sets `PROMTOOL_VALIDATE_REMOTE_MODE: "strict"` in backend quality gate step.
+- `refactor/backend/ci/github-actions/refactor-backend-ci.example.yml` now explicitly sets `PROMTOOL_VALIDATE_REMOTE_MODE: "strict"`.
+- Backend app version bumped to `0.3.82-m3-promtool-workflow-explicit-strict-mode`.
+
 ## [0.3.81-m3-promtool-remote-gate-mode] - 2026-02-19
 
 ### Added

@@ -89,6 +89,7 @@ def test_github_actions_refactor_ci_example_includes_promtool_install_and_ci_run
     assert "bash scripts/ci.sh" in content
     assert 'PROMTOOL_REQUIRED: "1"' in content
     assert 'PROMTOOL_VALIDATE_REMOTE: "1"' in content
+    assert 'PROMTOOL_VALIDATE_REMOTE_MODE: "strict"' in content
 
 
 def test_github_actions_refactor_ci_workflow_exists_and_targets_backend_paths() -> None:
@@ -111,6 +112,7 @@ def test_github_actions_refactor_ci_workflow_exists_and_targets_backend_paths() 
     assert "apt-get install -y prometheus" not in content
     assert "bash scripts/ci.sh" in content
     assert 'PROMTOOL_VALIDATE_REMOTE: "1"' in content
+    assert 'PROMTOOL_VALIDATE_REMOTE_MODE: "strict"' in content
 
 
 def test_promtool_installer_config_file_exists_with_pinned_defaults() -> None:
