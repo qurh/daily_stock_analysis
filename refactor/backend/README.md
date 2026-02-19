@@ -272,6 +272,11 @@ cd refactor/backend
 - `ci.sh` now runs `./scripts/validate-promtool-installer-config.sh` before rule checks.
 - `validate-promtool-installer-config.sh` validates required config keys, version format, and SHA256 checksum format.
 - Set `PROMTOOL_VALIDATE_REMOTE=1` to verify configured checksums against release `sha256sums.txt`.
+- Remote checksum validation supports fetch hardening knobs:
+  - `PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS` (default: `3`)
+  - `PROMTOOL_REMOTE_FETCH_CONNECT_TIMEOUT_SECONDS` (default: `10`)
+  - `PROMTOOL_REMOTE_FETCH_TIMEOUT_SECONDS` (default: `30`)
+  - `PROMTOOL_REMOTE_FETCH_RETRY_DELAY_SECONDS` (default: `1`)
 - If `promtool` is unavailable, rule validation is skipped with a warning.
 - Override binary path with `PROMTOOL_BIN` when needed.
 - Set `PROMTOOL_REQUIRED=1` to fail immediately when `promtool` is missing.

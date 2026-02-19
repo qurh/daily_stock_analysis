@@ -4,6 +4,10 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROMTOOL_CONFIG_FILE="${PROMTOOL_CONFIG_FILE:-${ROOT_DIR}/config/promtool-installer.defaults}"
 PROMTOOL_VALIDATE_REMOTE="${PROMTOOL_VALIDATE_REMOTE:-0}"
+PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS="${PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS:-3}"
+PROMTOOL_REMOTE_FETCH_CONNECT_TIMEOUT_SECONDS="${PROMTOOL_REMOTE_FETCH_CONNECT_TIMEOUT_SECONDS:-10}"
+PROMTOOL_REMOTE_FETCH_TIMEOUT_SECONDS="${PROMTOOL_REMOTE_FETCH_TIMEOUT_SECONDS:-30}"
+PROMTOOL_REMOTE_FETCH_RETRY_DELAY_SECONDS="${PROMTOOL_REMOTE_FETCH_RETRY_DELAY_SECONDS:-1}"
 
 if [[ ! -f "${PROMTOOL_CONFIG_FILE}" ]]; then
   echo "[validate-promtool-installer-config] config file not found: ${PROMTOOL_CONFIG_FILE}" >&2
@@ -44,8 +48,33 @@ validate_checksum() {
 validate_checksum "PROMTOOL_DEFAULT_SHA256_LINUX_AMD64" "${PROMTOOL_DEFAULT_SHA256_LINUX_AMD64}"
 validate_checksum "PROMTOOL_DEFAULT_SHA256_LINUX_ARM64" "${PROMTOOL_DEFAULT_SHA256_LINUX_ARM64}"
 
+validate_positive_integer() {
+  local key_name="$1"
+  local key_value="$2"
+
+  if [[ ! "${key_value}" =~ ^[0-9]+$ ]] || (( key_value < 1 )); then
+    echo "[validate-promtool-installer-config] ${key_name} must be a positive integer: ${key_value}" >&2
+    exit 1
+  fi
+}
+
+validate_non_negative_integer() {
+  local key_name="$1"
+  local key_value="$2"
+
+  if [[ ! "${key_value}" =~ ^[0-9]+$ ]]; then
+    echo "[validate-promtool-installer-config] ${key_name} must be a non-negative integer: ${key_value}" >&2
+    exit 1
+  fi
+}
+
 normalized_validate_remote="$(echo "${PROMTOOL_VALIDATE_REMOTE}" | tr '[:upper:]' '[:lower:]')"
 if [[ "${normalized_validate_remote}" == "1" || "${normalized_validate_remote}" == "true" || "${normalized_validate_remote}" == "yes" || "${normalized_validate_remote}" == "on" ]]; then
+  validate_positive_integer "PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS" "${PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS}"
+  validate_positive_integer "PROMTOOL_REMOTE_FETCH_CONNECT_TIMEOUT_SECONDS" "${PROMTOOL_REMOTE_FETCH_CONNECT_TIMEOUT_SECONDS}"
+  validate_positive_integer "PROMTOOL_REMOTE_FETCH_TIMEOUT_SECONDS" "${PROMTOOL_REMOTE_FETCH_TIMEOUT_SECONDS}"
+  validate_non_negative_integer "PROMTOOL_REMOTE_FETCH_RETRY_DELAY_SECONDS" "${PROMTOOL_REMOTE_FETCH_RETRY_DELAY_SECONDS}"
+
   PROMTOOL_SHA256SUMS_URL="${PROMTOOL_SHA256SUMS_URL:-https://github.com/prometheus/prometheus/releases/download/v${PROMTOOL_DEFAULT_VERSION}/sha256sums.txt}"
   archive_amd64="prometheus-${PROMTOOL_DEFAULT_VERSION}.linux-amd64.tar.gz"
   archive_arm64="prometheus-${PROMTOOL_DEFAULT_VERSION}.linux-arm64.tar.gz"
@@ -56,8 +85,28 @@ if [[ "${normalized_validate_remote}" == "1" || "${normalized_validate_remote}" 
   }
   trap cleanup EXIT
 
-  if ! curl -fsSL -o "${sha256sums_file}" "${PROMTOOL_SHA256SUMS_URL}"; then
-    echo "[validate-promtool-installer-config] failed to fetch sha256sums: ${PROMTOOL_SHA256SUMS_URL}" >&2
+  fetch_succeeded=0
+  attempt=1
+  while (( attempt <= PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS )); do
+    if curl -fsSL \
+      --connect-timeout "${PROMTOOL_REMOTE_FETCH_CONNECT_TIMEOUT_SECONDS}" \
+      --max-time "${PROMTOOL_REMOTE_FETCH_TIMEOUT_SECONDS}" \
+      -o "${sha256sums_file}" \
+      "${PROMTOOL_SHA256SUMS_URL}"; then
+      fetch_succeeded=1
+      break
+    fi
+
+    if (( attempt < PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS )); then
+      echo "[validate-promtool-installer-config] failed to fetch sha256sums (attempt ${attempt}/${PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS}), retry in ${PROMTOOL_REMOTE_FETCH_RETRY_DELAY_SECONDS}s: ${PROMTOOL_SHA256SUMS_URL}" >&2
+      sleep "${PROMTOOL_REMOTE_FETCH_RETRY_DELAY_SECONDS}"
+    fi
+
+    attempt=$((attempt + 1))
+  done
+
+  if (( fetch_succeeded != 1 )); then
+    echo "[validate-promtool-installer-config] failed to fetch sha256sums after ${PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS} attempt(s): ${PROMTOOL_SHA256SUMS_URL}" >&2
     exit 1
   fi
 
