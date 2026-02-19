@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROMTOOL_CONFIG_FILE="${PROMTOOL_CONFIG_FILE:-${ROOT_DIR}/config/promtool-installer.defaults}"
 PROMTOOL_VALIDATE_REMOTE="${PROMTOOL_VALIDATE_REMOTE:-0}"
+PROMTOOL_VALIDATE_REMOTE_MODE="${PROMTOOL_VALIDATE_REMOTE_MODE:-strict}"
 PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS="${PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS:-3}"
 PROMTOOL_REMOTE_FETCH_CONNECT_TIMEOUT_SECONDS="${PROMTOOL_REMOTE_FETCH_CONNECT_TIMEOUT_SECONDS:-10}"
 PROMTOOL_REMOTE_FETCH_TIMEOUT_SECONDS="${PROMTOOL_REMOTE_FETCH_TIMEOUT_SECONDS:-30}"
@@ -70,27 +71,23 @@ validate_non_negative_integer() {
   fi
 }
 
-normalized_validate_remote="$(echo "${PROMTOOL_VALIDATE_REMOTE}" | tr '[:upper:]' '[:lower:]')"
-if [[ "${normalized_validate_remote}" == "1" || "${normalized_validate_remote}" == "true" || "${normalized_validate_remote}" == "yes" || "${normalized_validate_remote}" == "on" ]]; then
-  validate_positive_integer "PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS" "${PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS}"
-  validate_positive_integer "PROMTOOL_REMOTE_FETCH_CONNECT_TIMEOUT_SECONDS" "${PROMTOOL_REMOTE_FETCH_CONNECT_TIMEOUT_SECONDS}"
-  validate_positive_integer "PROMTOOL_REMOTE_FETCH_TIMEOUT_SECONDS" "${PROMTOOL_REMOTE_FETCH_TIMEOUT_SECONDS}"
-  validate_non_negative_integer "PROMTOOL_REMOTE_FETCH_RETRY_DELAY_SECONDS" "${PROMTOOL_REMOTE_FETCH_RETRY_DELAY_SECONDS}"
-  if [[ -n "${PROMTOOL_REMOTE_FETCH_CACHE_FILE}" ]]; then
-    validate_positive_integer "PROMTOOL_REMOTE_FETCH_CACHE_TTL_SECONDS" "${PROMTOOL_REMOTE_FETCH_CACHE_TTL_SECONDS}"
-  fi
+run_remote_checksum_validation() {
+  local archive_amd64="prometheus-${PROMTOOL_DEFAULT_VERSION}.linux-amd64.tar.gz"
+  local archive_arm64="prometheus-${PROMTOOL_DEFAULT_VERSION}.linux-arm64.tar.gz"
+  local sha256sums_file
+  local fetch_succeeded=0
+  local attempt=1
+  local now_epoch
+  local cache_age
+  local cached_at_raw
+  local cache_meta_file=""
+  local cache_dir=""
+  local remote_amd64
+  local remote_arm64
 
   PROMTOOL_SHA256SUMS_URL="${PROMTOOL_SHA256SUMS_URL:-https://github.com/prometheus/prometheus/releases/download/v${PROMTOOL_DEFAULT_VERSION}/sha256sums.txt}"
-  archive_amd64="prometheus-${PROMTOOL_DEFAULT_VERSION}.linux-amd64.tar.gz"
-  archive_arm64="prometheus-${PROMTOOL_DEFAULT_VERSION}.linux-arm64.tar.gz"
-
   sha256sums_file="$(mktemp)"
-  cleanup() {
-    rm -f "${sha256sums_file}"
-  }
-  trap cleanup EXIT
 
-  fetch_succeeded=0
   if [[ -n "${PROMTOOL_REMOTE_FETCH_CACHE_FILE}" ]]; then
     cache_meta_file="${PROMTOOL_REMOTE_FETCH_CACHE_FILE}.meta"
     if [[ -f "${PROMTOOL_REMOTE_FETCH_CACHE_FILE}" && -f "${cache_meta_file}" ]]; then
@@ -112,7 +109,6 @@ if [[ "${normalized_validate_remote}" == "1" || "${normalized_validate_remote}" 
   fi
 
   if (( fetch_succeeded != 1 )); then
-    attempt=1
     while (( attempt <= PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS )); do
       if curl -fsSL \
         --connect-timeout "${PROMTOOL_REMOTE_FETCH_CONNECT_TIMEOUT_SECONDS}" \
@@ -132,8 +128,9 @@ if [[ "${normalized_validate_remote}" == "1" || "${normalized_validate_remote}" 
     done
 
     if (( fetch_succeeded != 1 )); then
+      rm -f "${sha256sums_file}"
       echo "[validate-promtool-installer-config] failed to fetch sha256sums after ${PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS} attempt(s): ${PROMTOOL_SHA256SUMS_URL}" >&2
-      exit 1
+      return 1
     fi
 
     if [[ -n "${PROMTOOL_REMOTE_FETCH_CACHE_FILE}" ]]; then
@@ -153,23 +150,53 @@ if [[ "${normalized_validate_remote}" == "1" || "${normalized_validate_remote}" 
   remote_arm64="$(awk -v file_name="${archive_arm64}" '$2==file_name {print $1; exit}' "${sha256sums_file}")"
 
   if [[ -z "${remote_amd64}" ]]; then
+    rm -f "${sha256sums_file}"
     echo "[validate-promtool-installer-config] checksum entry not found for ${archive_amd64}" >&2
-    exit 1
+    return 1
   fi
   if [[ -z "${remote_arm64}" ]]; then
+    rm -f "${sha256sums_file}"
     echo "[validate-promtool-installer-config] checksum entry not found for ${archive_arm64}" >&2
-    exit 1
+    return 1
   fi
   if [[ "${remote_amd64}" != "${PROMTOOL_DEFAULT_SHA256_LINUX_AMD64}" ]]; then
+    rm -f "${sha256sums_file}"
     echo "[validate-promtool-installer-config] checksum mismatch for ${archive_amd64}" >&2
-    exit 1
+    return 1
   fi
   if [[ "${remote_arm64}" != "${PROMTOOL_DEFAULT_SHA256_LINUX_ARM64}" ]]; then
+    rm -f "${sha256sums_file}"
     echo "[validate-promtool-installer-config] checksum mismatch for ${archive_arm64}" >&2
-    exit 1
+    return 1
   fi
 
+  rm -f "${sha256sums_file}"
   echo "[validate-promtool-installer-config] remote checksum validation passed: ${PROMTOOL_SHA256SUMS_URL}" >&2
+  return 0
+}
+
+normalized_validate_remote="$(echo "${PROMTOOL_VALIDATE_REMOTE}" | tr '[:upper:]' '[:lower:]')"
+if [[ "${normalized_validate_remote}" == "1" || "${normalized_validate_remote}" == "true" || "${normalized_validate_remote}" == "yes" || "${normalized_validate_remote}" == "on" ]]; then
+  normalized_validate_remote_mode="$(echo "${PROMTOOL_VALIDATE_REMOTE_MODE}" | tr '[:upper:]' '[:lower:]')"
+  if [[ "${normalized_validate_remote_mode}" != "strict" && "${normalized_validate_remote_mode}" != "soft" ]]; then
+    echo "[validate-promtool-installer-config] PROMTOOL_VALIDATE_REMOTE_MODE must be one of: strict, soft (got: ${PROMTOOL_VALIDATE_REMOTE_MODE})" >&2
+    exit 1
+  fi
+  validate_positive_integer "PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS" "${PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS}"
+  validate_positive_integer "PROMTOOL_REMOTE_FETCH_CONNECT_TIMEOUT_SECONDS" "${PROMTOOL_REMOTE_FETCH_CONNECT_TIMEOUT_SECONDS}"
+  validate_positive_integer "PROMTOOL_REMOTE_FETCH_TIMEOUT_SECONDS" "${PROMTOOL_REMOTE_FETCH_TIMEOUT_SECONDS}"
+  validate_non_negative_integer "PROMTOOL_REMOTE_FETCH_RETRY_DELAY_SECONDS" "${PROMTOOL_REMOTE_FETCH_RETRY_DELAY_SECONDS}"
+  if [[ -n "${PROMTOOL_REMOTE_FETCH_CACHE_FILE}" ]]; then
+    validate_positive_integer "PROMTOOL_REMOTE_FETCH_CACHE_TTL_SECONDS" "${PROMTOOL_REMOTE_FETCH_CACHE_TTL_SECONDS}"
+  fi
+
+  if ! run_remote_checksum_validation; then
+    if [[ "${normalized_validate_remote_mode}" == "soft" ]]; then
+      echo "[validate-promtool-installer-config] remote checksum validation failed in soft mode, continue." >&2
+    else
+      exit 1
+    fi
+  fi
 fi
 
 echo "[validate-promtool-installer-config] config is valid: ${PROMTOOL_CONFIG_FILE}" >&2
