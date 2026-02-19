@@ -1,6 +1,7 @@
 import os
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 PROMTOOL_DEFAULT_VERSION = "2.52.0"
@@ -561,3 +562,192 @@ fi
     assert completed.returncode != 0
     assert "failed to fetch sha256sums after 2 attempt(s)" in completed.stderr
     assert attempt_count == "2"
+
+
+def test_promtool_installer_config_validation_remote_fetch_uses_fresh_cache() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-promtool-installer-config.sh"
+    assert validate_script_file.exists()
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        config_file = tmp_path / "promtool-installer.defaults"
+        config_file.write_text(
+            "\n".join(
+                [
+                    f"PROMTOOL_DEFAULT_VERSION={PROMTOOL_DEFAULT_VERSION}",
+                    f"PROMTOOL_DEFAULT_SHA256_LINUX_AMD64={PROMTOOL_ARCHIVE_SHA256_LINUX_AMD64}",
+                    f"PROMTOOL_DEFAULT_SHA256_LINUX_ARM64={PROMTOOL_ARCHIVE_SHA256_LINUX_ARM64}",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        cache_file = tmp_path / "cache" / "promtool-sha256sums.txt"
+        cache_file.parent.mkdir(parents=True, exist_ok=True)
+        cache_file.write_text(
+            "\n".join(
+                [
+                    f"{PROMTOOL_ARCHIVE_SHA256_LINUX_AMD64}  prometheus-{PROMTOOL_DEFAULT_VERSION}.linux-amd64.tar.gz",
+                    f"{PROMTOOL_ARCHIVE_SHA256_LINUX_ARM64}  prometheus-{PROMTOOL_DEFAULT_VERSION}.linux-arm64.tar.gz",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        cache_meta_file = Path(f"{cache_file}.meta")
+        cache_meta_file.write_text(f"{int(time.time())}\n", encoding="utf-8")
+
+        mock_bin_dir = tmp_path / "mock-bin"
+        mock_bin_dir.mkdir(parents=True, exist_ok=True)
+        curl_file = mock_bin_dir / "curl"
+        curl_file.write_text(
+            """#!/usr/bin/env bash
+set -euo pipefail
+
+attempt_file="${PROMTOOL_TEST_CURL_ATTEMPT_FILE:?}"
+attempt=0
+if [[ -f "${attempt_file}" ]]; then
+  attempt="$(cat "${attempt_file}")"
+fi
+attempt=$((attempt + 1))
+echo "${attempt}" > "${attempt_file}"
+exit 22
+""",
+            encoding="utf-8",
+        )
+        curl_file.chmod(0o755)
+
+        attempt_file = tmp_path / "curl-attempts.txt"
+        env = dict(os.environ)
+        env["PATH"] = f"{mock_bin_dir}:{env.get('PATH', '')}"
+        env["PROMTOOL_CONFIG_FILE"] = str(config_file)
+        env["PROMTOOL_VALIDATE_REMOTE"] = "1"
+        env["PROMTOOL_SHA256SUMS_URL"] = "https://example.invalid/sha256sums.txt"
+        env["PROMTOOL_REMOTE_FETCH_CACHE_FILE"] = str(cache_file)
+        env["PROMTOOL_REMOTE_FETCH_CACHE_TTL_SECONDS"] = "3600"
+        env["PROMTOOL_TEST_CURL_ATTEMPT_FILE"] = str(attempt_file)
+        completed = subprocess.run(
+            ["bash", str(validate_script_file)],
+            cwd=backend_root,
+            env=env,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        curl_called = attempt_file.exists()
+
+    assert completed.returncode == 0
+    assert "using cached sha256sums metadata" in completed.stderr
+    assert "remote checksum validation passed" in completed.stderr
+    assert not curl_called
+
+
+def test_promtool_installer_config_validation_remote_fetch_refreshes_stale_cache() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-promtool-installer-config.sh"
+    assert validate_script_file.exists()
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        config_file = tmp_path / "promtool-installer.defaults"
+        config_file.write_text(
+            "\n".join(
+                [
+                    f"PROMTOOL_DEFAULT_VERSION={PROMTOOL_DEFAULT_VERSION}",
+                    f"PROMTOOL_DEFAULT_SHA256_LINUX_AMD64={PROMTOOL_ARCHIVE_SHA256_LINUX_AMD64}",
+                    f"PROMTOOL_DEFAULT_SHA256_LINUX_ARM64={PROMTOOL_ARCHIVE_SHA256_LINUX_ARM64}",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        source_sha256sums_file = tmp_path / "sha256sums-source.txt"
+        source_sha256sums_file.write_text(
+            "\n".join(
+                [
+                    f"{PROMTOOL_ARCHIVE_SHA256_LINUX_AMD64}  prometheus-{PROMTOOL_DEFAULT_VERSION}.linux-amd64.tar.gz",
+                    f"{PROMTOOL_ARCHIVE_SHA256_LINUX_ARM64}  prometheus-{PROMTOOL_DEFAULT_VERSION}.linux-arm64.tar.gz",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        cache_file = tmp_path / "cache" / "promtool-sha256sums.txt"
+        cache_file.parent.mkdir(parents=True, exist_ok=True)
+        cache_file.write_text(
+            "badbadbadbadbadbadbadbadbadbadbadbadbadbadbadbadbadbadbadbadbadb  prometheus-2.52.0.linux-amd64.tar.gz\n",
+            encoding="utf-8",
+        )
+        cache_meta_file = Path(f"{cache_file}.meta")
+        stale_epoch = int(time.time()) - 7200
+        cache_meta_file.write_text(f"{stale_epoch}\n", encoding="utf-8")
+
+        mock_bin_dir = tmp_path / "mock-bin"
+        mock_bin_dir.mkdir(parents=True, exist_ok=True)
+        curl_file = mock_bin_dir / "curl"
+        curl_file.write_text(
+            """#!/usr/bin/env bash
+set -euo pipefail
+
+attempt_file="${PROMTOOL_TEST_CURL_ATTEMPT_FILE:?}"
+source_file="${PROMTOOL_TEST_CURL_SOURCE_FILE:?}"
+
+attempt=0
+if [[ -f "${attempt_file}" ]]; then
+  attempt="$(cat "${attempt_file}")"
+fi
+attempt=$((attempt + 1))
+echo "${attempt}" > "${attempt_file}"
+
+output_file=""
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    -o)
+      output_file="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+
+cp "${source_file}" "${output_file}"
+""",
+            encoding="utf-8",
+        )
+        curl_file.chmod(0o755)
+
+        attempt_file = tmp_path / "curl-attempts.txt"
+        env = dict(os.environ)
+        env["PATH"] = f"{mock_bin_dir}:{env.get('PATH', '')}"
+        env["PROMTOOL_CONFIG_FILE"] = str(config_file)
+        env["PROMTOOL_VALIDATE_REMOTE"] = "1"
+        env["PROMTOOL_SHA256SUMS_URL"] = "https://example.invalid/sha256sums.txt"
+        env["PROMTOOL_REMOTE_FETCH_CACHE_FILE"] = str(cache_file)
+        env["PROMTOOL_REMOTE_FETCH_CACHE_TTL_SECONDS"] = "60"
+        env["PROMTOOL_TEST_CURL_ATTEMPT_FILE"] = str(attempt_file)
+        env["PROMTOOL_TEST_CURL_SOURCE_FILE"] = str(source_sha256sums_file)
+        completed = subprocess.run(
+            ["bash", str(validate_script_file)],
+            cwd=backend_root,
+            env=env,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        attempt_count = attempt_file.read_text(encoding="utf-8").strip()
+        refreshed_meta_epoch = int(cache_meta_file.read_text(encoding="utf-8").strip())
+        refreshed_cache_content = cache_file.read_text(encoding="utf-8")
+        source_cache_content = source_sha256sums_file.read_text(encoding="utf-8")
+
+    assert completed.returncode == 0
+    assert "cached sha256sums metadata is stale" in completed.stderr
+    assert "updated sha256sums cache" in completed.stderr
+    assert attempt_count == "1"
+    assert refreshed_meta_epoch >= stale_epoch
+    assert refreshed_cache_content == source_cache_content
