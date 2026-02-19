@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Validator Error Code Catalog",
+  "type": "object",
+  "required": [
+    "summary_schema",
+    "summary_contract",
+    "placeholder_markers"
+  ],
+  "additionalProperties": {
+    "$ref": "#/$defs/group"
+  },
+  "$defs": {
+    "group": {
+      "type": "object",
+      "minProperties": 1,
+      "patternProperties": {
+        "^[a-z][a-z0-9_]*$": {
+          "$ref": "#/$defs/description"
+        }
+      },
+      "additionalProperties": false
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
