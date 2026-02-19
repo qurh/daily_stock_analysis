@@ -2,6 +2,25 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.151-m3-error-code-profile-mode-not-configured-hint] - 2026-02-19
+
+### Added
+
+- Explicit no-profile-mode guidance when `--lint-profile` is used with flat lint config:
+  - lint validator now returns message containing:
+    - `profile mode is not configured for this lint config`
+  - overrides validator now returns message containing:
+    - `profile mode is not configured for this lint config`
+- New tests:
+  - validates lint validator no-profile-config path returns explicit profile-mode guidance
+  - validates overrides validator no-profile-config path returns explicit profile-mode guidance
+
+### Changed
+
+- README now documents explicit message for `fallback_reason=no_profiles_config`.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.151-m3-error-code-profile-mode-not-configured-hint`.
+
 ## [0.3.150-m3-error-code-profile-default-first-order] - 2026-02-19
 
 ### Added
