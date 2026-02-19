@@ -148,6 +148,12 @@ uvicorn app.main:app --app-dir src --reload --port 18000
   - `POST /api/v2/optimization/jobs/trigger`
   - `POST /api/v2/optimization/proposals`
 
+## Optimization Proposal Schema Gate
+
+- For chatbot strategy lifecycle proposals (`source=chatbot` and `target` starts with `strategy.`),
+  `diff.strategy_id` is required.
+- Missing `strategy_id` is rejected with `400` (`FDB-INPUT-002`), preventing ambiguous proposal-strategy linkage.
+
 ## Prompt Binding
 
 - Chat generation resolves active prompt template `prompt.chat.reply`.
