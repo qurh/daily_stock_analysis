@@ -12,6 +12,7 @@ PROMTOOL_REMOTE_FETCH_RETRY_DELAY_SECONDS="${PROMTOOL_REMOTE_FETCH_RETRY_DELAY_S
 PROMTOOL_REMOTE_FETCH_CACHE_FILE="${PROMTOOL_REMOTE_FETCH_CACHE_FILE:-}"
 PROMTOOL_REMOTE_FETCH_CACHE_TTL_SECONDS="${PROMTOOL_REMOTE_FETCH_CACHE_TTL_SECONDS:-3600}"
 PROMTOOL_REMOTE_SOFT_AUDIT_FILE="${PROMTOOL_REMOTE_SOFT_AUDIT_FILE:-}"
+PROMTOOL_REMOTE_SOFT_AUDIT_MAX_LINES="${PROMTOOL_REMOTE_SOFT_AUDIT_MAX_LINES:-0}"
 PROMTOOL_REMOTE_VALIDATION_LAST_ERROR=""
 
 if [[ ! -f "${PROMTOOL_CONFIG_FILE}" ]]; then
@@ -197,6 +198,9 @@ if [[ "${normalized_validate_remote}" == "1" || "${normalized_validate_remote}" 
   if [[ -n "${PROMTOOL_REMOTE_FETCH_CACHE_FILE}" ]]; then
     validate_positive_integer "PROMTOOL_REMOTE_FETCH_CACHE_TTL_SECONDS" "${PROMTOOL_REMOTE_FETCH_CACHE_TTL_SECONDS}"
   fi
+  if [[ -n "${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}" ]]; then
+    validate_non_negative_integer "PROMTOOL_REMOTE_SOFT_AUDIT_MAX_LINES" "${PROMTOOL_REMOTE_SOFT_AUDIT_MAX_LINES}"
+  fi
 
   if ! run_remote_checksum_validation; then
     if [[ "${normalized_validate_remote_mode}" == "soft" ]]; then
@@ -211,6 +215,16 @@ if [[ "${normalized_validate_remote}" == "1" || "${normalized_validate_remote}" 
         if mkdir -p "${soft_audit_dir}" \
           && printf "%s\tmode=soft\tversion=%s\turl=%s\treason=%s\n" "${soft_audit_ts}" "${PROMTOOL_DEFAULT_VERSION}" "${PROMTOOL_SHA256SUMS_URL}" "${soft_reason}" >> "${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}"; then
           echo "[validate-promtool-installer-config] wrote soft-mode audit record: ${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}" >&2
+          if (( PROMTOOL_REMOTE_SOFT_AUDIT_MAX_LINES > 0 )); then
+            soft_audit_tmp_file="${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}.tmp"
+            if tail -n "${PROMTOOL_REMOTE_SOFT_AUDIT_MAX_LINES}" "${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}" > "${soft_audit_tmp_file}" \
+              && mv "${soft_audit_tmp_file}" "${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}"; then
+              echo "[validate-promtool-installer-config] trimmed soft-mode audit file to last ${PROMTOOL_REMOTE_SOFT_AUDIT_MAX_LINES} line(s): ${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}" >&2
+            else
+              rm -f "${soft_audit_tmp_file}"
+              echo "[validate-promtool-installer-config] warning: failed to trim soft-mode audit file: ${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}" >&2
+            fi
+          fi
         else
           echo "[validate-promtool-installer-config] warning: failed to write soft-mode audit record: ${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}" >&2
         fi
