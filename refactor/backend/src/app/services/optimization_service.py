@@ -158,7 +158,7 @@ class OptimizationService:
         summary: str | None = None,
     ) -> dict[str, Any]:
         normalized_source = (source or "").strip().lower()
-        normalized_target = (target or "").strip()
+        normalized_target = (target or "").strip().lower()
         if normalized_source not in {"event", "manual", "chatbot"}:
             raise ValueError(f"Unsupported proposal source: {source}")
         if not normalized_target:
@@ -168,11 +168,25 @@ class OptimizationService:
         if not isinstance(diff, dict):
             raise ValueError("diff must be an object")
 
+        target_group = self._classify_proposal_target(normalized_target)
+        if target_group is None:
+            raise ValueError(f"FDB-INPUT-003: unsupported proposal target: {normalized_target}")
+
         normalized_diff = dict(diff)
-        if normalized_source == "chatbot" and normalized_target.startswith("strategy."):
+        if target_group == "prompt":
+            prompt_patch = normalized_diff.get("prompt_patch")
+            if not isinstance(prompt_patch, str) or not prompt_patch.strip():
+                raise ValueError("FDB-INPUT-005: prompt_patch is required for prompt proposal")
+            normalized_diff["prompt_patch"] = prompt_patch.strip()
+        elif target_group == "workflow":
+            flow_patch = normalized_diff.get("flow_patch")
+            if not isinstance(flow_patch, str) or not flow_patch.strip():
+                raise ValueError("FDB-INPUT-004: flow_patch is required for workflow proposal")
+            normalized_diff["flow_patch"] = flow_patch.strip()
+        elif target_group == "strategy":
             linked_strategy_id = self._extract_linked_strategy_id(normalized_diff)
             if linked_strategy_id is None:
-                raise ValueError("FDB-INPUT-002: strategy_id is required in diff for chatbot strategy proposal")
+                raise ValueError("FDB-INPUT-002: strategy_id is required in diff for strategy proposal")
             normalized_diff["strategy_id"] = linked_strategy_id
 
         proposal_id = str(uuid4())
@@ -363,6 +377,16 @@ class OptimizationService:
         if row is None:
             raise KeyError(f"Proposal not found: {proposal_id}")
         return row
+
+    @staticmethod
+    def _classify_proposal_target(target: str) -> str | None:
+        if target.startswith("prompt."):
+            return "prompt"
+        if target.startswith("workflow."):
+            return "workflow"
+        if target.startswith("strategy."):
+            return "strategy"
+        return None
 
     @staticmethod
     def _extract_linked_strategy_id(diff: dict[str, Any]) -> str | None:

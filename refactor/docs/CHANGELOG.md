@@ -2,6 +2,27 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.93-m3-proposal-target-schema] - 2026-02-19
+
+### Added
+
+- New proposal target namespace gate:
+  - proposal target must be under `prompt.*`, `workflow.*`, or `strategy.*`
+  - unsupported namespace is rejected with `400` (`FDB-INPUT-003`)
+- New per-target diff schema gate:
+  - `prompt.*` requires `diff.prompt_patch` (`FDB-INPUT-005`)
+  - `workflow.*` requires `diff.flow_patch` (`FDB-INPUT-004`)
+  - `strategy.*` requires `diff.strategy_id` (`FDB-INPUT-002`)
+- New tests:
+  - verifies unsupported target namespace is rejected
+  - verifies workflow proposal without `flow_patch` is rejected
+  - verifies prompt proposal without `prompt_patch` is rejected
+
+### Changed
+
+- `OptimizationService.create_proposal` now classifies proposal target and applies target-specific diff validation.
+- Backend app version bumped to `0.3.93-m3-proposal-target-schema`.
+
 ## [0.3.92-m3-chatbot-proposal-schema-gate] - 2026-02-19
 
 ### Added
