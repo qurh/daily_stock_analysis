@@ -356,6 +356,10 @@ cd refactor/backend
   - `monitoring/prometheus/rules/refactor-threshold-governance-alerts.dev.yml`
   - `monitoring/prometheus/rules/refactor-threshold-governance-alerts.staging.yml`
   - `monitoring/prometheus/rules/refactor-threshold-governance-alerts.prod.yml`
+- Strict gate threshold config:
+  - `config/strict-gate-alert-thresholds.json`
+- Strict gate threshold sync script:
+  - `scripts/sync-strict-gate-alert-thresholds.py`
 - Includes eight baseline rules:
   - `RefactorThresholdGovernanceWarn`
   - `RefactorThresholdGovernanceCritical`
@@ -371,6 +375,7 @@ cd refactor/backend
 
 ```bash
 cd refactor/backend
+python3 scripts/sync-strict-gate-alert-thresholds.py --check
 promtool check rules monitoring/prometheus/rules/refactor-threshold-governance-alerts.yml
 ```
 

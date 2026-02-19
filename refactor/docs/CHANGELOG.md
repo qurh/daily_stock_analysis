@@ -2,6 +2,25 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.100-m3-strict-gate-threshold-param-sync] - 2026-02-19
+
+### Added
+
+- New strict gate alert threshold config:
+  - `refactor/backend/config/strict-gate-alert-thresholds.json`
+- New threshold sync script:
+  - `refactor/backend/scripts/sync-strict-gate-alert-thresholds.py`
+  - supports `--check` mode for drift detection
+- New tests:
+  - verifies strict gate threshold config has required profile keys
+  - verifies sync script check mode passes in current repository state
+
+### Changed
+
+- Backend CI script now runs strict gate threshold sync drift check before Prometheus rule checks.
+- README now documents strict gate threshold config and sync command.
+- Backend app version bumped to `0.3.100-m3-strict-gate-threshold-param-sync`.
+
 ## [0.3.99-m3-strict-gate-alert-runbook] - 2026-02-19
 
 ### Added

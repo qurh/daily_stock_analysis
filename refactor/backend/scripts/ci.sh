@@ -17,6 +17,9 @@ $PYTHON_BIN -m flake8 src tests --max-line-length=120
 # Promtool installer config validation
 ./scripts/validate-promtool-installer-config.sh
 
+# Strict gate alert threshold sync check
+$PYTHON_BIN ./scripts/sync-strict-gate-alert-thresholds.py --check
+
 # Prometheus rule validation
 if [[ -n "${CI:-}" ]]; then
   export PROMTOOL_REQUIRED="${PROMTOOL_REQUIRED:-1}"

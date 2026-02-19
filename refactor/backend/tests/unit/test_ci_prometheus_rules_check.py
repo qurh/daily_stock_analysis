@@ -22,6 +22,7 @@ def test_ci_script_invokes_prometheus_rules_check() -> None:
 
     assert "./scripts/check-prometheus-rules.sh" in ci_content
     assert "./scripts/validate-promtool-installer-config.sh" in ci_content
+    assert "./scripts/sync-strict-gate-alert-thresholds.py --check" in ci_content
     assert "promtool check rules" in check_content
     assert "PROMTOOL_REQUIRED" in ci_content
     assert "CI" in ci_content
