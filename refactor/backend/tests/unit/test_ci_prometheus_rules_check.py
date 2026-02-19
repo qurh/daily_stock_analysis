@@ -42,6 +42,7 @@ def test_ci_script_invokes_prometheus_rules_check() -> None:
     assert "./scripts/sync-validator-error-codes.py --check --strict-descriptions" in ci_content
     assert "./scripts/validate-validator-placeholder-markers.py" in ci_content
     assert "./scripts/validate-validator-error-code-catalog.py" in ci_content
+    assert "./scripts/validate-validator-error-code-metadata-overrides.py" in ci_content
     assert "./scripts/validate-strict-gate-summary-schema.py" in ci_content
     assert "./scripts/validate-summary-contract-changelog.py" in ci_content
     assert "promtool check rules" in check_content
@@ -238,6 +239,76 @@ def test_validator_error_code_metadata_overrides_config_exists() -> None:
 
     payload = json.loads(overrides_file.read_text(encoding="utf-8"))
     assert isinstance(payload, dict)
+
+
+def test_validator_error_code_metadata_overrides_schema_exists() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    schema_file = backend_root / "config" / "schemas" / "validator-error-code-metadata-overrides.schema.json"
+    assert schema_file.exists()
+
+    payload = json.loads(schema_file.read_text(encoding="utf-8"))
+    assert payload.get("$schema") == "https://json-schema.org/draft/2020-12/schema"
+    assert payload.get("type") == "object"
+
+
+def test_validator_error_code_metadata_overrides_validator_script_passes_default_config() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-validator-error-code-metadata-overrides.py"
+    assert validate_script_file.exists()
+
+    completed = subprocess.run(
+        [sys.executable, str(validate_script_file)],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0
+    assert "overrides config is valid" in completed.stdout.lower()
+
+
+def test_validator_error_code_metadata_overrides_validator_script_json_errors_for_unknown_code(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-validator-error-code-metadata-overrides.py"
+    assert validate_script_file.exists()
+
+    overrides_file = tmp_path / "metadata-overrides-invalid.json"
+    overrides_file.write_text(
+        json.dumps(
+            {
+                "summary_schema": {
+                    "summary_schema_not_exists": {
+                        "severity": "warning",
+                    }
+                }
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--overrides-file",
+            str(overrides_file),
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "validate-validator-error-code-metadata-overrides"
+    assert payload["code"] == "error_code_metadata_overrides_unknown_override_code"
+    assert "unknown override code" in payload["message"].lower()
 
 
 def test_validator_error_code_sync_script_applies_custom_metadata_overrides(tmp_path) -> None:
