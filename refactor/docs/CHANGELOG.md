@@ -2,6 +2,23 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.81-m3-promtool-remote-gate-mode] - 2026-02-19
+
+### Added
+
+- New gate mode switch for remote checksum linkage validation:
+  - `PROMTOOL_VALIDATE_REMOTE_MODE=strict|soft`
+- New tests:
+  - verifies `soft` mode does not block when remote checksum validation fails
+  - verifies invalid mode value fails with explicit validation error
+
+### Changed
+
+- `validate-promtool-installer-config.sh` now applies remote validation mode:
+  - `strict` keeps hard-fail behavior
+  - `soft` logs remote validation failure and continues
+- Backend app version bumped to `0.3.81-m3-promtool-remote-gate-mode`.
+
 ## [0.3.80-m3-promtool-remote-metadata-cache] - 2026-02-19
 
 ### Added

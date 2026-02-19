@@ -751,3 +751,77 @@ cp "${source_file}" "${output_file}"
     assert attempt_count == "1"
     assert refreshed_meta_epoch >= stale_epoch
     assert refreshed_cache_content == source_cache_content
+
+
+def test_promtool_installer_config_validation_remote_soft_mode_ignores_mismatch() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-promtool-installer-config.sh"
+    assert validate_script_file.exists()
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        config_file = tmp_path / "promtool-installer.defaults"
+        config_file.write_text(
+            "\n".join(
+                [
+                    f"PROMTOOL_DEFAULT_VERSION={PROMTOOL_DEFAULT_VERSION}",
+                    (
+                        "PROMTOOL_DEFAULT_SHA256_LINUX_AMD64="
+                        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    ),
+                    f"PROMTOOL_DEFAULT_SHA256_LINUX_ARM64={PROMTOOL_ARCHIVE_SHA256_LINUX_ARM64}",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        sha256sums_file = tmp_path / "sha256sums.txt"
+        sha256sums_file.write_text(
+            "\n".join(
+                [
+                    f"{PROMTOOL_ARCHIVE_SHA256_LINUX_AMD64}  prometheus-{PROMTOOL_DEFAULT_VERSION}.linux-amd64.tar.gz",
+                    f"{PROMTOOL_ARCHIVE_SHA256_LINUX_ARM64}  prometheus-{PROMTOOL_DEFAULT_VERSION}.linux-arm64.tar.gz",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        env = dict(os.environ)
+        env["PROMTOOL_CONFIG_FILE"] = str(config_file)
+        env["PROMTOOL_VALIDATE_REMOTE"] = "1"
+        env["PROMTOOL_VALIDATE_REMOTE_MODE"] = "soft"
+        env["PROMTOOL_SHA256SUMS_URL"] = f"file://{sha256sums_file}"
+        completed = subprocess.run(
+            ["bash", str(validate_script_file)],
+            cwd=backend_root,
+            env=env,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+    assert completed.returncode == 0
+    assert "remote checksum validation failed in soft mode" in completed.stderr
+    assert "checksum mismatch for" in completed.stderr
+
+
+def test_promtool_installer_config_validation_fails_for_invalid_remote_mode() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-promtool-installer-config.sh"
+    assert validate_script_file.exists()
+
+    env = dict(os.environ)
+    env["PROMTOOL_VALIDATE_REMOTE"] = "1"
+    env["PROMTOOL_VALIDATE_REMOTE_MODE"] = "invalid-mode"
+    completed = subprocess.run(
+        ["bash", str(validate_script_file)],
+        cwd=backend_root,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "PROMTOOL_VALIDATE_REMOTE_MODE must be one of: strict, soft" in completed.stderr
