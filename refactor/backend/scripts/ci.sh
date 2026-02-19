@@ -26,6 +26,9 @@ $PYTHON_BIN ./scripts/validate-validator-placeholder-markers.py
 # Validator error code catalog sync check
 $PYTHON_BIN ./scripts/sync-validator-error-codes.py --check --strict-descriptions
 
+# Validator error code catalog schema check
+$PYTHON_BIN ./scripts/validate-validator-error-code-catalog.py
+
 # Strict gate summary schema check
 $PYTHON_BIN ./scripts/validate-strict-gate-summary-schema.py
 

@@ -2,6 +2,30 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.131-m3-error-code-catalog-schema] - 2026-02-19
+
+### Added
+
+- New validator error code catalog schema:
+  - `refactor/backend/config/schemas/validator-error-codes.schema.json`
+  - enforces required groups and non-empty description strings
+- New validator script for catalog contract:
+  - `refactor/backend/scripts/validate-validator-error-code-catalog.py`
+  - validates catalog against JSON Schema and group-prefix naming rule (`<group>_`)
+  - supports structured error output via `--json-errors` (`error_code_catalog_*`)
+- New tests:
+  - validates catalog schema file exists and contains required groups
+  - validates catalog validator script passes default catalog
+  - validates catalog validator emits structured schema-validation errors
+
+### Changed
+
+- CI now enforces catalog schema validation:
+  - `python3 scripts/validate-validator-error-code-catalog.py`
+- README now documents catalog schema path and validator usage.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.131-m3-error-code-catalog-schema`.
+
 ## [0.3.130-m3-marker-error-code-catalog] - 2026-02-19
 
 ### Added
