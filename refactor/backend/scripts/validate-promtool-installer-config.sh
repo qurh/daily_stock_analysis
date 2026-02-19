@@ -13,6 +13,8 @@ PROMTOOL_REMOTE_FETCH_CACHE_FILE="${PROMTOOL_REMOTE_FETCH_CACHE_FILE:-}"
 PROMTOOL_REMOTE_FETCH_CACHE_TTL_SECONDS="${PROMTOOL_REMOTE_FETCH_CACHE_TTL_SECONDS:-3600}"
 PROMTOOL_REMOTE_SOFT_AUDIT_FILE="${PROMTOOL_REMOTE_SOFT_AUDIT_FILE:-}"
 PROMTOOL_REMOTE_SOFT_AUDIT_MAX_LINES="${PROMTOOL_REMOTE_SOFT_AUDIT_MAX_LINES:-0}"
+PROMTOOL_REMOTE_SOFT_AUDIT_MAX_BYTES="${PROMTOOL_REMOTE_SOFT_AUDIT_MAX_BYTES:-0}"
+PROMTOOL_REMOTE_SOFT_AUDIT_RETENTION_DAYS="${PROMTOOL_REMOTE_SOFT_AUDIT_RETENTION_DAYS:-0}"
 PROMTOOL_REMOTE_VALIDATION_LAST_ERROR=""
 
 if [[ ! -f "${PROMTOOL_CONFIG_FILE}" ]]; then
@@ -200,6 +202,8 @@ if [[ "${normalized_validate_remote}" == "1" || "${normalized_validate_remote}" 
   fi
   if [[ -n "${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}" ]]; then
     validate_non_negative_integer "PROMTOOL_REMOTE_SOFT_AUDIT_MAX_LINES" "${PROMTOOL_REMOTE_SOFT_AUDIT_MAX_LINES}"
+    validate_non_negative_integer "PROMTOOL_REMOTE_SOFT_AUDIT_MAX_BYTES" "${PROMTOOL_REMOTE_SOFT_AUDIT_MAX_BYTES}"
+    validate_non_negative_integer "PROMTOOL_REMOTE_SOFT_AUDIT_RETENTION_DAYS" "${PROMTOOL_REMOTE_SOFT_AUDIT_RETENTION_DAYS}"
   fi
 
   if ! run_remote_checksum_validation; then
@@ -212,17 +216,71 @@ if [[ "${normalized_validate_remote}" == "1" || "${normalized_validate_remote}" 
       if [[ -n "${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}" ]]; then
         soft_audit_dir="$(dirname "${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}")"
         soft_audit_ts="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+        soft_audit_tmp_file="${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}.tmp"
         if mkdir -p "${soft_audit_dir}" \
           && printf "%s\tmode=soft\tversion=%s\turl=%s\treason=%s\n" "${soft_audit_ts}" "${PROMTOOL_DEFAULT_VERSION}" "${PROMTOOL_SHA256SUMS_URL}" "${soft_reason}" >> "${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}"; then
           echo "[validate-promtool-installer-config] wrote soft-mode audit record: ${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}" >&2
+          if (( PROMTOOL_REMOTE_SOFT_AUDIT_RETENTION_DAYS > 0 )); then
+            python_bin="python3"
+            if ! command -v "${python_bin}" >/dev/null 2>&1; then
+              python_bin="python"
+            fi
+            if command -v "${python_bin}" >/dev/null 2>&1; then
+              soft_audit_cutoff_ts="$("${python_bin}" - "${PROMTOOL_REMOTE_SOFT_AUDIT_RETENTION_DAYS}" <<'PY'
+from datetime import datetime, timedelta, timezone
+import sys
+
+retention_days = int(sys.argv[1])
+cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+print(cutoff.strftime("%Y-%m-%dT%H:%M:%SZ"))
+PY
+)"
+              if [[ -n "${soft_audit_cutoff_ts}" ]] \
+                && awk -F '\t' -v cutoff="${soft_audit_cutoff_ts}" '
+                    function is_iso_utc(ts) {
+                      return ts ~ /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$/
+                    }
+                    {
+                      ts = $1
+                      if (is_iso_utc(ts)) {
+                        if (ts >= cutoff) {
+                          print $0
+                        }
+                      } else {
+                        print $0
+                      }
+                    }
+                  ' "${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}" > "${soft_audit_tmp_file}" \
+                && mv "${soft_audit_tmp_file}" "${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}"; then
+                echo "[validate-promtool-installer-config] pruned soft-mode audit file by retention window ${PROMTOOL_REMOTE_SOFT_AUDIT_RETENTION_DAYS} day(s): ${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}" >&2
+              else
+                rm -f "${soft_audit_tmp_file}"
+                echo "[validate-promtool-installer-config] warning: failed to prune soft-mode audit file by retention days: ${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}" >&2
+              fi
+            else
+              echo "[validate-promtool-installer-config] warning: python interpreter not found, skip retention-days prune." >&2
+            fi
+          fi
           if (( PROMTOOL_REMOTE_SOFT_AUDIT_MAX_LINES > 0 )); then
-            soft_audit_tmp_file="${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}.tmp"
             if tail -n "${PROMTOOL_REMOTE_SOFT_AUDIT_MAX_LINES}" "${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}" > "${soft_audit_tmp_file}" \
               && mv "${soft_audit_tmp_file}" "${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}"; then
               echo "[validate-promtool-installer-config] trimmed soft-mode audit file to last ${PROMTOOL_REMOTE_SOFT_AUDIT_MAX_LINES} line(s): ${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}" >&2
             else
               rm -f "${soft_audit_tmp_file}"
               echo "[validate-promtool-installer-config] warning: failed to trim soft-mode audit file: ${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}" >&2
+            fi
+          fi
+          if (( PROMTOOL_REMOTE_SOFT_AUDIT_MAX_BYTES > 0 )); then
+            soft_audit_size_bytes="$(wc -c < "${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}" | tr -d '[:space:]')"
+            if [[ "${soft_audit_size_bytes}" =~ ^[0-9]+$ ]] \
+              && (( soft_audit_size_bytes > PROMTOOL_REMOTE_SOFT_AUDIT_MAX_BYTES )); then
+              if tail -c "${PROMTOOL_REMOTE_SOFT_AUDIT_MAX_BYTES}" "${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}" > "${soft_audit_tmp_file}" \
+                && mv "${soft_audit_tmp_file}" "${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}"; then
+                echo "[validate-promtool-installer-config] trimmed soft-mode audit file to last ${PROMTOOL_REMOTE_SOFT_AUDIT_MAX_BYTES} byte(s): ${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}" >&2
+              else
+                rm -f "${soft_audit_tmp_file}"
+                echo "[validate-promtool-installer-config] warning: failed to trim soft-mode audit file by bytes: ${PROMTOOL_REMOTE_SOFT_AUDIT_FILE}" >&2
+              fi
             fi
           fi
         else
