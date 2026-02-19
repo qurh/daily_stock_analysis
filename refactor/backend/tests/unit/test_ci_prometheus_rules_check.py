@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -26,6 +27,7 @@ def test_ci_script_invokes_prometheus_rules_check() -> None:
     assert "./scripts/validate-promtool-installer-config.sh" in ci_content
     assert "./scripts/sync-strict-gate-alert-thresholds.py --check" in ci_content
     assert "./scripts/validate-strict-gate-summary-schema.py" in ci_content
+    assert "./scripts/validate-summary-contract-changelog.py" in ci_content
     assert "promtool check rules" in check_content
     assert "PROMTOOL_REQUIRED" in ci_content
     assert "CI" in ci_content
@@ -131,6 +133,77 @@ def test_summary_schema_validator_script_fails_on_invalid_example_payload(tmp_pa
 
     assert completed.returncode != 0
     assert "example payload validation failed" in completed.stderr.lower()
+
+
+def _extract_app_version_from_file(path: Path) -> str:
+    content = path.read_text(encoding="utf-8")
+    match = re.search(r'version="([^"]+)"', content)
+    assert match is not None
+    return match.group(1)
+
+
+def test_summary_contract_changelog_validator_script_passes_default_files() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-summary-contract-changelog.py"
+    assert validate_script_file.exists()
+
+    completed = subprocess.run(
+        [sys.executable, str(validate_script_file)],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0
+    assert "contract changelog is valid" in completed.stdout.lower()
+
+
+def test_summary_contract_changelog_validator_script_fails_without_schema_version_note(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-summary-contract-changelog.py"
+    app_file = backend_root / "src" / "app" / "main.py"
+    assert validate_script_file.exists()
+    assert app_file.exists()
+
+    app_version = _extract_app_version_from_file(path=app_file)
+
+    temp_app_file = tmp_path / "main.py"
+    temp_app_file.write_text(f'app = FastAPI(version="{app_version}")\n', encoding="utf-8")
+
+    changelog_file = tmp_path / "CHANGELOG.md"
+    changelog_file.write_text(
+        "\n".join(
+            [
+                "# Changelog",
+                "",
+                f"## [{app_version}] - 2026-02-19",
+                "",
+                "### Changed",
+                "",
+                "- Dummy line without schema version marker.",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--changelog-file",
+            str(changelog_file),
+            "--app-file",
+            str(temp_app_file),
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "missing summary schema version note" in completed.stderr.lower()
 
 
 def test_prometheus_rules_check_fails_in_strict_mode_when_promtool_missing() -> None:
