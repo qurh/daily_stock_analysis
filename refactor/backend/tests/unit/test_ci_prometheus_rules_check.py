@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 import sys
@@ -65,6 +66,30 @@ def test_summary_schema_validator_script_fails_on_invalid_json(tmp_path) -> None
 
     assert completed.returncode != 0
     assert "failed to parse json" in completed.stderr.lower()
+
+
+def test_summary_schema_validator_script_fails_on_schema_version_mismatch(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-strict-gate-summary-schema.py"
+    source_schema_file = backend_root / "config" / "schemas" / "strict-gate-summary.schema.json"
+    assert validate_script_file.exists()
+    assert source_schema_file.exists()
+
+    schema_payload = json.loads(source_schema_file.read_text(encoding="utf-8"))
+    schema_payload["properties"]["schema_version"]["const"] = "2"
+    mismatched_schema_file = tmp_path / "mismatched-schema.json"
+    mismatched_schema_file.write_text(json.dumps(schema_payload, ensure_ascii=False), encoding="utf-8")
+
+    completed = subprocess.run(
+        [sys.executable, str(validate_script_file), "--schema-file", str(mismatched_schema_file)],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "schema_version mismatch" in completed.stderr.lower()
 
 
 def test_prometheus_rules_check_fails_in_strict_mode_when_promtool_missing() -> None:

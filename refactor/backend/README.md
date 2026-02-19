@@ -409,6 +409,7 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
   - `refactor/backend/config/schemas/strict-gate-summary.schema.json`
 - Validate schema contract:
   - `python3 scripts/validate-strict-gate-summary-schema.py`
+  - validates `schema_version` consistency between schema file and sync script
 
 ## Run Real LLM Smoke
 
