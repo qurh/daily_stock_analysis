@@ -1,5 +1,6 @@
 import os
 import subprocess
+import tempfile
 from pathlib import Path
 
 PROMTOOL_DEFAULT_VERSION = "2.52.0"
@@ -19,6 +20,7 @@ def test_ci_script_invokes_prometheus_rules_check() -> None:
     check_content = check_file.read_text(encoding="utf-8")
 
     assert "./scripts/check-prometheus-rules.sh" in ci_content
+    assert "./scripts/validate-promtool-installer-config.sh" in ci_content
     assert "promtool check rules" in check_content
     assert "PROMTOOL_REQUIRED" in ci_content
     assert "CI" in ci_content
@@ -214,3 +216,59 @@ def test_promtool_installer_script_fails_for_unsupported_arch() -> None:
 
     assert completed.returncode != 0
     assert "unsupported machine architecture" in completed.stderr
+
+
+def test_promtool_installer_config_validation_passes_with_default_config() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-promtool-installer-config.sh"
+    config_file = backend_root / "config" / "promtool-installer.defaults"
+    assert validate_script_file.exists()
+    assert config_file.exists()
+
+    env = dict(os.environ)
+    env["PROMTOOL_CONFIG_FILE"] = str(config_file)
+    completed = subprocess.run(
+        ["bash", str(validate_script_file)],
+        cwd=backend_root,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0
+    assert "config is valid" in completed.stderr
+
+
+def test_promtool_installer_config_validation_fails_for_invalid_checksum() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-promtool-installer-config.sh"
+    assert validate_script_file.exists()
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        config_file = Path(tmp_dir) / "promtool-installer.defaults"
+        config_file.write_text(
+            "\n".join(
+                [
+                    "PROMTOOL_DEFAULT_VERSION=2.52.0",
+                    "PROMTOOL_DEFAULT_SHA256_LINUX_AMD64=not-a-checksum",
+                    f"PROMTOOL_DEFAULT_SHA256_LINUX_ARM64={PROMTOOL_ARCHIVE_SHA256_LINUX_ARM64}",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        env = dict(os.environ)
+        env["PROMTOOL_CONFIG_FILE"] = str(config_file)
+        completed = subprocess.run(
+            ["bash", str(validate_script_file)],
+            cwd=backend_root,
+            env=env,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+    assert completed.returncode != 0
+    assert "must be a 64-character lowercase hex string" in completed.stderr
