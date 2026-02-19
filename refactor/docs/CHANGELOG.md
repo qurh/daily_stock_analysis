@@ -2,6 +2,23 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.75-m3-promtool-installer-dryrun-smoke] - 2026-02-19
+
+### Added
+
+- New script-level smoke support in promtool installer:
+  - `PROMTOOL_DRY_RUN=1` skips download/install after resolving platform
+  - `PROMTOOL_MACHINE_ARCH` allows explicit arch override for testing
+- New tests:
+  - verifies dry-run auto-detects `x86_64` to `linux-amd64`
+  - verifies dry-run auto-detects `arm64` to `linux-arm64`
+  - verifies unsupported architecture fails with explicit error
+
+### Changed
+
+- `install-promtool.sh` now includes default checksum mapping for both `linux-amd64` and `linux-arm64`.
+- Backend app version bumped to `0.3.75-m3-promtool-installer-dryrun-smoke`.
+
 ## [0.3.74-m3-promtool-installer-multi-arch] - 2026-02-19
 
 ### Added

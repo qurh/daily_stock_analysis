@@ -133,3 +133,68 @@ def test_promtool_installer_script_supports_multi_arch_auto_detection() -> None:
     assert "arm64" in content
     assert "linux-arm64" in content
     assert "unsupported machine architecture" in content
+
+
+def test_promtool_installer_script_dry_run_auto_detects_x86_64() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    install_script_file = backend_root / "scripts" / "install-promtool.sh"
+    assert install_script_file.exists()
+
+    env = dict(os.environ)
+    env["PROMTOOL_MACHINE_ARCH"] = "x86_64"
+    env["PROMTOOL_DRY_RUN"] = "1"
+    completed = subprocess.run(
+        ["bash", str(install_script_file)],
+        cwd=backend_root,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0
+    assert "platform: linux-amd64" in completed.stderr
+    assert "dry run enabled" in completed.stderr
+
+
+def test_promtool_installer_script_dry_run_auto_detects_arm64() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    install_script_file = backend_root / "scripts" / "install-promtool.sh"
+    assert install_script_file.exists()
+
+    env = dict(os.environ)
+    env["PROMTOOL_MACHINE_ARCH"] = "arm64"
+    env["PROMTOOL_DRY_RUN"] = "1"
+    completed = subprocess.run(
+        ["bash", str(install_script_file)],
+        cwd=backend_root,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0
+    assert "platform: linux-arm64" in completed.stderr
+    assert "dry run enabled" in completed.stderr
+
+
+def test_promtool_installer_script_fails_for_unsupported_arch() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    install_script_file = backend_root / "scripts" / "install-promtool.sh"
+    assert install_script_file.exists()
+
+    env = dict(os.environ)
+    env["PROMTOOL_MACHINE_ARCH"] = "riscv64"
+    env["PROMTOOL_DRY_RUN"] = "1"
+    completed = subprocess.run(
+        ["bash", str(install_script_file)],
+        cwd=backend_root,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "unsupported machine architecture" in completed.stderr

@@ -281,6 +281,7 @@ cd refactor/backend
   - promtool is installed from pinned release `v2.52.0` in workflow steps (not apt package).
   - workflow verifies archive SHA256 before extracting and installing `promtool`.
   - installer script auto-detects `linux-amd64` / `linux-arm64` from machine architecture by default.
+  - installer script supports smoke mode with `PROMTOOL_DRY_RUN=1` and arch override via `PROMTOOL_MACHINE_ARCH`.
 
 ## Prometheus Alert Rule Template
 
