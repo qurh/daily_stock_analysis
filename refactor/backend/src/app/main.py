@@ -104,7 +104,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Daily Stock Analysis Refactor API",
-        version="0.3.150-m3-error-code-profile-default-first-order",
+        version="0.3.151-m3-error-code-profile-mode-not-configured-hint",
     )
     app.state.workflow_service = workflow_service
     app.state.analysis_service = analysis_service

@@ -135,7 +135,9 @@ def _resolve_lint_profile(
         if lint_profile is not None:
             raise MetadataLintValidationError(
                 code=VALIDATOR_ERROR_CODES["PROFILE_NOT_FOUND"],
-                message=f"lint profile not found: {lint_profile}",
+                message=(
+                    f"lint profile not found: {lint_profile}. " "profile mode is not configured for this lint config."
+                ),
                 context={
                     "lint_profile": lint_profile,
                     "available_profiles": [],

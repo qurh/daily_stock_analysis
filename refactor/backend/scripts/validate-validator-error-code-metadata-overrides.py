@@ -109,7 +109,9 @@ def _resolve_lint_profile(payload: dict, lint_profile: str | None, path: Path) -
         if lint_profile is not None:
             raise MetadataOverridesValidationError(
                 code=VALIDATOR_ERROR_CODES["LINT_PROFILE_NOT_FOUND"],
-                message=f"lint profile not found: {lint_profile}",
+                message=(
+                    f"lint profile not found: {lint_profile}. " "profile mode is not configured for this lint config."
+                ),
                 context={
                     "path": str(path),
                     "lint_profile": lint_profile,
