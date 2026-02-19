@@ -2,6 +2,21 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.85-m3-promtool-soft-audit-retention] - 2026-02-19
+
+### Added
+
+- New retention control for promtool soft-mode audit file:
+  - `PROMTOOL_REMOTE_SOFT_AUDIT_MAX_LINES` (`0` disables trimming)
+- New tests:
+  - verifies audit file is trimmed to configured max retained lines
+  - verifies invalid `PROMTOOL_REMOTE_SOFT_AUDIT_MAX_LINES` value fails validation
+
+### Changed
+
+- `validate-promtool-installer-config.sh` now validates `PROMTOOL_REMOTE_SOFT_AUDIT_MAX_LINES` and trims audit file after soft-mode append when configured.
+- Backend app version bumped to `0.3.85-m3-promtool-soft-audit-retention`.
+
 ## [0.3.84-m3-promtool-soft-audit-metrics] - 2026-02-19
 
 ### Added
