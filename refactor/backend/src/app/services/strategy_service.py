@@ -237,7 +237,12 @@ class StrategyService:
             rows = conn.execute(query, params).fetchall()
         return {"items": [self._serialize_strategy_row(row) for row in rows], "count": len(rows)}
 
-    def publish_strategy(self, strategy_id: str, backtest_job_id: str | None) -> dict[str, Any]:
+    def publish_strategy(
+        self,
+        strategy_id: str,
+        backtest_job_id: str | None,
+        proposal_id: str | None = None,
+    ) -> dict[str, Any]:
         if not backtest_job_id:
             raise RuntimeError("STR-GATE-005: backtest_job_id is required before publish")
 
@@ -246,12 +251,33 @@ class StrategyService:
             if strategy_row["status"] not in {"candidate", "approved", "rolled_back"}:
                 raise RuntimeError(f"Strategy state conflict: {strategy_row['status']}")
 
-            linked_chatbot_proposal = self._find_latest_linked_chatbot_proposal(
-                conn=conn,
-                strategy_id=strategy_id,
-            )
-            if linked_chatbot_proposal is not None and linked_chatbot_proposal["status"] != "approved":
-                raise RuntimeError("STR-GATE-006: linked chatbot proposal must be approved before publish")
+            normalized_proposal_id = (proposal_id or "").strip() or None
+            if normalized_proposal_id is not None:
+                linked_proposal = self._load_proposal_by_id(
+                    conn=conn,
+                    proposal_id=normalized_proposal_id,
+                )
+                linked_strategy_id = self._extract_linked_strategy_id(
+                    self._database.json_load(linked_proposal["diff_json"], {}),
+                )
+                if linked_strategy_id != strategy_id:
+                    raise RuntimeError("STR-GATE-008: explicit proposal is not linked to strategy")
+                if linked_proposal["status"] != "approved":
+                    raise RuntimeError("STR-GATE-007: explicit proposal must be approved before publish")
+                linked_chatbot_proposal = {
+                    "proposal_id": linked_proposal["proposal_id"],
+                    "source": linked_proposal["source"],
+                    "target": linked_proposal["target"],
+                    "status": linked_proposal["status"],
+                    "updated_at": linked_proposal["updated_at"],
+                }
+            else:
+                linked_chatbot_proposal = self._find_latest_linked_chatbot_proposal(
+                    conn=conn,
+                    strategy_id=strategy_id,
+                )
+                if linked_chatbot_proposal is not None and linked_chatbot_proposal["status"] != "approved":
+                    raise RuntimeError("STR-GATE-006: linked chatbot proposal must be approved before publish")
 
             backtest_row = conn.execute(
                 "SELECT status, metrics_json FROM backtest_jobs WHERE job_id = ?",
@@ -641,6 +667,19 @@ class StrategyService:
                     "updated_at": row["updated_at"],
                 }
         return None
+
+    def _load_proposal_by_id(self, conn: Any, proposal_id: str) -> Any:
+        row = conn.execute(
+            """
+            SELECT proposal_id, source, target, diff_json, status, updated_at
+            FROM change_proposals
+            WHERE proposal_id = ?
+            """,
+            (proposal_id,),
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"Proposal not found: {proposal_id}")
+        return row
 
     @staticmethod
     def _extract_linked_strategy_id(diff: Any) -> str | None:

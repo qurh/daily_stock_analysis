@@ -232,3 +232,130 @@ def test_strategy_publish_blocks_unapproved_chatbot_linked_proposal() -> None:
     assert published.status_code == 200
     assert published.json()["status"] == "active"
     assert published.json()["gate_result"]["proposal_id"] == proposal_id
+
+
+def test_strategy_publish_rejects_mismatched_explicit_proposal_id() -> None:
+    client = TestClient(create_app())
+    _distill_and_approve_memo(client)
+
+    extracted = client.post(
+        "/api/v2/strategy/extract",
+        json={"strategy_type": "analysis"},
+    )
+    assert extracted.status_code == 201
+    strategy_id = extracted.json()["strategy_id"]
+
+    now = datetime.now(timezone.utc).isoformat()
+    high_job_id = str(uuid4())
+    with client.app.state.database.connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO backtest_jobs (
+                job_id, scope, symbol, eval_window_days, status, progress, metrics_json,
+                engine_version, started_at, ended_at, created_at, updated_at
+            )
+            VALUES (?, 'market', NULL, 10, 'completed', 100, ?, 'v1', ?, ?, ?, ?)
+            """,
+            (
+                high_job_id,
+                json.dumps({"sample_size": 12, "win_rate_pct": 75.0}, ensure_ascii=False),
+                now,
+                now,
+                now,
+                now,
+            ),
+        )
+
+    unrelated = client.post(
+        "/api/v2/optimization/proposals",
+        json={
+            "source": "chatbot",
+            "target": "strategy.analysis.lifecycle",
+            "summary": "unrelated strategy proposal",
+            "diff": {"strategy_id": "strategy-other"},
+        },
+    )
+    assert unrelated.status_code == 201
+    unrelated_proposal_id = unrelated.json()["proposal_id"]
+
+    approved = client.post(
+        f"/api/v2/optimization/proposals/{unrelated_proposal_id}/approve",
+        json={"reviewer": "qrh", "note": "approved unrelated proposal"},
+    )
+    assert approved.status_code == 200
+    assert approved.json()["status"] == "approved"
+
+    publish = client.post(
+        f"/api/v2/strategy/{strategy_id}/publish",
+        json={"backtest_job_id": high_job_id, "proposal_id": unrelated_proposal_id},
+    )
+    assert publish.status_code == 409
+    assert "STR-GATE-008" in publish.json()["detail"]
+
+
+def test_strategy_publish_requires_explicit_proposal_approved() -> None:
+    client = TestClient(create_app())
+    _distill_and_approve_memo(client)
+
+    extracted = client.post(
+        "/api/v2/strategy/extract",
+        json={"strategy_type": "analysis"},
+    )
+    assert extracted.status_code == 201
+    strategy_id = extracted.json()["strategy_id"]
+
+    now = datetime.now(timezone.utc).isoformat()
+    high_job_id = str(uuid4())
+    with client.app.state.database.connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO backtest_jobs (
+                job_id, scope, symbol, eval_window_days, status, progress, metrics_json,
+                engine_version, started_at, ended_at, created_at, updated_at
+            )
+            VALUES (?, 'market', NULL, 10, 'completed', 100, ?, 'v1', ?, ?, ?, ?)
+            """,
+            (
+                high_job_id,
+                json.dumps({"sample_size": 16, "win_rate_pct": 80.0}, ensure_ascii=False),
+                now,
+                now,
+                now,
+                now,
+            ),
+        )
+
+    linked = client.post(
+        "/api/v2/optimization/proposals",
+        json={
+            "source": "chatbot",
+            "target": "strategy.analysis.lifecycle",
+            "summary": "linked strategy proposal",
+            "diff": {"strategy_id": strategy_id},
+        },
+    )
+    assert linked.status_code == 201
+    linked_proposal_id = linked.json()["proposal_id"]
+    assert linked.json()["status"] == "review_pending"
+
+    blocked = client.post(
+        f"/api/v2/strategy/{strategy_id}/publish",
+        json={"backtest_job_id": high_job_id, "proposal_id": linked_proposal_id},
+    )
+    assert blocked.status_code == 409
+    assert "STR-GATE-007" in blocked.json()["detail"]
+
+    approved = client.post(
+        f"/api/v2/optimization/proposals/{linked_proposal_id}/approve",
+        json={"reviewer": "qrh", "note": "approved linked proposal"},
+    )
+    assert approved.status_code == 200
+    assert approved.json()["status"] == "approved"
+
+    published = client.post(
+        f"/api/v2/strategy/{strategy_id}/publish",
+        json={"backtest_job_id": high_job_id, "proposal_id": linked_proposal_id},
+    )
+    assert published.status_code == 200
+    assert published.json()["status"] == "active"
+    assert published.json()["gate_result"]["proposal_id"] == linked_proposal_id

@@ -31,6 +31,7 @@ class StrategyExtractRequest(BaseModel):
 
 class StrategyPublishRequest(BaseModel):
     backtest_job_id: str | None = None
+    proposal_id: str | None = None
 
 
 class StrategyRollbackRequest(BaseModel):
@@ -125,6 +126,7 @@ def publish_strategy(
         return service.publish_strategy(
             strategy_id=strategy_id,
             backtest_job_id=request.backtest_job_id,
+            proposal_id=request.proposal_id,
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
