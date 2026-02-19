@@ -81,18 +81,33 @@ def _validate_example_payload(example_payload: dict, schema: dict, expected_vers
 
     files = example_payload.get("files")
     modules = example_payload.get("modules")
-    if not isinstance(files, list) or not isinstance(modules, dict):
-        raise ValueError("example payload consistency check failed")
+    if not isinstance(files, list):
+        raise ValueError("example payload consistency check failed: files must be a list")
+    if not isinstance(modules, dict):
+        raise ValueError("example payload consistency check failed: modules must be an object")
 
-    if example_payload.get("changed_files_count") != len(files):
-        raise ValueError("example payload consistency check failed")
+    changed_files_count = example_payload.get("changed_files_count")
+    expected_files_count = len(files)
+    if changed_files_count != expected_files_count:
+        raise ValueError(
+            f"example payload consistency check failed: "
+            f"changed_files_count mismatch (expected={expected_files_count}, actual={changed_files_count})"
+        )
 
     total_added_lines = sum(item.get("added_lines", 0) for item in files if isinstance(item, dict))
     total_removed_lines = sum(item.get("removed_lines", 0) for item in files if isinstance(item, dict))
-    if example_payload.get("total_added_lines") != total_added_lines:
-        raise ValueError("example payload consistency check failed")
-    if example_payload.get("total_removed_lines") != total_removed_lines:
-        raise ValueError("example payload consistency check failed")
+    summary_total_added = example_payload.get("total_added_lines")
+    summary_total_removed = example_payload.get("total_removed_lines")
+    if summary_total_added != total_added_lines:
+        raise ValueError(
+            f"example payload consistency check failed: "
+            f"total_added_lines mismatch (expected={total_added_lines}, actual={summary_total_added})"
+        )
+    if summary_total_removed != total_removed_lines:
+        raise ValueError(
+            f"example payload consistency check failed: "
+            f"total_removed_lines mismatch (expected={total_removed_lines}, actual={summary_total_removed})"
+        )
 
     module_names = ("strict", "governance", "soft_audit")
     for module_name in module_names:
@@ -105,7 +120,10 @@ def _validate_example_payload(example_payload: dict, schema: dict, expected_vers
             if isinstance(item_modules, dict):
                 file_total += item_modules.get(module_name, {}).get("changed_alerts_count", 0)
         if module_total != file_total:
-            raise ValueError("example payload consistency check failed")
+            raise ValueError(
+                f"example payload consistency check failed: "
+                f"module total mismatch for {module_name} (expected={file_total}, actual={module_total})"
+            )
 
 
 def main() -> int:

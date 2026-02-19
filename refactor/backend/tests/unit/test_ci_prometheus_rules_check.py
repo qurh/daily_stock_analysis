@@ -227,7 +227,31 @@ def test_summary_schema_validator_script_fails_on_inconsistent_totals(tmp_path) 
     )
 
     assert completed.returncode != 0
-    assert "example payload consistency check failed" in completed.stderr.lower()
+    assert "changed_files_count mismatch" in completed.stderr.lower()
+
+
+def test_summary_schema_validator_script_fails_on_module_total_mismatch(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-strict-gate-summary-schema.py"
+    source_example_file = backend_root / "config" / "schemas" / "strict-gate-summary.example.json"
+    assert validate_script_file.exists()
+    assert source_example_file.exists()
+
+    example_payload = json.loads(source_example_file.read_text(encoding="utf-8"))
+    example_payload["modules"]["strict"]["changed_alerts_count"] = 9
+    invalid_example_file = tmp_path / "invalid-module-example.json"
+    invalid_example_file.write_text(json.dumps(example_payload, ensure_ascii=False), encoding="utf-8")
+
+    completed = subprocess.run(
+        [sys.executable, str(validate_script_file), "--example-file", str(invalid_example_file)],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "module total mismatch for strict" in completed.stderr.lower()
 
 
 def test_prometheus_rules_check_fails_in_strict_mode_when_promtool_missing() -> None:

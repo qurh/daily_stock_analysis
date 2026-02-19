@@ -2,6 +2,25 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.117-m3-summary-consistency-error-details] - 2026-02-19
+
+### Added
+
+- `validate-strict-gate-summary-schema.py` now emits field-level consistency mismatch details:
+  - `changed_files_count` expected/actual values
+  - `total_added_lines` expected/actual values
+  - `total_removed_lines` expected/actual values
+  - per-module total mismatch with module name and expected/actual values
+- New test:
+  - validator fails with explicit module mismatch message
+
+### Changed
+
+- Existing inconsistent totals test now asserts specific mismatch key in stderr.
+- README now documents field-level mismatch diagnostics.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.117-m3-summary-consistency-error-details`.
+
 ## [0.3.116-m3-summary-example-consistency-guard] - 2026-02-19
 
 ### Added
