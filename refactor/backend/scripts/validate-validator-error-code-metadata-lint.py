@@ -117,9 +117,12 @@ def _resolve_lint_profile(lint_config: dict, lint_profile: str | None) -> tuple[
     if not isinstance(profile_payload, dict):
         available_profiles = sorted(profiles.keys())
         suggested_profiles = get_close_matches(selected_profile, available_profiles, n=3, cutoff=0.5)
+        message = f"lint profile not found: {selected_profile}"
+        if suggested_profiles:
+            message += f". Did you mean: {', '.join(suggested_profiles)}?"
         raise MetadataLintValidationError(
             code=VALIDATOR_ERROR_CODES["PROFILE_NOT_FOUND"],
-            message=f"lint profile not found: {selected_profile}",
+            message=message,
             context={
                 "lint_profile": selected_profile,
                 "available_profiles": available_profiles,
