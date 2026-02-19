@@ -69,6 +69,15 @@ def _render_catalog(catalog: dict[str, dict[str, str]]) -> str:
     return json.dumps(catalog, ensure_ascii=False, indent=2) + "\n"
 
 
+def _collect_placeholder_codes(catalog: dict[str, dict[str, str]]) -> list[str]:
+    placeholder_codes: list[str] = []
+    for group_payload in catalog.values():
+        for code, description in group_payload.items():
+            if description.strip().lower().startswith("todo:"):
+                placeholder_codes.append(code)
+    return sorted(set(placeholder_codes))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Sync validator error code catalog from validator script registries.",
@@ -83,6 +92,11 @@ def main() -> int:
         "--check",
         action="store_true",
         help="Check mode. Return non-zero if output file is not in sync.",
+    )
+    parser.add_argument(
+        "--strict-descriptions",
+        action="store_true",
+        help="Fail if any catalog description is a TODO placeholder.",
     )
     args = parser.parse_args()
 
@@ -105,10 +119,25 @@ def main() -> int:
                     file=sys.stderr,
                 )
                 return 1
+            if args.strict_descriptions:
+                placeholder_codes = _collect_placeholder_codes(catalog=generated_catalog)
+                if placeholder_codes:
+                    print(
+                        (
+                            "[sync-validator-error-codes] placeholder descriptions are not allowed: "
+                            + ", ".join(placeholder_codes)
+                        ),
+                        file=sys.stderr,
+                    )
+                    return 1
             print(f"[sync-validator-error-codes] catalog is in sync: {args.output_file}")
             return 0
 
         args.output_file.parent.mkdir(parents=True, exist_ok=True)
+        if args.strict_descriptions:
+            placeholder_codes = _collect_placeholder_codes(catalog=generated_catalog)
+            if placeholder_codes:
+                raise ValueError("placeholder descriptions are not allowed: " + ", ".join(placeholder_codes))
         args.output_file.write_text(generated_content, encoding="utf-8")
         print(f"[sync-validator-error-codes] catalog updated: {args.output_file}")
         return 0

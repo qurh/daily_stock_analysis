@@ -425,7 +425,8 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
 - Validator error code catalog:
   - `refactor/backend/config/validator-error-codes.json`
   - validator scripts must expose `VALIDATOR_ERROR_CODES` registry for coverage checks
-  - sync/check command: `python3 scripts/sync-validator-error-codes.py --check`
+  - sync/check command: `python3 scripts/sync-validator-error-codes.py --check --strict-descriptions`
+  - `--strict-descriptions` rejects `TODO:` placeholder descriptions
 
 ## Run Real LLM Smoke
 

@@ -39,7 +39,7 @@ def test_ci_script_invokes_prometheus_rules_check() -> None:
     assert "./scripts/check-prometheus-rules.sh" in ci_content
     assert "./scripts/validate-promtool-installer-config.sh" in ci_content
     assert "./scripts/sync-strict-gate-alert-thresholds.py --check" in ci_content
-    assert "./scripts/sync-validator-error-codes.py --check" in ci_content
+    assert "./scripts/sync-validator-error-codes.py --check --strict-descriptions" in ci_content
     assert "./scripts/validate-strict-gate-summary-schema.py" in ci_content
     assert "./scripts/validate-summary-contract-changelog.py" in ci_content
     assert "promtool check rules" in check_content
@@ -66,6 +66,23 @@ def test_validator_error_code_sync_script_passes_default_catalog() -> None:
 
     completed = subprocess.run(
         [sys.executable, str(sync_script_file), "--check"],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0
+    assert "in sync" in completed.stdout.lower()
+
+
+def test_validator_error_code_sync_script_strict_descriptions_pass_default_catalog() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    assert sync_script_file.exists()
+
+    completed = subprocess.run(
+        [sys.executable, str(sync_script_file), "--check", "--strict-descriptions"],
         cwd=backend_root,
         check=False,
         capture_output=True,
@@ -108,6 +125,41 @@ def test_validator_error_code_sync_script_check_fails_on_drift(tmp_path) -> None
 
     assert completed.returncode != 0
     assert "not in sync" in completed.stderr.lower()
+
+
+def test_validator_error_code_sync_script_strict_descriptions_fail_on_todo(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+
+    assert sync_script_file.exists()
+    assert catalog_file.exists()
+
+    payload = json.loads(catalog_file.read_text(encoding="utf-8"))
+    payload["summary_schema"]["summary_schema_json_parse_error"] = "TODO: document summary_schema_json_parse_error."
+    todo_catalog_file = tmp_path / "validator-error-codes.json"
+    todo_catalog_file.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--check",
+            "--strict-descriptions",
+            "--output-file",
+            str(todo_catalog_file),
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "placeholder descriptions" in completed.stderr.lower()
 
 
 def test_validator_scripts_expose_error_code_registries() -> None:
