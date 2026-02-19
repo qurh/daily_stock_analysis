@@ -173,3 +173,75 @@ def test_chatbot_strategy_proposal_requires_strategy_id_in_diff() -> None:
     )
     assert valid.status_code == 201
     assert valid.json()["status"] == "review_pending"
+
+
+def test_optimization_proposal_rejects_unsupported_target_namespace() -> None:
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/api/v2/optimization/proposals",
+        json={
+            "source": "manual",
+            "target": "analysis.lifecycle",
+            "summary": "invalid target namespace",
+            "diff": {"something": "value"},
+        },
+    )
+    assert response.status_code == 400
+    assert "FDB-INPUT-003" in response.json()["detail"]
+
+
+def test_workflow_proposal_requires_flow_patch_in_diff() -> None:
+    client = TestClient(create_app())
+
+    missing = client.post(
+        "/api/v2/optimization/proposals",
+        json={
+            "source": "manual",
+            "target": "workflow.stock.analysis",
+            "summary": "missing flow patch",
+            "diff": {"strategy_id": "stg-001"},
+        },
+    )
+    assert missing.status_code == 400
+    assert "FDB-INPUT-004" in missing.json()["detail"]
+
+    ok = client.post(
+        "/api/v2/optimization/proposals",
+        json={
+            "source": "manual",
+            "target": "workflow.stock.analysis",
+            "summary": "with flow patch",
+            "diff": {"flow_patch": "swap macro and news node"},
+        },
+    )
+    assert ok.status_code == 201
+    assert ok.json()["status"] == "review_pending"
+
+
+def test_prompt_proposal_requires_prompt_patch_in_diff() -> None:
+    client = TestClient(create_app())
+
+    missing = client.post(
+        "/api/v2/optimization/proposals",
+        json={
+            "source": "manual",
+            "target": "prompt.chat.reply",
+            "summary": "missing prompt patch",
+            "diff": {"strategy_id": "stg-001"},
+        },
+    )
+    assert missing.status_code == 400
+    assert "FDB-INPUT-005" in missing.json()["detail"]
+
+    ok = client.post(
+        "/api/v2/optimization/proposals",
+        json={
+            "source": "manual",
+            "target": "prompt.chat.reply",
+            "summary": "with prompt patch",
+            "diff": {"prompt_patch": "Add stronger evidence constraint"},
+        },
+    )
+    assert ok.status_code == 201
+    assert ok.json()["status"] == "review_pending"
