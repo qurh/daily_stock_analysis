@@ -39,6 +39,7 @@ def test_ci_script_invokes_prometheus_rules_check() -> None:
     assert "./scripts/check-prometheus-rules.sh" in ci_content
     assert "./scripts/validate-promtool-installer-config.sh" in ci_content
     assert "./scripts/sync-strict-gate-alert-thresholds.py --check" in ci_content
+    assert "./scripts/sync-validator-error-codes.py --check" in ci_content
     assert "./scripts/validate-strict-gate-summary-schema.py" in ci_content
     assert "./scripts/validate-summary-contract-changelog.py" in ci_content
     assert "promtool check rules" in check_content
@@ -56,6 +57,57 @@ def test_validator_error_code_catalog_exists_and_has_prefix_groups() -> None:
     assert "summary_contract" in payload
     assert isinstance(payload["summary_schema"], dict)
     assert isinstance(payload["summary_contract"], dict)
+
+
+def test_validator_error_code_sync_script_passes_default_catalog() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    assert sync_script_file.exists()
+
+    completed = subprocess.run(
+        [sys.executable, str(sync_script_file), "--check"],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0
+    assert "in sync" in completed.stdout.lower()
+
+
+def test_validator_error_code_sync_script_check_fails_on_drift(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+
+    assert sync_script_file.exists()
+    assert catalog_file.exists()
+
+    payload = json.loads(catalog_file.read_text(encoding="utf-8"))
+    payload["summary_contract"].pop("summary_contract_unexpected_error", None)
+    drifted_catalog_file = tmp_path / "validator-error-codes.json"
+    drifted_catalog_file.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--check",
+            "--output-file",
+            str(drifted_catalog_file),
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "not in sync" in completed.stderr.lower()
 
 
 def test_validator_scripts_expose_error_code_registries() -> None:

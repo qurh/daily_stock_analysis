@@ -2,6 +2,26 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.123-m3-validator-error-code-sync] - 2026-02-19
+
+### Added
+
+- New sync script:
+  - `refactor/backend/scripts/sync-validator-error-codes.py`
+  - generates validator error code catalog from validator script registries
+  - supports `--check` mode for CI drift detection
+- New tests:
+  - validates sync script passes on default catalog
+  - validates sync script check fails on catalog drift
+
+### Changed
+
+- CI now includes validator error code catalog sync check:
+  - `python3 scripts/sync-validator-error-codes.py --check`
+- README now documents validator catalog sync/check command.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.123-m3-validator-error-code-sync`.
+
 ## [0.3.122-m3-validator-error-code-registry] - 2026-02-19
 
 ### Added
