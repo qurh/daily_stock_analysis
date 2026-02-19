@@ -455,6 +455,8 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
   - metadata lint validator supports `--json-errors` (`error_code_metadata_lint_*`)
   - unknown lint profile errors include:
     - `available_profiles` and `suggested_profiles` in JSON `context`
+    - `fallback_reason` in JSON `context`:
+      - `close_match` / `no_close_match` / `no_profiles_config`
     - `suggested_cli_args` in JSON `context`
     - `suggested_command` in JSON `context`
       - now includes current `--lint-config-file` path in template
@@ -475,6 +477,8 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
   - metadata override validator supports `--json-errors` (`error_code_metadata_overrides_*`)
   - unknown overrides lint profile errors include:
     - `available_profiles` and `suggested_profiles` in JSON `context`
+    - `fallback_reason` in JSON `context`:
+      - `close_match` / `no_close_match` / `no_profiles_config`
     - `suggested_cli_args` in JSON `context`
     - `suggested_command` in JSON `context`
       - now includes current `--lint-config-file` path in template

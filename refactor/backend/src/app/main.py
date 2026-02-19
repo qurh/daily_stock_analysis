@@ -104,7 +104,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Daily Stock Analysis Refactor API",
-        version="0.3.148-m3-error-code-profile-no-match-fallback",
+        version="0.3.149-m3-error-code-profile-fallback-reason",
     )
     app.state.workflow_service = workflow_service
     app.state.analysis_service = analysis_service
