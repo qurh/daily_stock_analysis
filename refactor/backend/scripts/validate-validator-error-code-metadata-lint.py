@@ -103,17 +103,21 @@ def _build_profile_suggestion_payload(
     selected_profile: str,
     available_profiles: list[str],
     command_prefix: str,
-) -> tuple[str, list[str], str | None, str | None]:
+) -> tuple[str, str, list[str], str | None, str | None]:
     suggested_profiles = get_close_matches(selected_profile, available_profiles, n=3, cutoff=0.5)
     suggested_cli_args = f"--lint-profile {suggested_profiles[0]}" if suggested_profiles else None
     suggested_command = f"{command_prefix} {suggested_cli_args}" if suggested_cli_args else None
     message = f"lint profile not found: {selected_profile}"
     if suggested_profiles:
+        fallback_reason = "close_match"
         message += f". Did you mean: {', '.join(suggested_profiles)}?"
         message += f" Try: {suggested_cli_args}"
     elif available_profiles:
+        fallback_reason = "no_close_match"
         message += f". Available profiles: {', '.join(available_profiles)}."
-    return message, suggested_profiles, suggested_cli_args, suggested_command
+    else:
+        fallback_reason = "no_profiles_available"
+    return message, fallback_reason, suggested_profiles, suggested_cli_args, suggested_command
 
 
 def _resolve_lint_profile(
@@ -125,7 +129,14 @@ def _resolve_lint_profile(
             raise MetadataLintValidationError(
                 code=VALIDATOR_ERROR_CODES["PROFILE_NOT_FOUND"],
                 message=f"lint profile not found: {lint_profile}",
-                context={"lint_profile": lint_profile, "available_profiles": []},
+                context={
+                    "lint_profile": lint_profile,
+                    "available_profiles": [],
+                    "fallback_reason": "no_profiles_config",
+                    "suggested_profiles": [],
+                    "suggested_cli_args": None,
+                    "suggested_command": None,
+                },
             )
         return lint_config, None
 
@@ -135,7 +146,13 @@ def _resolve_lint_profile(
     profile_payload = profiles.get(selected_profile)
     if not isinstance(profile_payload, dict):
         available_profiles = sorted(profiles.keys())
-        message, suggested_profiles, suggested_cli_args, suggested_command = _build_profile_suggestion_payload(
+        (
+            message,
+            fallback_reason,
+            suggested_profiles,
+            suggested_cli_args,
+            suggested_command,
+        ) = _build_profile_suggestion_payload(
             selected_profile=selected_profile,
             available_profiles=available_profiles,
             command_prefix=(
@@ -149,6 +166,7 @@ def _resolve_lint_profile(
             context={
                 "lint_profile": selected_profile,
                 "available_profiles": available_profiles,
+                "fallback_reason": fallback_reason,
                 "suggested_profiles": suggested_profiles,
                 "suggested_cli_args": suggested_cli_args,
                 "suggested_command": suggested_command,

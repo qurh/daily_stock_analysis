@@ -2,6 +2,24 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.149-m3-error-code-profile-fallback-reason] - 2026-02-19
+
+### Added
+
+- Unknown profile JSON context now includes structured fallback reason:
+  - `fallback_reason=close_match` when fuzzy suggestions exist
+  - `fallback_reason=no_close_match` when no fuzzy suggestion but profiles exist
+  - `fallback_reason=no_profiles_config` when profile mode is not configured
+- New tests:
+  - validates fallback reason for close-match suggestion paths (lint/overrides)
+  - validates fallback reason for no-close-match paths (lint/overrides)
+
+### Changed
+
+- README now documents `fallback_reason` enum semantics.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.149-m3-error-code-profile-fallback-reason`.
+
 ## [0.3.148-m3-error-code-profile-no-match-fallback] - 2026-02-19
 
 ### Added

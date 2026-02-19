@@ -473,6 +473,7 @@ def test_validator_error_code_metadata_lint_validator_script_suggests_nearby_pro
     payload = json.loads(completed.stderr)
     assert payload["validator"] == "validate-validator-error-code-metadata-lint"
     assert payload["code"] == "error_code_metadata_lint_profile_not_found"
+    assert payload["context"]["fallback_reason"] == "close_match"
     assert payload["context"]["suggested_profiles"][0] == "prod"
     assert payload["context"]["suggested_cli_args"] == "--lint-profile prod"
     assert "validate-validator-error-code-metadata-lint.py" in payload["context"]["suggested_command"]
@@ -530,6 +531,7 @@ def test_validator_error_code_metadata_lint_validator_script_handles_no_nearby_p
     payload = json.loads(completed.stderr)
     assert payload["validator"] == "validate-validator-error-code-metadata-lint"
     assert payload["code"] == "error_code_metadata_lint_profile_not_found"
+    assert payload["context"]["fallback_reason"] == "no_close_match"
     assert payload["context"]["suggested_profiles"] == []
     assert payload["context"]["suggested_cli_args"] is None
     assert payload["context"]["suggested_command"] is None
@@ -895,6 +897,7 @@ def test_validator_error_code_metadata_overrides_validator_script_suggests_nearb
     payload = json.loads(completed.stderr)
     assert payload["validator"] == "validate-validator-error-code-metadata-overrides"
     assert payload["code"] == "error_code_metadata_overrides_lint_profile_not_found"
+    assert payload["context"]["fallback_reason"] == "close_match"
     assert payload["context"]["suggested_profiles"][0] == "prod"
     assert payload["context"]["suggested_cli_args"] == "--lint-profile prod"
     assert "validate-validator-error-code-metadata-overrides.py" in payload["context"]["suggested_command"]
@@ -952,6 +955,7 @@ def test_validator_error_code_metadata_overrides_validator_script_handles_no_nea
     payload = json.loads(completed.stderr)
     assert payload["validator"] == "validate-validator-error-code-metadata-overrides"
     assert payload["code"] == "error_code_metadata_overrides_lint_profile_not_found"
+    assert payload["context"]["fallback_reason"] == "no_close_match"
     assert payload["context"]["suggested_profiles"] == []
     assert payload["context"]["suggested_cli_args"] is None
     assert payload["context"]["suggested_command"] is None
