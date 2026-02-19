@@ -38,7 +38,11 @@ VALID_SEVERITIES = {"info", "warning", "critical"}
 RULE_FILE_BY_PROFILE = {
     "default": BACKEND_ROOT / "monitoring" / "prometheus" / "rules" / "refactor-threshold-governance-alerts.yml",
     "dev": BACKEND_ROOT / "monitoring" / "prometheus" / "rules" / "refactor-threshold-governance-alerts.dev.yml",
-    "staging": BACKEND_ROOT / "monitoring" / "prometheus" / "rules" / "refactor-threshold-governance-alerts.staging.yml",
+    "staging": BACKEND_ROOT
+    / "monitoring"
+    / "prometheus"
+    / "rules"
+    / "refactor-threshold-governance-alerts.staging.yml",
     "prod": BACKEND_ROOT / "monitoring" / "prometheus" / "rules" / "refactor-threshold-governance-alerts.prod.yml",
 }
 
@@ -80,8 +84,7 @@ def _parse_severity(profile_name: str, field_name: str, raw_value: object) -> st
     if value not in VALID_SEVERITIES:
         allowed = ", ".join(sorted(VALID_SEVERITIES))
         raise ValueError(
-            f"Invalid severity for profile '{profile_name}' field '{field_name}': {raw_value} "
-            f"(allowed: {allowed})"
+            f"Invalid severity for profile '{profile_name}' field '{field_name}': {raw_value} " f"(allowed: {allowed})"
         )
     return value
 
@@ -144,7 +147,9 @@ def _load_profiles(path: Path) -> dict[str, StrictGateThresholdProfile]:
                 raise ValueError(f"Missing field '{field}' in profile '{profile_name}'")
 
         min_hits = _parse_min_hits(profile_name=profile_name, raw_value=raw_profile["min_hits"])
-        warn_ratio = _parse_ratio(profile_name=profile_name, field_name="warn_ratio", raw_value=raw_profile["warn_ratio"])
+        warn_ratio = _parse_ratio(
+            profile_name=profile_name, field_name="warn_ratio", raw_value=raw_profile["warn_ratio"]
+        )
         critical_ratio = _parse_ratio(
             profile_name=profile_name, field_name="critical_ratio", raw_value=raw_profile["critical_ratio"]
         )
@@ -157,7 +162,9 @@ def _load_profiles(path: Path) -> dict[str, StrictGateThresholdProfile]:
         profiles[profile_name] = StrictGateThresholdProfile(
             min_hits=min_hits,
             warn_ratio=warn_ratio,
-            warn_for=_parse_duration(profile_name=profile_name, field_name="warn_for", raw_value=raw_profile["warn_for"]),
+            warn_for=_parse_duration(
+                profile_name=profile_name, field_name="warn_for", raw_value=raw_profile["warn_for"]
+            ),
             critical_ratio=critical_ratio,
             critical_for=_parse_duration(
                 profile_name=profile_name, field_name="critical_for", raw_value=raw_profile["critical_for"]
@@ -360,6 +367,20 @@ def _diff_line_stats(original: str, rendered: str) -> tuple[int, int]:
     return added, removed
 
 
+def _build_summary_payload(change_summaries: list[tuple[str, int, int]]) -> dict:
+    total_added = sum(entry[1] for entry in change_summaries)
+    total_removed = sum(entry[2] for entry in change_summaries)
+    return {
+        "changed_files_count": len(change_summaries),
+        "total_added_lines": total_added,
+        "total_removed_lines": total_removed,
+        "files": [
+            {"path": relative_path, "added_lines": added, "removed_lines": removed}
+            for relative_path, added, removed in change_summaries
+        ],
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Sync strict gate alert thresholds into Prometheus rule profiles.")
     parser.add_argument("--check", action="store_true", help="Check mode: fail if any file is out of sync.")
@@ -368,6 +389,12 @@ def main() -> int:
         "--summary-only",
         action="store_true",
         help="With --dry-run, print compact change summary instead of unified diff content.",
+    )
+    parser.add_argument(
+        "--summary-format",
+        choices=("text", "json"),
+        default="text",
+        help="Summary output format. Non-text format requires --summary-only.",
     )
     parser.add_argument("--config", type=Path, default=CONFIG_PATH, help="Path to threshold config JSON file.")
     parser.add_argument(
@@ -380,6 +407,8 @@ def main() -> int:
 
     if args.summary_only and not args.dry_run:
         raise ValueError("--summary-only requires --dry-run")
+    if args.summary_format != "text" and not args.summary_only:
+        raise ValueError("--summary-format requires --summary-only")
 
     profiles = _load_profiles(args.config)
     selected_profiles = list(args.profile or RULE_FILE_BY_PROFILE.keys())
@@ -407,25 +436,35 @@ def main() -> int:
             if not args.check and not args.dry_run:
                 rule_file.write_text(rendered, encoding="utf-8")
 
-    if args.dry_run and args.summary_only and changed_files:
-        total_added = sum(entry[1] for entry in change_summaries)
-        total_removed = sum(entry[2] for entry in change_summaries)
-        print(
-            f"[sync-strict-gate-alert-thresholds] summary: {len(changed_files)} file(s) changed, "
-            f"+{total_added}/-{total_removed} line(s)."
-        )
-        for relative_path, added, removed in change_summaries:
-            print(f"[sync-strict-gate-alert-thresholds] {relative_path}: +{added}/-{removed}")
+    summary_payload: dict | None = None
+    if args.dry_run and args.summary_only:
+        summary_payload = _build_summary_payload(change_summaries=change_summaries)
+        if args.summary_format == "json":
+            print(json.dumps(summary_payload, ensure_ascii=False))
+        elif changed_files:
+            print(
+                f"[sync-strict-gate-alert-thresholds] summary: {summary_payload['changed_files_count']} file(s) changed, "
+                f"+{summary_payload['total_added_lines']}/-{summary_payload['total_removed_lines']} line(s)."
+            )
+            for file_summary in summary_payload["files"]:
+                print(
+                    f"[sync-strict-gate-alert-thresholds] {file_summary['path']}: "
+                    f"+{file_summary['added_lines']}/-{file_summary['removed_lines']}"
+                )
 
     for diff_output in diff_outputs:
         print(diff_output)
 
     if changed_files and args.check:
-        for file_path in changed_files:
-            rel = file_path.relative_to(BACKEND_ROOT)
-            print(f"[sync-strict-gate-alert-thresholds] out of sync: {rel}")
-        print("[sync-strict-gate-alert-thresholds] run script without --check to update files.")
+        if not (args.dry_run and args.summary_only and args.summary_format == "json"):
+            for file_path in changed_files:
+                rel = file_path.relative_to(BACKEND_ROOT)
+                print(f"[sync-strict-gate-alert-thresholds] out of sync: {rel}")
+            print("[sync-strict-gate-alert-thresholds] run script without --check to update files.")
         return 1
+
+    if args.dry_run and args.summary_only and args.summary_format == "json":
+        return 0
 
     if changed_files and not args.check and not args.dry_run:
         for file_path in changed_files:

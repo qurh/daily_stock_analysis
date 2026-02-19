@@ -396,6 +396,7 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --check --config /tmp/stric
 python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --profile dev
 python3 scripts/sync-strict-gate-alert-thresholds.py --check --dry-run --profile dev
 python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --profile dev
+python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --summary-format json --profile dev
 ```
 
 ## Run Real LLM Smoke
