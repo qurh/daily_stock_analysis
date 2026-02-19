@@ -365,6 +365,8 @@ cd refactor/backend
   - `RefactorPromtoolSoftAuditMaxLinesExceeded`
   - `RefactorPromtoolSoftAuditMaxBytesExceeded`
   - `RefactorPromtoolSoftAuditRotationUnbounded`
+- Strict gate alert runbook:
+  - `refactor/docs/runbooks/2026-02-19-strict-gate-alert-runbook.md`
 - Validate template with:
 
 ```bash

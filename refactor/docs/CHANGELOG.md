@@ -2,6 +2,22 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.99-m3-strict-gate-alert-runbook] - 2026-02-19
+
+### Added
+
+- New strict gate alert runbook:
+  - `refactor/docs/runbooks/2026-02-19-strict-gate-alert-runbook.md`
+- Runbook now covers:
+  - trigger semantics and severity interpretation
+  - PromQL and SQLite diagnostics
+  - fast mitigation, permanent fix, rollback, and postmortem checklist
+
+### Changed
+
+- Backend README now links strict gate alert runbook under Prometheus alert rule section.
+- Backend app version bumped to `0.3.99-m3-strict-gate-alert-runbook`.
+
 ## [0.3.98-m3-strict-publish-gate-alert-rules] - 2026-02-19
 
 ### Added
