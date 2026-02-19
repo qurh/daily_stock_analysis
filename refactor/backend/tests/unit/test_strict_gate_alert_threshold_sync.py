@@ -219,3 +219,55 @@ def test_strict_gate_alert_threshold_sync_check_and_dry_run_fails_when_out_of_sy
 
     assert result.returncode != 0
     assert "out of sync" in result.stdout.lower()
+
+
+def test_strict_gate_alert_threshold_sync_summary_only_outputs_compact_summary(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script = backend_root / "scripts" / "sync-strict-gate-alert-thresholds.py"
+
+    payload = _base_threshold_config(backend_root)
+    payload["profiles"]["dev"]["warn_for"] = "6m"
+    config_file = _write_threshold_config(tmp_path=tmp_path, payload=payload)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script),
+            "--dry-run",
+            "--summary-only",
+            "--profile",
+            "dev",
+            "--config",
+            str(config_file),
+        ],
+        cwd=str(backend_root),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+    assert "summary:" in result.stdout.lower()
+    assert "refactor-threshold-governance-alerts.dev.yml" in result.stdout
+    assert "@@" not in result.stdout
+    assert "--- a/" not in result.stdout
+    assert "+++ b/" not in result.stdout
+
+
+def test_strict_gate_alert_threshold_sync_summary_only_requires_dry_run(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script = backend_root / "scripts" / "sync-strict-gate-alert-thresholds.py"
+
+    payload = _base_threshold_config(backend_root)
+    config_file = _write_threshold_config(tmp_path=tmp_path, payload=payload)
+
+    result = subprocess.run(
+        [sys.executable, str(sync_script), "--summary-only", "--profile", "dev", "--config", str(config_file)],
+        cwd=str(backend_root),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "requires --dry-run" in result.stderr.lower()

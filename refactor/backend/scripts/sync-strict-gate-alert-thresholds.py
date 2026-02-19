@@ -347,10 +347,28 @@ def _build_unified_diff(original: str, rendered: str, relative_path: str) -> str
     return "\n".join(diff_lines)
 
 
+def _diff_line_stats(original: str, rendered: str) -> tuple[int, int]:
+    added = 0
+    removed = 0
+    for line in difflib.unified_diff(original.splitlines(), rendered.splitlines(), lineterm=""):
+        if line.startswith("+++ ") or line.startswith("--- ") or line.startswith("@@"):
+            continue
+        if line.startswith("+"):
+            added += 1
+        elif line.startswith("-"):
+            removed += 1
+    return added, removed
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Sync strict gate alert thresholds into Prometheus rule profiles.")
     parser.add_argument("--check", action="store_true", help="Check mode: fail if any file is out of sync.")
     parser.add_argument("--dry-run", action="store_true", help="Print unified diff without writing files.")
+    parser.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="With --dry-run, print compact change summary instead of unified diff content.",
+    )
     parser.add_argument("--config", type=Path, default=CONFIG_PATH, help="Path to threshold config JSON file.")
     parser.add_argument(
         "--profile",
@@ -360,11 +378,15 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    if args.summary_only and not args.dry_run:
+        raise ValueError("--summary-only requires --dry-run")
+
     profiles = _load_profiles(args.config)
     selected_profiles = list(args.profile or RULE_FILE_BY_PROFILE.keys())
 
     changed_files: list[Path] = []
     diff_outputs: list[str] = []
+    change_summaries: list[tuple[str, int, int]] = []
     for profile_name in selected_profiles:
         rule_file = RULE_FILE_BY_PROFILE[profile_name]
         if not rule_file.exists():
@@ -375,10 +397,25 @@ def main() -> int:
         if rendered != original:
             changed_files.append(rule_file)
             relative_path = str(rule_file.relative_to(BACKEND_ROOT))
+            added, removed = _diff_line_stats(original=original, rendered=rendered)
+            change_summaries.append((relative_path, added, removed))
             if args.dry_run:
-                diff_outputs.append(_build_unified_diff(original=original, rendered=rendered, relative_path=relative_path))
+                if not args.summary_only:
+                    diff_outputs.append(
+                        _build_unified_diff(original=original, rendered=rendered, relative_path=relative_path)
+                    )
             if not args.check and not args.dry_run:
                 rule_file.write_text(rendered, encoding="utf-8")
+
+    if args.dry_run and args.summary_only and changed_files:
+        total_added = sum(entry[1] for entry in change_summaries)
+        total_removed = sum(entry[2] for entry in change_summaries)
+        print(
+            f"[sync-strict-gate-alert-thresholds] summary: {len(changed_files)} file(s) changed, "
+            f"+{total_added}/-{total_removed} line(s)."
+        )
+        for relative_path, added, removed in change_summaries:
+            print(f"[sync-strict-gate-alert-thresholds] {relative_path}: +{added}/-{removed}")
 
     for diff_output in diff_outputs:
         print(diff_output)
