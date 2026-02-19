@@ -405,6 +405,8 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
   - `governance`
   - `soft_audit`
 - JSON summary payload includes `schema_version` for contract compatibility checks.
+- Formal schema file:
+  - `refactor/backend/config/schemas/strict-gate-summary.schema.json`
 
 ## Run Real LLM Smoke
 

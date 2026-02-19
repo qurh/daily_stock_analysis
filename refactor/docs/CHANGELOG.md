@@ -2,6 +2,21 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.111-m3-summary-json-schema-validation] - 2026-02-19
+
+### Added
+
+- New formal JSON Schema for strict gate summary payload:
+  - `refactor/backend/config/schemas/strict-gate-summary.schema.json`
+- New schema validation test:
+  - validates `--summary-format json` output against schema
+
+### Changed
+
+- Added explicit dev dependency declaration: `jsonschema>=4.21.0`.
+- README now documents the schema file path.
+- Backend app version bumped to `0.3.111-m3-summary-json-schema-validation`.
+
 ## [0.3.110-m3-threshold-summary-schema-version] - 2026-02-19
 
 ### Added
