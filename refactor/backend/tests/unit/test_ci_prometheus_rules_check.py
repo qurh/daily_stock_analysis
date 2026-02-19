@@ -78,3 +78,20 @@ def test_github_actions_refactor_ci_example_includes_promtool_install_and_ci_run
     assert "cd refactor/backend" in content
     assert "bash scripts/ci.sh" in content
     assert 'PROMTOOL_REQUIRED: "1"' in content
+
+
+def test_github_actions_refactor_ci_workflow_exists_and_targets_backend_paths() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    repository_root = Path(__file__).resolve().parents[4]
+    workflow_file = repository_root / ".github" / "workflows" / "refactor-backend-ci.yml"
+
+    assert backend_root.exists()
+    assert workflow_file.exists()
+
+    content = workflow_file.read_text(encoding="utf-8")
+    assert 'name: "Refactor Backend CI"' in content
+    assert "paths:" in content
+    assert '- "refactor/backend/**"' in content
+    assert '- "refactor/docs/**"' in content
+    assert "Install promtool" in content
+    assert "bash scripts/ci.sh" in content
