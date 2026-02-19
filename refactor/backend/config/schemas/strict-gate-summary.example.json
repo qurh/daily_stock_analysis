@@ -1,0 +1,35 @@
+{
+  "schema_version": "1",
+  "changed_files_count": 1,
+  "total_added_lines": 3,
+  "total_removed_lines": 1,
+  "files": [
+    {
+      "path": "monitoring/prometheus/rules/refactor-threshold-governance-alerts.dev.yml",
+      "added_lines": 3,
+      "removed_lines": 1,
+      "modules": {
+        "strict": {
+          "changed_alerts_count": 1
+        },
+        "governance": {
+          "changed_alerts_count": 0
+        },
+        "soft_audit": {
+          "changed_alerts_count": 0
+        }
+      }
+    }
+  ],
+  "modules": {
+    "strict": {
+      "changed_alerts_count": 1
+    },
+    "governance": {
+      "changed_alerts_count": 0
+    },
+    "soft_audit": {
+      "changed_alerts_count": 0
+    }
+  }
+}

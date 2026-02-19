@@ -10,9 +10,11 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError
+from jsonschema.exceptions import ValidationError
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SCHEMA_FILE = BACKEND_ROOT / "config" / "schemas" / "strict-gate-summary.schema.json"
+DEFAULT_EXAMPLE_FILE = BACKEND_ROOT / "config" / "schemas" / "strict-gate-summary.example.json"
 DEFAULT_SYNC_SCRIPT_FILE = BACKEND_ROOT / "scripts" / "sync-strict-gate-alert-thresholds.py"
 EXPECTED_SCHEMA_DRAFT = "https://json-schema.org/draft/2020-12/schema"
 SUMMARY_SCHEMA_VERSION_PATTERN = re.compile(r'^SUMMARY_SCHEMA_VERSION\s*=\s*"([^"]+)"\s*$')
@@ -66,6 +68,18 @@ def _extract_schema_payload_version(schema: dict) -> str:
     return schema_version_const
 
 
+def _validate_example_payload(example_payload: dict, schema: dict, expected_version: str) -> None:
+    try:
+        Draft202012Validator(schema).validate(example_payload)
+    except ValidationError as exc:
+        raise ValueError("example payload validation failed") from exc
+    if example_payload.get("schema_version") != expected_version:
+        raise ValueError(
+            f"example payload schema_version mismatch: "
+            f"example={example_payload.get('schema_version')}, expected={expected_version}"
+        )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate strict gate summary JSON schema.")
     parser.add_argument(
@@ -80,14 +94,23 @@ def main() -> int:
         default=DEFAULT_SYNC_SCRIPT_FILE,
         help="Path to sync-strict-gate-alert-thresholds.py for SUMMARY_SCHEMA_VERSION check.",
     )
+    parser.add_argument(
+        "--example-file",
+        type=Path,
+        default=DEFAULT_EXAMPLE_FILE,
+        help="Path to strict gate summary example payload JSON file.",
+    )
     args = parser.parse_args()
 
     if not args.schema_file.exists():
         raise FileNotFoundError(f"schema file not found: {args.schema_file}")
     if not args.sync_script_file.exists():
         raise FileNotFoundError(f"sync script file not found: {args.sync_script_file}")
+    if not args.example_file.exists():
+        raise FileNotFoundError(f"example payload file not found: {args.example_file}")
 
     schema = _load_json(path=args.schema_file)
+    example_payload = _load_json(path=args.example_file)
     try:
         Draft202012Validator.check_schema(schema)
     except SchemaError as exc:
@@ -98,7 +121,9 @@ def main() -> int:
     sync_summary_schema_version = _extract_sync_summary_schema_version(path=args.sync_script_file)
     if schema_version != sync_summary_schema_version:
         raise ValueError(f"schema_version mismatch: schema={schema_version}, sync_script={sync_summary_schema_version}")
+    _validate_example_payload(example_payload=example_payload, schema=schema, expected_version=schema_version)
     print(f"[validate-strict-gate-summary-schema] schema is valid: {args.schema_file}")
+    print(f"[validate-strict-gate-summary-schema] example payload is valid: {args.example_file}")
     return 0
 
 

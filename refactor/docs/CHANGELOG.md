@@ -2,6 +2,22 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.114-m3-summary-schema-example-golden] - 2026-02-19
+
+### Added
+
+- New strict gate summary example payload:
+  - `refactor/backend/config/schemas/strict-gate-summary.example.json`
+- `validate-strict-gate-summary-schema.py` now validates example payload against schema.
+- New tests:
+  - validator passes with default example payload
+  - validator fails when example payload violates schema
+
+### Changed
+
+- README now documents example payload and example validation behavior.
+- Backend app version bumped to `0.3.114-m3-summary-schema-example-golden`.
+
 ## [0.3.113-m3-summary-schema-version-drift-guard] - 2026-02-19
 
 ### Added
