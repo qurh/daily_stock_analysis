@@ -2,6 +2,23 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.150-m3-error-code-profile-default-first-order] - 2026-02-19
+
+### Added
+
+- Available profile ordering strategy for unknown profile responses:
+  - `available_profiles` now prioritizes `default_profile` first
+  - remaining profiles keep alphabetical order
+- New tests:
+  - validates lint validator no-match case returns `available_profiles` with `default_profile` first
+  - validates overrides validator no-match case returns `available_profiles` with `default_profile` first
+
+### Changed
+
+- README now documents `available_profiles` ordering semantics.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.150-m3-error-code-profile-default-first-order`.
+
 ## [0.3.149-m3-error-code-profile-fallback-reason] - 2026-02-19
 
 ### Added
