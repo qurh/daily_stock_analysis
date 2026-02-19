@@ -41,6 +41,7 @@ def test_ci_script_invokes_prometheus_rules_check() -> None:
     assert "./scripts/sync-strict-gate-alert-thresholds.py --check" in ci_content
     assert "./scripts/sync-validator-error-codes.py --check --strict-descriptions" in ci_content
     assert "./scripts/validate-validator-placeholder-markers.py" in ci_content
+    assert "./scripts/validate-validator-error-code-catalog.py" in ci_content
     assert "./scripts/validate-strict-gate-summary-schema.py" in ci_content
     assert "./scripts/validate-summary-contract-changelog.py" in ci_content
     assert "promtool check rules" in check_content
@@ -60,6 +61,69 @@ def test_validator_error_code_catalog_exists_and_has_prefix_groups() -> None:
     assert isinstance(payload["summary_schema"], dict)
     assert isinstance(payload["summary_contract"], dict)
     assert isinstance(payload["placeholder_markers"], dict)
+
+
+def test_validator_error_code_catalog_schema_exists_and_has_required_fields() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    schema_file = backend_root / "config" / "schemas" / "validator-error-codes.schema.json"
+    assert schema_file.exists()
+
+    payload = json.loads(schema_file.read_text(encoding="utf-8"))
+    assert payload.get("$schema") == "https://json-schema.org/draft/2020-12/schema"
+    assert payload.get("type") == "object"
+    required_groups = payload.get("required", [])
+    assert "summary_schema" in required_groups
+    assert "summary_contract" in required_groups
+    assert "placeholder_markers" in required_groups
+
+
+def test_validator_error_code_catalog_validator_script_passes_default_catalog() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-validator-error-code-catalog.py"
+    assert validate_script_file.exists()
+
+    completed = subprocess.run(
+        [sys.executable, str(validate_script_file)],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0
+    assert "catalog is valid" in completed.stdout.lower()
+
+
+def test_validator_error_code_catalog_validator_script_json_errors_for_schema_violation(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-validator-error-code-catalog.py"
+    assert validate_script_file.exists()
+
+    invalid_catalog_file = tmp_path / "validator-error-codes.json"
+    invalid_catalog_file.write_text(
+        json.dumps({"summary_schema": []}, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--catalog-file",
+            str(invalid_catalog_file),
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "validate-validator-error-code-catalog"
+    assert payload["code"] == "error_code_catalog_schema_validation_failed"
+    assert "schema validation failed" in payload["message"].lower()
 
 
 def test_validator_placeholder_markers_config_exists_and_is_non_empty() -> None:

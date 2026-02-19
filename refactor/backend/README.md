@@ -424,7 +424,12 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
   - json error `code` namespace: `summary_contract_*`
 - Validator error code catalog:
   - `refactor/backend/config/validator-error-codes.json`
+  - catalog schema: `refactor/backend/config/schemas/validator-error-codes.schema.json`
   - catalog groups: `summary_schema`, `summary_contract`, `placeholder_markers`
+  - validate catalog schema and naming: `python3 scripts/validate-validator-error-code-catalog.py`
+  - custom catalog/schema: `python3 scripts/validate-validator-error-code-catalog.py --catalog-file <path> --schema-file <path>`
+  - structured error output: `python3 scripts/validate-validator-error-code-catalog.py --json-errors`
+  - json error `code` namespace: `error_code_catalog_*`
   - placeholder marker config: `refactor/backend/config/validator-placeholder-markers.json`
   - placeholder marker schema: `refactor/backend/config/schemas/validator-placeholder-markers.schema.json`
   - validate marker config: `python3 scripts/validate-validator-placeholder-markers.py`
