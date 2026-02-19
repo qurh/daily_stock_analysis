@@ -455,6 +455,7 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
   - metadata lint validator supports `--json-errors` (`error_code_metadata_lint_*`)
   - unknown lint profile errors include:
     - `available_profiles` and `suggested_profiles` in JSON `context`
+    - plain stderr now includes "Did you mean: <profile>" when suggestion exists
   - validate metadata overrides: `python3 scripts/validate-validator-error-code-metadata-overrides.py`
   - custom overrides/schema/catalog:
     - `python3 scripts/validate-validator-error-code-metadata-overrides.py --overrides-file <path> --schema-file <path> --catalog-file <path>`
@@ -469,6 +470,7 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
   - metadata override validator supports `--json-errors` (`error_code_metadata_overrides_*`)
   - unknown overrides lint profile errors include:
     - `available_profiles` and `suggested_profiles` in JSON `context`
+    - plain stderr now includes "Did you mean: <profile>" when suggestion exists
   - metadata override semantic lint:
     - rejects placeholder text in `description/remediation` using marker config
     - requires remediation text to be actionable (contains action verbs and minimum text length)
