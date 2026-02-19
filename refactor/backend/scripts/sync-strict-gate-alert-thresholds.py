@@ -446,6 +446,11 @@ def main() -> int:
         default="text",
         help="Summary output format. Non-text format requires --summary-only.",
     )
+    parser.add_argument(
+        "--summary-output",
+        type=Path,
+        help="Write JSON summary payload to this file (requires --summary-only --summary-format json).",
+    )
     parser.add_argument("--config", type=Path, default=CONFIG_PATH, help="Path to threshold config JSON file.")
     parser.add_argument(
         "--profile",
@@ -459,6 +464,10 @@ def main() -> int:
         raise ValueError("--summary-only requires --dry-run")
     if args.summary_format != "text" and not args.summary_only:
         raise ValueError("--summary-format requires --summary-only")
+    if args.summary_output is not None and not args.summary_only:
+        raise ValueError("--summary-output requires --summary-only")
+    if args.summary_output is not None and args.summary_format != "json":
+        raise ValueError("--summary-output requires --summary-format json")
 
     profiles = _load_profiles(args.config)
     selected_profiles = list(args.profile or RULE_FILE_BY_PROFILE.keys())
@@ -491,7 +500,11 @@ def main() -> int:
     if args.dry_run and args.summary_only:
         summary_payload = _build_summary_payload(change_summaries=change_summaries)
         if args.summary_format == "json":
-            print(json.dumps(summary_payload, ensure_ascii=False))
+            summary_json = json.dumps(summary_payload, ensure_ascii=False)
+            print(summary_json)
+            if args.summary_output is not None:
+                args.summary_output.parent.mkdir(parents=True, exist_ok=True)
+                args.summary_output.write_text(f"{summary_json}\n", encoding="utf-8")
         elif changed_files:
             print(
                 f"[sync-strict-gate-alert-thresholds] summary: {summary_payload['changed_files_count']} file(s) changed, "
