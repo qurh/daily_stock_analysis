@@ -2,6 +2,29 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.95-m3-explicit-proposal-publish-bind] - 2026-02-19
+
+### Added
+
+- Strategy publish API now supports explicit proposal binding:
+  - `POST /api/v2/strategy/{strategy_id}/publish` accepts optional `proposal_id`
+  - when provided, proposal must:
+    - exist
+    - be linked to current strategy (`diff.strategy_id == strategy_id`)
+    - be in `approved` status
+  - otherwise publish is blocked with:
+    - `STR-GATE-007` (proposal not approved)
+    - `STR-GATE-008` (proposal not linked to strategy)
+- New tests:
+  - verifies mismatched explicit `proposal_id` is rejected
+  - verifies explicit proposal requires approval before publish
+  - M3 acceptance rehearsal loop now publishes with explicit `proposal_id`
+
+### Changed
+
+- `StrategyService.publish_strategy` now accepts `proposal_id` and validates explicit proposal linkage.
+- Backend app version bumped to `0.3.95-m3-explicit-proposal-publish-bind`.
+
 ## [0.3.94-m3-proposal-target-enum-api] - 2026-02-19
 
 ### Added

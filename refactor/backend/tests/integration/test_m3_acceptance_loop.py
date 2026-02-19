@@ -139,7 +139,7 @@ def test_m3_strategy_backtest_publish_rollback_rehearsal_loop(monkeypatch: pytes
 
     published = client.post(
         f"/api/v2/strategy/{strategy_id}/publish",
-        json={"backtest_job_id": backtest_job_id},
+        json={"backtest_job_id": backtest_job_id, "proposal_id": proposal_id},
     )
     assert published.status_code == 200
     assert published.json()["status"] == "active"
