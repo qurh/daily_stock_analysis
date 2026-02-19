@@ -439,6 +439,11 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
   - validator scripts must expose `VALIDATOR_ERROR_CODES` registry for coverage checks
   - sync/check command: `python3 scripts/sync-validator-error-codes.py --check --strict-descriptions`
   - custom marker config: `python3 scripts/sync-validator-error-codes.py --check --strict-descriptions --placeholder-markers-file <path>`
+  - metadata override config: `refactor/backend/config/validator-error-code-metadata-overrides.json`
+  - custom metadata overrides: `python3 scripts/sync-validator-error-codes.py --metadata-overrides-file <path>`
+  - override rules:
+    - payload format: `group -> code -> {description|severity|remediation}`
+    - unknown group/code is rejected to prevent silent typo drift
   - `--strict-descriptions` rejects placeholder text in `description/remediation` (`TODO:`, `TBD:`, `FIXME:`; case-insensitive)
   - strict error output includes marker list, `group.code.field` entries, and remediation hint
   - metadata policy defaults:

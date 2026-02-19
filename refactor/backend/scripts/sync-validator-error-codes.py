@@ -11,11 +11,14 @@ from pathlib import Path
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT_FILE = BACKEND_ROOT / "config" / "validator-error-codes.json"
 DEFAULT_PLACEHOLDER_MARKERS_FILE = BACKEND_ROOT / "config" / "validator-placeholder-markers.json"
+DEFAULT_METADATA_OVERRIDES_FILE = BACKEND_ROOT / "config" / "validator-error-code-metadata-overrides.json"
 VALIDATOR_SCRIPT_FILES = {
     "summary_schema": BACKEND_ROOT / "scripts" / "validate-strict-gate-summary-schema.py",
     "summary_contract": BACKEND_ROOT / "scripts" / "validate-summary-contract-changelog.py",
     "placeholder_markers": BACKEND_ROOT / "scripts" / "validate-validator-placeholder-markers.py",
 }
+ALLOWED_OVERRIDE_FIELDS = {"description", "severity", "remediation"}
+VALID_SEVERITY_LEVELS = {"info", "warning", "error", "critical"}
 DEFAULT_ENTRY_SEVERITY = "error"
 DEFAULT_ENTRY_REMEDIATION = "Review validator output and update configuration or input data for this error."
 
@@ -146,6 +149,50 @@ def _render_catalog(catalog: dict[str, dict[str, dict[str, str]]]) -> str:
     return json.dumps(catalog, ensure_ascii=False, indent=2) + "\n"
 
 
+def _load_metadata_overrides(path: Path) -> dict[str, dict[str, dict[str, str]]]:
+    if not path.exists():
+        raise FileNotFoundError(f"metadata overrides file not found: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"metadata overrides payload must be an object: {path}")
+
+    overrides: dict[str, dict[str, dict[str, str]]] = {}
+    for group_name, group_payload in payload.items():
+        if not isinstance(group_name, str) or not isinstance(group_payload, dict):
+            raise ValueError(f"invalid override group payload: {group_name}")
+        overrides[group_name] = {}
+        for code, code_payload in group_payload.items():
+            if not isinstance(code, str) or not isinstance(code_payload, dict):
+                raise ValueError(f"invalid override code payload: {group_name}.{code}")
+            entry_override: dict[str, str] = {}
+            for field_name, field_value in code_payload.items():
+                if field_name not in ALLOWED_OVERRIDE_FIELDS:
+                    raise ValueError(f"invalid override field: {group_name}.{code}.{field_name}")
+                if not isinstance(field_value, str) or not field_value.strip():
+                    raise ValueError(f"invalid override value: {group_name}.{code}.{field_name}")
+                normalized_value = field_value.strip()
+                if field_name == "severity" and normalized_value not in VALID_SEVERITY_LEVELS:
+                    raise ValueError(f"invalid override severity: {group_name}.{code}.{normalized_value}")
+                entry_override[field_name] = normalized_value
+            if entry_override:
+                overrides[group_name][code] = entry_override
+    return overrides
+
+
+def _apply_metadata_overrides(
+    catalog: dict[str, dict[str, dict[str, str]]],
+    overrides: dict[str, dict[str, dict[str, str]]],
+) -> dict[str, dict[str, dict[str, str]]]:
+    for group_name, group_payload in overrides.items():
+        if group_name not in catalog:
+            raise ValueError(f"unknown override group: {group_name}")
+        for code, entry_override in group_payload.items():
+            if code not in catalog[group_name]:
+                raise ValueError(f"unknown override code: {group_name}.{code}")
+            catalog[group_name][code].update(entry_override)
+    return catalog
+
+
 def _load_placeholder_markers(path: Path) -> list[str]:
     if not path.exists():
         raise FileNotFoundError(f"placeholder markers file not found: {path}")
@@ -236,11 +283,19 @@ def main() -> int:
         action="store_true",
         help="Fail if any catalog description is a TODO placeholder.",
     )
+    parser.add_argument(
+        "--metadata-overrides-file",
+        type=Path,
+        default=DEFAULT_METADATA_OVERRIDES_FILE,
+        help="Path to metadata overrides JSON file.",
+    )
     args = parser.parse_args()
 
     try:
         existing_catalog = _load_existing_catalog(path=args.output_file)
         generated_catalog = _build_catalog(existing_catalog=existing_catalog)
+        metadata_overrides = _load_metadata_overrides(path=args.metadata_overrides_file)
+        generated_catalog = _apply_metadata_overrides(catalog=generated_catalog, overrides=metadata_overrides)
         generated_content = _render_catalog(catalog=generated_catalog)
         placeholder_markers: list[str] = []
         placeholder_pattern: re.Pattern[str] | None = None

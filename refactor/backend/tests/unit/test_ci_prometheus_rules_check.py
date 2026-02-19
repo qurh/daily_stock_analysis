@@ -231,6 +231,113 @@ def test_validator_error_code_sync_script_upgrades_legacy_default_metadata(tmp_p
     assert "stack trace" in upgraded_entry["remediation"].lower()
 
 
+def test_validator_error_code_metadata_overrides_config_exists() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    overrides_file = backend_root / "config" / "validator-error-code-metadata-overrides.json"
+    assert overrides_file.exists()
+
+    payload = json.loads(overrides_file.read_text(encoding="utf-8"))
+    assert isinstance(payload, dict)
+
+
+def test_validator_error_code_sync_script_applies_custom_metadata_overrides(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+    assert sync_script_file.exists()
+    assert catalog_file.exists()
+
+    source_payload = json.loads(catalog_file.read_text(encoding="utf-8"))
+    output_file = tmp_path / "validator-error-codes.json"
+    output_file.write_text(json.dumps(source_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    overrides_file = tmp_path / "metadata-overrides.json"
+    overrides_file.write_text(
+        json.dumps(
+            {
+                "summary_schema": {
+                    "summary_schema_json_parse_error": {
+                        "severity": "warning",
+                        "remediation": "Use jq/JSONLint to validate syntax before rerun.",
+                    }
+                }
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--output-file",
+            str(output_file),
+            "--metadata-overrides-file",
+            str(overrides_file),
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0
+    payload = json.loads(output_file.read_text(encoding="utf-8"))
+    entry = payload["summary_schema"]["summary_schema_json_parse_error"]
+    assert entry["severity"] == "warning"
+    assert entry["remediation"] == "Use jq/JSONLint to validate syntax before rerun."
+
+
+def test_validator_error_code_sync_script_fails_on_unknown_override_code(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+    assert sync_script_file.exists()
+    assert catalog_file.exists()
+
+    source_payload = json.loads(catalog_file.read_text(encoding="utf-8"))
+    output_file = tmp_path / "validator-error-codes.json"
+    output_file.write_text(json.dumps(source_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    overrides_file = tmp_path / "metadata-overrides-invalid.json"
+    overrides_file.write_text(
+        json.dumps(
+            {
+                "summary_schema": {
+                    "summary_schema_not_exists": {
+                        "severity": "warning",
+                    }
+                }
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--output-file",
+            str(output_file),
+            "--metadata-overrides-file",
+            str(overrides_file),
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "unknown override code" in completed.stderr.lower()
+
+
 def test_validator_placeholder_markers_config_exists_and_is_non_empty() -> None:
     backend_root = Path(__file__).resolve().parents[2]
     markers_file = backend_root / "config" / "validator-placeholder-markers.json"
