@@ -473,6 +473,7 @@ def test_validator_error_code_metadata_lint_validator_script_suggests_nearby_pro
     assert payload["validator"] == "validate-validator-error-code-metadata-lint"
     assert payload["code"] == "error_code_metadata_lint_profile_not_found"
     assert payload["context"]["suggested_profiles"][0] == "prod"
+    assert payload["context"]["suggested_cli_args"] == "--lint-profile prod"
 
 
 def test_validator_error_code_metadata_lint_validator_script_plain_errors_include_profile_suggestion(tmp_path) -> None:
@@ -834,6 +835,7 @@ def test_validator_error_code_metadata_overrides_validator_script_suggests_nearb
     assert payload["validator"] == "validate-validator-error-code-metadata-overrides"
     assert payload["code"] == "error_code_metadata_overrides_lint_profile_not_found"
     assert payload["context"]["suggested_profiles"][0] == "prod"
+    assert payload["context"]["suggested_cli_args"] == "--lint-profile prod"
 
 
 def test_validator_error_code_metadata_overrides_validator_script_plain_errors_include_lint_profile_suggestion(
