@@ -274,6 +274,9 @@ cd refactor/backend
 - Set `PROMTOOL_REQUIRED=1` to fail immediately when `promtool` is missing.
 - In CI (`CI` env is set), `ci.sh` defaults `PROMTOOL_REQUIRED=1` unless explicitly overridden.
 - On success, the checker prints a validated rule-file count summary.
+- GitHub Actions example template:
+  - `refactor/backend/ci/github-actions/refactor-backend-ci.example.yml`
+  - Copy it to `.github/workflows/refactor-backend-ci.yml` to enable a dedicated `refactor/backend` quality gate.
 
 ## Prometheus Alert Rule Template
 

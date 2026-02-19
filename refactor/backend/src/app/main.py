@@ -104,7 +104,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Daily Stock Analysis Refactor API",
-        version="0.3.68-m3-promtool-rules-summary-and-bash3-compat",
+        version="0.3.69-m3-github-actions-promtool-ci-template",
     )
     app.state.workflow_service = workflow_service
     app.state.analysis_service = analysis_service

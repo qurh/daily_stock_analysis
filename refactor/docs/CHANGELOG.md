@@ -2,6 +2,20 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.69-m3-github-actions-promtool-ci-template] - 2026-02-19
+
+### Added
+
+- New GitHub Actions CI template for `refactor/backend`:
+  - `refactor/backend/ci/github-actions/refactor-backend-ci.example.yml`
+- New tests:
+  - verifies CI template includes promtool installation and `scripts/ci.sh` execution
+
+### Changed
+
+- `README` now documents where to find and how to use the GitHub Actions CI template.
+- Backend app version bumped to `0.3.69-m3-github-actions-promtool-ci-template`.
+
 ## [0.3.68-m3-promtool-rules-summary-and-bash3-compat] - 2026-02-19
 
 ### Added
