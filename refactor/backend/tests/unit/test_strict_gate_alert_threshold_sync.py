@@ -36,6 +36,12 @@ def test_strict_gate_alert_threshold_config_has_required_profiles() -> None:
             "soft_audit_max_bytes_severity",
             "soft_audit_rotation_unbounded_for",
             "soft_audit_rotation_unbounded_severity",
+            "governance_warn_for",
+            "governance_warn_severity",
+            "governance_critical_for",
+            "governance_critical_severity",
+            "governance_normalization_for",
+            "governance_normalization_severity",
         ):
             assert key in profile, f"missing key {key} in profile {profile_name}"
 

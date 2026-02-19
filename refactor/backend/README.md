@@ -358,7 +358,7 @@ cd refactor/backend
   - `monitoring/prometheus/rules/refactor-threshold-governance-alerts.prod.yml`
 - Strict gate threshold config:
   - `config/strict-gate-alert-thresholds.json`
-  - includes strict gate thresholds and soft-audit alert window/severity profile values
+  - includes strict gate thresholds, threshold-governance alert profile values, and soft-audit alert profile values
 - Strict gate threshold sync script:
   - `scripts/sync-strict-gate-alert-thresholds.py`
   - validates config schema before sync:

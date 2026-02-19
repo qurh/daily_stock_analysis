@@ -2,6 +2,23 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.104-m3-governance-threshold-param-sync] - 2026-02-19
+
+### Added
+
+- Threshold config now also includes threshold-governance alert profile fields:
+  - `governance_warn_for`
+  - `governance_warn_severity`
+  - `governance_critical_for`
+  - `governance_critical_severity`
+  - `governance_normalization_for`
+  - `governance_normalization_severity`
+
+### Changed
+
+- `sync-strict-gate-alert-thresholds.py` now syncs threshold-governance alert `for` and `severity` values from config.
+- Backend app version bumped to `0.3.104-m3-governance-threshold-param-sync`.
+
 ## [0.3.103-m3-threshold-config-schema-validation] - 2026-02-19
 
 ### Added
