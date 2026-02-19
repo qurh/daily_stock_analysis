@@ -379,6 +379,14 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --check
 promtool check rules monitoring/prometheus/rules/refactor-threshold-governance-alerts.yml
 ```
 
+- Optional profile-only sync/check:
+
+```bash
+cd refactor/backend
+python3 scripts/sync-strict-gate-alert-thresholds.py --check --profile dev
+python3 scripts/sync-strict-gate-alert-thresholds.py --profile staging
+```
+
 ## Run Real LLM Smoke
 
 ```bash

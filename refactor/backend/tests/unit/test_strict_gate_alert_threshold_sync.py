@@ -35,3 +35,36 @@ def test_strict_gate_alert_threshold_sync_check_mode_passes() -> None:
     assert result.returncode == 0, (
         "strict gate alert threshold sync check failed.\n" f"stdout:\n{result.stdout}\n" f"stderr:\n{result.stderr}"
     )
+
+
+def test_strict_gate_alert_threshold_sync_supports_profile_check_mode() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script = backend_root / "scripts" / "sync-strict-gate-alert-thresholds.py"
+
+    result = subprocess.run(
+        [sys.executable, str(sync_script), "--check", "--profile", "dev"],
+        cwd=str(backend_root),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, (
+        "strict gate alert threshold profile check failed.\n" f"stdout:\n{result.stdout}\n" f"stderr:\n{result.stderr}"
+    )
+
+
+def test_strict_gate_alert_threshold_sync_rejects_unknown_profile() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script = backend_root / "scripts" / "sync-strict-gate-alert-thresholds.py"
+
+    result = subprocess.run(
+        [sys.executable, str(sync_script), "--check", "--profile", "qa"],
+        cwd=str(backend_root),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "invalid choice" in result.stderr.lower() or "unknown profile" in result.stderr.lower()
