@@ -165,6 +165,15 @@ class OptimizationService:
             raise ValueError("target is required")
         if not diff:
             raise ValueError("diff is required")
+        if not isinstance(diff, dict):
+            raise ValueError("diff must be an object")
+
+        normalized_diff = dict(diff)
+        if normalized_source == "chatbot" and normalized_target.startswith("strategy."):
+            linked_strategy_id = self._extract_linked_strategy_id(normalized_diff)
+            if linked_strategy_id is None:
+                raise ValueError("FDB-INPUT-002: strategy_id is required in diff for chatbot strategy proposal")
+            normalized_diff["strategy_id"] = linked_strategy_id
 
         proposal_id = str(uuid4())
         now = _utc_now()
@@ -177,7 +186,15 @@ class OptimizationService:
                 )
                 VALUES (?, ?, ?, ?, ?, 'review_pending', NULL, NULL, NULL, ?, ?)
                 """,
-                (proposal_id, normalized_source, normalized_target, summary, self._database.json_dump(diff), now, now),
+                (
+                    proposal_id,
+                    normalized_source,
+                    normalized_target,
+                    summary,
+                    self._database.json_dump(normalized_diff),
+                    now,
+                    now,
+                ),
             )
         return self.get_proposal(proposal_id=proposal_id)
 
@@ -346,3 +363,18 @@ class OptimizationService:
         if row is None:
             raise KeyError(f"Proposal not found: {proposal_id}")
         return row
+
+    @staticmethod
+    def _extract_linked_strategy_id(diff: dict[str, Any]) -> str | None:
+        direct_value = diff.get("strategy_id")
+        if direct_value is not None:
+            normalized = str(direct_value).strip()
+            return normalized or None
+
+        nested_strategy = diff.get("strategy")
+        if isinstance(nested_strategy, dict):
+            nested_value = nested_strategy.get("strategy_id")
+            if nested_value is not None:
+                normalized_nested = str(nested_value).strip()
+                return normalized_nested or None
+        return None

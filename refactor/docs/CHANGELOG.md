@@ -2,6 +2,23 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.92-m3-chatbot-proposal-schema-gate] - 2026-02-19
+
+### Added
+
+- New proposal schema gate for chatbot strategy lifecycle proposals:
+  - when `source=chatbot` and `target` starts with `strategy.`,
+    proposal `diff` must include `strategy_id`
+  - missing linkage now returns `400` with `FDB-INPUT-002`
+- New tests:
+  - verifies chatbot strategy proposal is rejected when `diff.strategy_id` is missing
+  - verifies same proposal passes when `strategy_id` is present
+
+### Changed
+
+- `OptimizationService.create_proposal` now normalizes linked `strategy_id` before persistence.
+- Backend app version bumped to `0.3.92-m3-chatbot-proposal-schema-gate`.
+
 ## [0.3.91-m3-chatbot-proposal-publish-gate] - 2026-02-19
 
 ### Added
