@@ -480,6 +480,62 @@ def test_validator_error_code_metadata_lint_validator_script_suggests_nearby_pro
     assert str(lint_config_file) in payload["context"]["suggested_command"]
 
 
+def test_validator_error_code_metadata_lint_validator_script_handles_no_nearby_profile_suggestion(
+    tmp_path,
+) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-validator-error-code-metadata-lint.py"
+    assert validate_script_file.exists()
+
+    lint_config_file = tmp_path / "metadata-lint-profiled.json"
+    lint_config_file.write_text(
+        json.dumps(
+            {
+                "default_profile": "prod",
+                "profiles": {
+                    "dev": {
+                        "min_remediation_length": 2,
+                        "action_verbs": ["do"],
+                    },
+                    "prod": {
+                        "min_remediation_length": 12,
+                        "action_verbs": ["verify"],
+                    },
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--lint-config-file",
+            str(lint_config_file),
+            "--lint-profile",
+            "xyzxyz",
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "validate-validator-error-code-metadata-lint"
+    assert payload["code"] == "error_code_metadata_lint_profile_not_found"
+    assert payload["context"]["suggested_profiles"] == []
+    assert payload["context"]["suggested_cli_args"] is None
+    assert payload["context"]["suggested_command"] is None
+    assert "available profiles" in payload["message"].lower()
+
+
 def test_validator_error_code_metadata_lint_validator_script_plain_errors_include_profile_suggestion(tmp_path) -> None:
     backend_root = Path(__file__).resolve().parents[2]
     validate_script_file = backend_root / "scripts" / "validate-validator-error-code-metadata-lint.py"
@@ -844,6 +900,62 @@ def test_validator_error_code_metadata_overrides_validator_script_suggests_nearb
     assert "validate-validator-error-code-metadata-overrides.py" in payload["context"]["suggested_command"]
     assert "--lint-profile prod" in payload["context"]["suggested_command"]
     assert str(lint_config_file) in payload["context"]["suggested_command"]
+
+
+def test_validator_error_code_metadata_overrides_validator_script_handles_no_nearby_lint_profile_suggestion(
+    tmp_path,
+) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-validator-error-code-metadata-overrides.py"
+    assert validate_script_file.exists()
+
+    lint_config_file = tmp_path / "metadata-lint-config-profiled.json"
+    lint_config_file.write_text(
+        json.dumps(
+            {
+                "default_profile": "prod",
+                "profiles": {
+                    "dev": {
+                        "min_remediation_length": 2,
+                        "action_verbs": ["do"],
+                    },
+                    "prod": {
+                        "min_remediation_length": 12,
+                        "action_verbs": ["verify"],
+                    },
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--lint-config-file",
+            str(lint_config_file),
+            "--lint-profile",
+            "xyzxyz",
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "validate-validator-error-code-metadata-overrides"
+    assert payload["code"] == "error_code_metadata_overrides_lint_profile_not_found"
+    assert payload["context"]["suggested_profiles"] == []
+    assert payload["context"]["suggested_cli_args"] is None
+    assert payload["context"]["suggested_command"] is None
+    assert "available profiles" in payload["message"].lower()
 
 
 def test_validator_error_code_metadata_overrides_validator_script_plain_errors_include_lint_profile_suggestion(

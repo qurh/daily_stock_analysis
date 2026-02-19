@@ -460,6 +460,7 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
       - now includes current `--lint-config-file` path in template
     - plain stderr now includes "Did you mean: <profile>" when suggestion exists
     - plain stderr now includes quick fix args: `Try: --lint-profile <profile>`
+    - if no close suggestion exists, error message includes `Available profiles: ...`
   - validate metadata overrides: `python3 scripts/validate-validator-error-code-metadata-overrides.py`
   - custom overrides/schema/catalog:
     - `python3 scripts/validate-validator-error-code-metadata-overrides.py --overrides-file <path> --schema-file <path> --catalog-file <path>`
@@ -479,6 +480,7 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
       - now includes current `--lint-config-file` path in template
     - plain stderr now includes "Did you mean: <profile>" when suggestion exists
     - plain stderr now includes quick fix args: `Try: --lint-profile <profile>`
+    - if no close suggestion exists, error message includes `Available profiles: ...`
   - metadata override semantic lint:
     - rejects placeholder text in `description/remediation` using marker config
     - requires remediation text to be actionable (contains action verbs and minimum text length)
