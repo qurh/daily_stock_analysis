@@ -2,6 +2,21 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.113-m3-summary-schema-version-drift-guard] - 2026-02-19
+
+### Added
+
+- `validate-strict-gate-summary-schema.py` now checks schema version drift:
+  - compares `properties.schema_version.const` in schema file
+  - against `SUMMARY_SCHEMA_VERSION` in `sync-strict-gate-alert-thresholds.py`
+- New test:
+  - validator fails when schema version and sync script version mismatch
+
+### Changed
+
+- README now explicitly documents schema-version consistency check behavior.
+- Backend app version bumped to `0.3.113-m3-summary-schema-version-drift-guard`.
+
 ## [0.3.112-m3-summary-schema-validator-ci] - 2026-02-19
 
 ### Added
