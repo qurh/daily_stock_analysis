@@ -2,6 +2,25 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.3.108-m3-threshold-sync-module-summary] - 2026-02-19
+
+### Added
+
+- JSON summary output now includes module-level change stats:
+  - `modules.strict.changed_alerts_count`
+  - `modules.governance.changed_alerts_count`
+  - `modules.soft_audit.changed_alerts_count`
+- Per-file JSON summary entries now also expose module-level counts.
+- New tests:
+  - verifies JSON summary includes module fields
+  - verifies governance-only config change is attributed to governance module
+
+### Changed
+
+- Text summary output now prints a module aggregate line.
+- README now documents module counters in JSON summary mode.
+- Backend app version bumped to `0.3.108-m3-threshold-sync-module-summary`.
+
 ## [0.3.107-m3-threshold-sync-summary-json] - 2026-02-19
 
 ### Added

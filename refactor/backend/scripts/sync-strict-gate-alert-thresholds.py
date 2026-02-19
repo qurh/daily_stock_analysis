@@ -45,6 +45,22 @@ RULE_FILE_BY_PROFILE = {
     / "refactor-threshold-governance-alerts.staging.yml",
     "prod": BACKEND_ROOT / "monitoring" / "prometheus" / "rules" / "refactor-threshold-governance-alerts.prod.yml",
 }
+ALERTS_BY_MODULE = {
+    "strict": (
+        "RefactorStrategyPublishStrictGateBlockRatioWarn",
+        "RefactorStrategyPublishStrictGateBlockRatioCritical",
+    ),
+    "governance": (
+        "RefactorThresholdGovernanceWarn",
+        "RefactorThresholdGovernanceCritical",
+        "RefactorThresholdGovernanceNormalizationApplied",
+    ),
+    "soft_audit": (
+        "RefactorPromtoolSoftAuditMaxLinesExceeded",
+        "RefactorPromtoolSoftAuditMaxBytesExceeded",
+        "RefactorPromtoolSoftAuditRotationUnbounded",
+    ),
+}
 
 
 def _parse_min_hits(profile_name: str, raw_value: object) -> int:
@@ -354,6 +370,25 @@ def _build_unified_diff(original: str, rendered: str, relative_path: str) -> str
     return "\n".join(diff_lines)
 
 
+def _extract_alert_block(content: str, alert_name: str) -> str:
+    pattern = re.compile(rf"(?ms)^\s*-\s*alert:\s*{re.escape(alert_name)}\s*$.*?(?=^\s*-\s*alert:\s|\Z)")
+    match = pattern.search(content)
+    if match is None:
+        return ""
+    return match.group(0)
+
+
+def _diff_module_alert_counts(original: str, rendered: str) -> dict[str, int]:
+    module_counts = {module_name: 0 for module_name in ALERTS_BY_MODULE}
+    for module_name, alert_names in ALERTS_BY_MODULE.items():
+        for alert_name in alert_names:
+            if _extract_alert_block(content=original, alert_name=alert_name) != _extract_alert_block(
+                content=rendered, alert_name=alert_name
+            ):
+                module_counts[module_name] += 1
+    return module_counts
+
+
 def _diff_line_stats(original: str, rendered: str) -> tuple[int, int]:
     added = 0
     removed = 0
@@ -367,17 +402,32 @@ def _diff_line_stats(original: str, rendered: str) -> tuple[int, int]:
     return added, removed
 
 
-def _build_summary_payload(change_summaries: list[tuple[str, int, int]]) -> dict:
+def _build_summary_payload(change_summaries: list[tuple[str, int, int, dict[str, int]]]) -> dict:
     total_added = sum(entry[1] for entry in change_summaries)
     total_removed = sum(entry[2] for entry in change_summaries)
+    module_totals = {module_name: 0 for module_name in ALERTS_BY_MODULE}
+    for _, _, _, file_module_counts in change_summaries:
+        for module_name in ALERTS_BY_MODULE:
+            module_totals[module_name] += file_module_counts.get(module_name, 0)
     return {
         "changed_files_count": len(change_summaries),
         "total_added_lines": total_added,
         "total_removed_lines": total_removed,
         "files": [
-            {"path": relative_path, "added_lines": added, "removed_lines": removed}
-            for relative_path, added, removed in change_summaries
+            {
+                "path": relative_path,
+                "added_lines": added,
+                "removed_lines": removed,
+                "modules": {
+                    module_name: {"changed_alerts_count": file_module_counts.get(module_name, 0)}
+                    for module_name in ALERTS_BY_MODULE
+                },
+            }
+            for relative_path, added, removed, file_module_counts in change_summaries
         ],
+        "modules": {
+            module_name: {"changed_alerts_count": module_totals[module_name]} for module_name in ALERTS_BY_MODULE
+        },
     }
 
 
@@ -415,7 +465,7 @@ def main() -> int:
 
     changed_files: list[Path] = []
     diff_outputs: list[str] = []
-    change_summaries: list[tuple[str, int, int]] = []
+    change_summaries: list[tuple[str, int, int, dict[str, int]]] = []
     for profile_name in selected_profiles:
         rule_file = RULE_FILE_BY_PROFILE[profile_name]
         if not rule_file.exists():
@@ -427,7 +477,8 @@ def main() -> int:
             changed_files.append(rule_file)
             relative_path = str(rule_file.relative_to(BACKEND_ROOT))
             added, removed = _diff_line_stats(original=original, rendered=rendered)
-            change_summaries.append((relative_path, added, removed))
+            module_counts = _diff_module_alert_counts(original=original, rendered=rendered)
+            change_summaries.append((relative_path, added, removed, module_counts))
             if args.dry_run:
                 if not args.summary_only:
                     diff_outputs.append(
@@ -451,6 +502,13 @@ def main() -> int:
                     f"[sync-strict-gate-alert-thresholds] {file_summary['path']}: "
                     f"+{file_summary['added_lines']}/-{file_summary['removed_lines']}"
                 )
+            print(
+                "[sync-strict-gate-alert-thresholds] modules: "
+                + ", ".join(
+                    f"{module_name}={summary_payload['modules'][module_name]['changed_alerts_count']}"
+                    for module_name in ALERTS_BY_MODULE
+                )
+            )
 
     for diff_output in diff_outputs:
         print(diff_output)
