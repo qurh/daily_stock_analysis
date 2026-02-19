@@ -64,3 +64,17 @@ def test_prometheus_rules_check_outputs_validated_rules_summary() -> None:
 
     assert completed.returncode == 0
     assert f"validated {expected_count} rule file(s)" in completed.stderr
+
+
+def test_github_actions_refactor_ci_example_includes_promtool_install_and_ci_run() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    workflow_file = backend_root / "ci" / "github-actions" / "refactor-backend-ci.example.yml"
+
+    assert workflow_file.exists()
+
+    content = workflow_file.read_text(encoding="utf-8")
+    assert "Install promtool" in content
+    assert "apt-get install -y prometheus" in content
+    assert "cd refactor/backend" in content
+    assert "bash scripts/ci.sh" in content
+    assert 'PROMTOOL_REQUIRED: "1"' in content
