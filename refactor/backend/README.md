@@ -275,6 +275,8 @@ cd refactor/backend
 - `PROMTOOL_VALIDATE_REMOTE_MODE` controls gate behavior (`strict` default, `soft` optional).
   - `strict`: remote validation failure exits with non-zero status.
   - `soft`: remote validation failure is logged as warning and validation continues.
+  - `soft` mode emits metric-style log: `remote_soft_fallback_total=1`.
+  - optional audit log sink: `PROMTOOL_REMOTE_SOFT_AUDIT_FILE=<path>`.
 - Remote checksum validation supports fetch hardening knobs:
   - `PROMTOOL_REMOTE_FETCH_MAX_ATTEMPTS` (default: `3`)
   - `PROMTOOL_REMOTE_FETCH_CONNECT_TIMEOUT_SECONDS` (default: `10`)
