@@ -28,6 +28,24 @@ def _load_validator_error_codes(script_file: Path) -> dict[str, str]:
     return payload
 
 
+def _assert_metadata_overrides_group_quality_policy(
+    payload: dict,
+    group_name: str,
+    expected_severity_by_code: dict[str, str],
+) -> None:
+    assert group_name in payload
+    group_payload = payload[group_name]
+    assert isinstance(group_payload, dict)
+
+    for code, expected_severity in expected_severity_by_code.items():
+        assert code in group_payload
+        code_payload = group_payload[code]
+        assert code_payload["severity"] == expected_severity
+        remediation = code_payload["remediation"].strip()
+        assert remediation.endswith(".")
+        assert "rerun" in remediation.lower()
+
+
 def test_profile_suggestion_helper_module_is_shared_and_contract_stable() -> None:
     backend_root = Path(__file__).resolve().parents[2]
     helper_file = backend_root / "scripts" / "profile_suggestion_helpers.py"
@@ -509,9 +527,6 @@ def test_error_context_high_frequency_metadata_overrides_quality_policy() -> Non
     assert overrides_file.exists()
 
     payload = json.loads(overrides_file.read_text(encoding="utf-8"))
-    assert "error_context_high_frequency" in payload
-    group_payload = payload["error_context_high_frequency"]
-
     expected_severity_by_code = {
         "error_context_high_frequency_cli_args_invalid": "error",
         "error_context_high_frequency_schema_file_not_found": "error",
@@ -522,14 +537,59 @@ def test_error_context_high_frequency_metadata_overrides_quality_policy() -> Non
         "error_context_high_frequency_sample_schema_validation_failed": "error",
         "error_context_high_frequency_unexpected_error": "critical",
     }
+    _assert_metadata_overrides_group_quality_policy(
+        payload=payload,
+        group_name="error_context_high_frequency",
+        expected_severity_by_code=expected_severity_by_code,
+    )
 
-    for code, expected_severity in expected_severity_by_code.items():
-        assert code in group_payload
-        code_payload = group_payload[code]
-        assert code_payload["severity"] == expected_severity
-        remediation = code_payload["remediation"].strip()
-        assert remediation.endswith(".")
-        assert "rerun" in remediation.lower()
+
+def test_notification_retry_runbook_metadata_overrides_quality_policy() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    overrides_file = backend_root / "config" / "validator-error-code-metadata-overrides.json"
+    assert overrides_file.exists()
+
+    payload = json.loads(overrides_file.read_text(encoding="utf-8"))
+    expected_severity_by_code = {
+        "notification_retry_runbook_cli_args_invalid": "error",
+        "notification_retry_runbook_file_not_found": "error",
+        "notification_retry_runbook_baseline_parse_failed": "error",
+        "notification_retry_runbook_baseline_mismatch": "critical",
+        "notification_retry_runbook_unexpected_error": "critical",
+    }
+    _assert_metadata_overrides_group_quality_policy(
+        payload=payload,
+        group_name="notification_retry_runbook",
+        expected_severity_by_code=expected_severity_by_code,
+    )
+
+
+def test_alertmanager_route_consistency_metadata_overrides_quality_policy() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    overrides_file = backend_root / "config" / "validator-error-code-metadata-overrides.json"
+    assert overrides_file.exists()
+
+    payload = json.loads(overrides_file.read_text(encoding="utf-8"))
+    expected_severity_by_code = {
+        "alertmanager_route_consistency_cli_args_invalid": "error",
+        "alertmanager_route_consistency_file_not_found": "error",
+        "alertmanager_route_consistency_yaml_parse_error": "error",
+        "alertmanager_route_consistency_matcher_format_invalid": "error",
+        "alertmanager_route_consistency_invalid_regex_matcher": "error",
+        "alertmanager_route_consistency_rules_dir_invalid": "error",
+        "alertmanager_route_consistency_no_rule_files": "warning",
+        "alertmanager_route_consistency_no_alerts": "warning",
+        "alertmanager_route_consistency_no_explicit_routes": "error",
+        "alertmanager_route_consistency_shadowed_route": "error",
+        "alertmanager_route_consistency_unmatched_alert": "critical",
+        "alertmanager_route_consistency_ambiguous_alert": "critical",
+        "alertmanager_route_consistency_unexpected_error": "critical",
+    }
+    _assert_metadata_overrides_group_quality_policy(
+        payload=payload,
+        group_name="alertmanager_route_consistency",
+        expected_severity_by_code=expected_severity_by_code,
+    )
 
 
 def test_validator_error_code_metadata_overrides_schema_exists() -> None:
