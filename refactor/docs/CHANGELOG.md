@@ -2,6 +2,52 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.4.43-m4-overrides-quality-policy-alertmanager] - 2026-03-01
+
+### Added
+
+- Added `alertmanager_route_consistency` metadata override quality-policy test:
+  - `refactor/backend/tests/unit/test_ci_prometheus_rules_check.py`
+  - test: `test_alertmanager_route_consistency_metadata_overrides_quality_policy`
+  - validates fixed severity mapping for all 13 codes (`warning/error/critical`)
+  - requires each remediation to include rerun guidance
+
+### Changed
+
+- Updated `alertmanager_route_consistency` remediations to satisfy rerun-guidance policy for:
+  - `alertmanager_route_consistency_file_not_found`
+  - `alertmanager_route_consistency_no_rule_files`
+  - `alertmanager_route_consistency_no_alerts`
+  - `alertmanager_route_consistency_shadowed_route`
+  - `alertmanager_route_consistency_unmatched_alert`
+  - `alertmanager_route_consistency_ambiguous_alert`
+- Synced generated catalog after metadata override text update:
+  - `refactor/backend/config/validator-error-codes.json`
+- README metadata override section now documents `alertmanager_route_consistency` quality policy.
+- Backend app version bumped to `0.4.43-m4-overrides-quality-policy-alertmanager`.
+- Summary schema version: `1`
+
+## [0.4.42-m4-overrides-quality-policy-reuse] - 2026-03-01
+
+### Added
+
+- Added reusable metadata overrides quality-policy assertion helper:
+  - `refactor/backend/tests/unit/test_ci_prometheus_rules_check.py`
+  - helper: `_assert_metadata_overrides_group_quality_policy(...)`
+- Added `notification_retry_runbook` group quality-policy test:
+  - `test_notification_retry_runbook_metadata_overrides_quality_policy`
+  - validates fixed severity mapping and rerun-guidance remediation across all 5 codes
+
+### Changed
+
+- Updated `notification_retry_runbook_file_not_found` remediation to include rerun guidance:
+  - `refactor/backend/config/validator-error-code-metadata-overrides.json`
+- Synced generated catalog after metadata override text update:
+  - `refactor/backend/config/validator-error-codes.json`
+- README metadata override section now documents `notification_retry_runbook` quality policy.
+- Backend app version bumped to `0.4.42-m4-overrides-quality-policy-reuse`.
+- Summary schema version: `1`
+
 ## [0.4.41-m4-error-context-overrides-quality-policy] - 2026-02-20
 
 ### Added

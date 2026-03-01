@@ -113,7 +113,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Daily Stock Analysis Refactor API",
-        version="0.4.41-m4-error-context-overrides-quality-policy",
+        version="0.4.43-m4-overrides-quality-policy-alertmanager",
     )
     app.state.workflow_service = workflow_service
     app.state.analysis_service = analysis_service
