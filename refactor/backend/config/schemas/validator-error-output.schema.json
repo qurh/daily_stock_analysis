@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Validator Error Output",
+  "description": "Base contract for structured validator error payloads emitted with --json-errors.",
+  "type": "object",
+  "required": [
+    "validator",
+    "code",
+    "message",
+    "context"
+  ],
+  "properties": {
+    "validator": {
+      "type": "string",
+      "minLength": 1
+    },
+    "code": {
+      "type": "string",
+      "minLength": 1
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1
+    },
+    "context": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}

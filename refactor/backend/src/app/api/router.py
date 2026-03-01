@@ -8,6 +8,7 @@ from app.api.routes.health import router as health_router
 from app.api.routes.knowledge import router as knowledge_router
 from app.api.routes.memory import router as memory_router
 from app.api.routes.metrics import router as metrics_router
+from app.api.routes.notifications import router as notifications_router
 from app.api.routes.optimization import router as optimization_router
 from app.api.routes.prompt_lock import router as prompt_lock_router
 from app.api.routes.prompts import router as prompts_router
@@ -25,6 +26,7 @@ api_router.include_router(chat_router)
 api_router.include_router(memory_router)
 api_router.include_router(feedback_router)
 api_router.include_router(optimization_router)
+api_router.include_router(notifications_router)
 api_router.include_router(strategy_router)
 api_router.include_router(prompt_lock_router)
 api_router.include_router(metrics_router)

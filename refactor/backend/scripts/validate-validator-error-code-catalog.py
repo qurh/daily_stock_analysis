@@ -14,6 +14,7 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CATALOG_FILE = BACKEND_ROOT / "config" / "validator-error-codes.json"
 DEFAULT_SCHEMA_FILE = BACKEND_ROOT / "config" / "schemas" / "validator-error-codes.schema.json"
 VALIDATOR_ERROR_CODES = {
+    "CLI_ARGS_INVALID": "error_code_catalog_cli_args_invalid",
     "CATALOG_FILE_NOT_FOUND": "error_code_catalog_catalog_file_not_found",
     "SCHEMA_FILE_NOT_FOUND": "error_code_catalog_schema_file_not_found",
     "JSON_PARSE_ERROR": "error_code_catalog_json_parse_error",
@@ -30,6 +31,61 @@ class ErrorCodeCatalogValidationError(ValueError):
         super().__init__(message)
         self.code = code
         self.context = context or {}
+
+
+class _ErrorCodeCatalogArgumentParser(argparse.ArgumentParser):
+    def error(self, message: str) -> None:
+        raise ErrorCodeCatalogValidationError(
+            code=VALIDATOR_ERROR_CODES["CLI_ARGS_INVALID"],
+            message=f"invalid cli arguments: {message}",
+            context={"failure_mode": "argparse_error", "argparse_message": message},
+        )
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = _ErrorCodeCatalogArgumentParser(
+        description="Validate validator error code catalog JSON schema and naming conventions."
+    )
+    parser.add_argument(
+        "--catalog-file",
+        type=Path,
+        default=DEFAULT_CATALOG_FILE,
+        help="Path to validator error code catalog file.",
+    )
+    parser.add_argument(
+        "--schema-file",
+        type=Path,
+        default=DEFAULT_SCHEMA_FILE,
+        help="Path to validator error code catalog schema file.",
+    )
+    parser.add_argument(
+        "--json-errors",
+        action="store_true",
+        help="Emit structured JSON errors to stderr.",
+    )
+    parser.add_argument(
+        "--json-output",
+        action="store_true",
+        help="Emit structured JSON success payload to stdout.",
+    )
+    return parser
+
+
+def _parse_args(argv: list[str]) -> argparse.Namespace:
+    parser = _build_parser()
+    try:
+        args, unknown_args = parser.parse_known_args(argv)
+    except ErrorCodeCatalogValidationError as exc:
+        context = dict(exc.context)
+        context.setdefault("argv", list(argv))
+        raise ErrorCodeCatalogValidationError(code=exc.code, message=str(exc), context=context) from exc
+    if unknown_args:
+        raise ErrorCodeCatalogValidationError(
+            code=VALIDATOR_ERROR_CODES["CLI_ARGS_INVALID"],
+            message=f"invalid cli arguments: unrecognized arguments: {' '.join(unknown_args)}",
+            context={"failure_mode": "unknown_args", "unknown_args": unknown_args, "argv": list(argv)},
+        )
+    return args
 
 
 def _load_json_payload(path: Path, role: str) -> dict:
@@ -87,29 +143,14 @@ def _validate_code_prefix(catalog: dict[str, dict[str, dict[str, str]]]) -> None
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Validate validator error code catalog JSON schema and naming conventions."
-    )
-    parser.add_argument(
-        "--catalog-file",
-        type=Path,
-        default=DEFAULT_CATALOG_FILE,
-        help="Path to validator error code catalog file.",
-    )
-    parser.add_argument(
-        "--schema-file",
-        type=Path,
-        default=DEFAULT_SCHEMA_FILE,
-        help="Path to validator error code catalog schema file.",
-    )
-    parser.add_argument(
-        "--json-errors",
-        action="store_true",
-        help="Emit structured JSON errors to stderr.",
-    )
-    args = parser.parse_args()
+    argv = sys.argv[1:]
+    json_errors_requested = "--json-errors" in argv
+    json_output_requested = "--json-output" in argv
 
     try:
+        args = _parse_args(argv=argv)
+        json_errors_requested = bool(args.json_errors)
+        json_output_requested = bool(args.json_output)
         if not args.catalog_file.exists():
             raise ErrorCodeCatalogValidationError(
                 code=VALIDATOR_ERROR_CODES["CATALOG_FILE_NOT_FOUND"],
@@ -128,10 +169,21 @@ def main() -> int:
         _validate_against_schema(catalog=catalog, schema=schema, schema_file=args.schema_file)
         _validate_code_prefix(catalog=catalog)
 
-        print(f"[validate-validator-error-code-catalog] catalog is valid: {args.catalog_file}")
+        if json_output_requested:
+            success_payload = {
+                "validator": "validate-validator-error-code-catalog",
+                "status": "ok",
+                "catalog_file": str(args.catalog_file),
+                "schema_file": str(args.schema_file),
+                "groups": sorted(catalog.keys()),
+                "total_codes": sum(len(group_payload) for group_payload in catalog.values()),
+            }
+            print(json.dumps(success_payload, ensure_ascii=False))
+        else:
+            print(f"[validate-validator-error-code-catalog] catalog is valid: {args.catalog_file}")
         return 0
     except Exception as exc:
-        if args.json_errors:
+        if json_errors_requested:
             if isinstance(exc, ErrorCodeCatalogValidationError):
                 payload = {
                     "validator": "validate-validator-error-code-catalog",

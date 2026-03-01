@@ -17,6 +17,7 @@ DEFAULT_MARKERS_FILE = BACKEND_ROOT / "config" / "validator-placeholder-markers.
 DEFAULT_SCHEMA_FILE = BACKEND_ROOT / "config" / "schemas" / "validator-placeholder-markers.schema.json"
 MARKER_PATTERN = re.compile(r"^[A-Z][A-Z0-9_-]*$")
 VALIDATOR_ERROR_CODES = {
+    "CLI_ARGS_INVALID": "placeholder_markers_cli_args_invalid",
     "JSON_PARSE_ERROR": "placeholder_markers_json_parse_error",
     "PAYLOAD_TYPE_INVALID": "placeholder_markers_payload_type_invalid",
     "MARKERS_LIST_MISSING_OR_EMPTY": "placeholder_markers_markers_list_missing_or_empty",
@@ -37,6 +38,61 @@ class PlaceholderMarkersValidationError(ValueError):
         super().__init__(message)
         self.code = code
         self.context = context or {}
+
+
+class _PlaceholderMarkersArgumentParser(argparse.ArgumentParser):
+    def error(self, message: str) -> None:
+        raise PlaceholderMarkersValidationError(
+            code=VALIDATOR_ERROR_CODES["CLI_ARGS_INVALID"],
+            message=f"invalid cli arguments: {message}",
+            context={"failure_mode": "argparse_error", "argparse_message": message},
+        )
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = _PlaceholderMarkersArgumentParser(
+        description="Validate placeholder markers config for validator strict descriptions."
+    )
+    parser.add_argument(
+        "--markers-file",
+        type=Path,
+        default=DEFAULT_MARKERS_FILE,
+        help="Path to placeholder markers config file.",
+    )
+    parser.add_argument(
+        "--schema-file",
+        type=Path,
+        default=DEFAULT_SCHEMA_FILE,
+        help="Path to placeholder markers schema file.",
+    )
+    parser.add_argument(
+        "--json-errors",
+        action="store_true",
+        help="Emit structured JSON errors to stderr.",
+    )
+    parser.add_argument(
+        "--json-output",
+        action="store_true",
+        help="Emit structured JSON success payload to stdout.",
+    )
+    return parser
+
+
+def _parse_args(argv: list[str]) -> argparse.Namespace:
+    parser = _build_parser()
+    try:
+        args, unknown_args = parser.parse_known_args(argv)
+    except PlaceholderMarkersValidationError as exc:
+        context = dict(exc.context)
+        context.setdefault("argv", list(argv))
+        raise PlaceholderMarkersValidationError(code=exc.code, message=str(exc), context=context) from exc
+    if unknown_args:
+        raise PlaceholderMarkersValidationError(
+            code=VALIDATOR_ERROR_CODES["CLI_ARGS_INVALID"],
+            message=f"invalid cli arguments: unrecognized arguments: {' '.join(unknown_args)}",
+            context={"failure_mode": "unknown_args", "unknown_args": unknown_args, "argv": list(argv)},
+        )
+    return args
 
 
 def _load_json_payload(path: Path, role: str) -> dict:
@@ -119,29 +175,14 @@ def _validate_against_schema(payload: dict, schema: dict, schema_file: Path) -> 
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Validate placeholder markers config for validator strict descriptions."
-    )
-    parser.add_argument(
-        "--markers-file",
-        type=Path,
-        default=DEFAULT_MARKERS_FILE,
-        help="Path to placeholder markers config file.",
-    )
-    parser.add_argument(
-        "--schema-file",
-        type=Path,
-        default=DEFAULT_SCHEMA_FILE,
-        help="Path to placeholder markers schema file.",
-    )
-    parser.add_argument(
-        "--json-errors",
-        action="store_true",
-        help="Emit structured JSON errors to stderr.",
-    )
-    args = parser.parse_args()
+    argv = sys.argv[1:]
+    json_errors_requested = "--json-errors" in argv
+    json_output_requested = "--json-output" in argv
 
     try:
+        args = _parse_args(argv=argv)
+        json_errors_requested = bool(args.json_errors)
+        json_output_requested = bool(args.json_output)
         if not args.markers_file.exists():
             raise PlaceholderMarkersValidationError(
                 code=VALIDATOR_ERROR_CODES["MARKERS_FILE_NOT_FOUND"],
@@ -157,11 +198,21 @@ def main() -> int:
         payload = _load_json_payload(path=args.markers_file, role="markers")
         schema = _load_json_payload(path=args.schema_file, role="schema")
         _validate_against_schema(payload=payload, schema=schema, schema_file=args.schema_file)
-        _validate_markers(payload=payload)
-        print(f"[validate-validator-placeholder-markers] markers config is valid: {args.markers_file}")
+        normalized_markers = _validate_markers(payload=payload)
+        if json_output_requested:
+            success_payload = {
+                "validator": "validate-validator-placeholder-markers",
+                "status": "ok",
+                "markers_file": str(args.markers_file),
+                "schema_file": str(args.schema_file),
+                "markers_count": len(normalized_markers),
+            }
+            print(json.dumps(success_payload, ensure_ascii=False))
+        else:
+            print(f"[validate-validator-placeholder-markers] markers config is valid: {args.markers_file}")
         return 0
     except Exception as exc:
-        if args.json_errors:
+        if json_errors_requested:
             if isinstance(exc, PlaceholderMarkersValidationError):
                 payload = {
                     "validator": "validate-validator-placeholder-markers",

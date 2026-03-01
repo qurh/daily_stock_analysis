@@ -5,7 +5,11 @@
   "required": [
     "summary_schema",
     "summary_contract",
-    "placeholder_markers"
+    "placeholder_markers",
+    "profile_suggestion_actions",
+    "alertmanager_route_consistency",
+    "notification_retry_runbook",
+    "error_context_high_frequency"
   ],
   "additionalProperties": {
     "$ref": "#/$defs/group"

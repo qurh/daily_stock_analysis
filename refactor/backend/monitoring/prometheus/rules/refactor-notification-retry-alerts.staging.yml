@@ -1,0 +1,46 @@
+groups:
+  - name: refactor-notification-retry-alerts-staging
+    rules:
+      - alert: RefactorNotificationRetrySuccessRatioWarn
+        expr: refactor_notification_retry_attempts_total >= 10 and refactor_notification_retry_success_ratio < 0.65
+        for: 10m
+        labels:
+          severity: warning
+          scope: notification
+          domain: retry-governance
+        annotations:
+          summary: "Notification retry success ratio is warning"
+          description: "Manual notification retry success ratio stayed below 0.65 with at least 10 attempts for 10m."
+
+      - alert: RefactorNotificationRetrySuccessRatioCritical
+        expr: refactor_notification_retry_attempts_total >= 10 and refactor_notification_retry_success_ratio < 0.45
+        for: 5m
+        labels:
+          severity: critical
+          scope: notification
+          domain: retry-governance
+        annotations:
+          summary: "Notification retry success ratio is critical"
+          description: "Manual notification retry success ratio stayed below 0.45 with at least 10 attempts for 5m."
+
+      - alert: RefactorNotificationAutoRetryFinalFailureRatioWarn
+        expr: refactor_notification_auto_retry_deliveries_total >= 10 and refactor_notification_auto_retry_final_failure_ratio >= 0.28
+        for: 10m
+        labels:
+          severity: warning
+          scope: notification
+          domain: retry-governance
+        annotations:
+          summary: "Notification auto-retry final failure ratio is warning"
+          description: "Auto-retried deliveries final failure ratio stayed at or above 0.28 with at least 10 samples for 10m."
+
+      - alert: RefactorNotificationAutoRetryFinalFailureRatioCritical
+        expr: refactor_notification_auto_retry_deliveries_total >= 10 and refactor_notification_auto_retry_final_failure_ratio >= 0.45
+        for: 5m
+        labels:
+          severity: critical
+          scope: notification
+          domain: retry-governance
+        annotations:
+          summary: "Notification auto-retry final failure ratio is critical"
+          description: "Auto-retried deliveries final failure ratio stayed at or above 0.45 with at least 10 samples for 5m."

@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Profile Suggestion Actions",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "oneOf": [
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "const": "copy_command"
+          },
+          "command": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "action",
+          "command"
+        ]
+      },
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "const": "use_profile"
+          },
+          "profile": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "action",
+          "profile"
+        ]
+      },
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "const": "show_profiles"
+          },
+          "profiles": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "required": [
+          "action",
+          "profiles"
+        ]
+      },
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "const": "migrate_profile_mode"
+          },
+          "config_snippet": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "default_profile": {
+                "type": "string",
+                "minLength": 1
+              },
+              "profiles": {
+                "type": "object",
+                "minProperties": 1,
+                "additionalProperties": {
+                  "type": "object"
+                }
+              }
+            },
+            "required": [
+              "default_profile",
+              "profiles"
+            ]
+          }
+        },
+        "required": [
+          "action",
+          "config_snippet"
+        ]
+      }
+    ]
+  }
+}

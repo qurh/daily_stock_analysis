@@ -12,6 +12,7 @@ from app.services.chat_service import ChatService
 from app.services.feedback_service import FeedbackService
 from app.services.knowledge_service import KnowledgeService
 from app.services.memory_service import MemoryService
+from app.services.notification_service import NotificationHub
 from app.services.optimization_service import OptimizationService
 from app.services.prompt_lock_audit_service import PromptLockAuditService
 from app.services.prompt_service import PromptService
@@ -58,6 +59,11 @@ def create_app() -> FastAPI:
     prompt_service = PromptService(database=database)
     knowledge_service = KnowledgeService(database=database, vector_store=knowledge_vector_store)
     strategy_service = StrategyService(database=database, knowledge_service=knowledge_service)
+    notification_service = NotificationHub(
+        database=database,
+        max_retries=settings.notification_send_max_retries,
+        retry_backoff_ms=settings.notification_retry_backoff_ms,
+    )
     prompt_lock_audit_service = PromptLockAuditService(
         database=database,
         overview_cache_ttl_sec=settings.prompt_lock_overview_cache_ttl_sec,
@@ -76,8 +82,11 @@ def create_app() -> FastAPI:
         strategy_service=strategy_service,
         prompt_service=prompt_service,
         prompt_lock_audit_service=prompt_lock_audit_service,
+        notification_service=notification_service,
         default_prompt_lock_mode=settings.prompt_ref_lock_mode,
         queue_auto_process=settings.queue_auto_process,
+        auto_notify_enabled=settings.analysis_auto_notify_enabled,
+        auto_notify_channels=settings.analysis_auto_notify_channels,
     )
     backtest_service = BacktestService(
         database=database,
@@ -104,7 +113,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Daily Stock Analysis Refactor API",
-        version="0.3.151-m3-error-code-profile-mode-not-configured-hint",
+        version="0.4.41-m4-error-context-overrides-quality-policy",
     )
     app.state.workflow_service = workflow_service
     app.state.analysis_service = analysis_service
@@ -115,6 +124,7 @@ def create_app() -> FastAPI:
     app.state.prompt_service = prompt_service
     app.state.knowledge_service = knowledge_service
     app.state.memory_service = memory_service
+    app.state.notification_service = notification_service
     app.state.chat_service = chat_service
     app.state.prompt_lock_audit_service = prompt_lock_audit_service
     app.state.task_queue_service = task_queue

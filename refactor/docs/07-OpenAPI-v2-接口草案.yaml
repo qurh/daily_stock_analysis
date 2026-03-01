@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: Daily Stock Analysis Refactor API
-  version: 0.2.2-m2-prompt-llm
-  description: M2 phase-2 draft with chat/memory plus prompt-bound LLM generation.
+  version: 0.4.0-m4-notification-hub-min-loop
+  description: M4 draft with notification hub pluginized APIs plus existing M1-M3 modules.
 servers:
   - url: http://localhost:18000
 paths:
@@ -537,6 +537,167 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MemorySearchResponse"
+  /api/v2/notifications/channels:
+    get:
+      summary: List notification channels and enablement state
+      operationId: listNotificationChannels
+      responses:
+        "200":
+          description: Channel list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationChannelListResponse"
+  /api/v2/notifications/deliveries:
+    get:
+      summary: Query persisted notification delivery records
+      operationId: listNotificationDeliveries
+      parameters:
+        - name: source_type
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: source_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: channel
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 50
+      responses:
+        "200":
+          description: Delivery records
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationDeliveryListResponse"
+  /api/v2/notifications/deliveries/{delivery_id}/retry:
+    post:
+      summary: Retry one persisted delivery record
+      operationId: retryNotificationDelivery
+      parameters:
+        - name: delivery_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NotificationDeliveryRetryRequest"
+      responses:
+        "200":
+          description: Retry dispatch report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationDeliveryRetryResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Delivery not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Retry conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v2/notifications/preview:
+    post:
+      summary: Preview rendered notification payload by channels
+      operationId: previewNotifications
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NotificationPreviewRequest"
+      responses:
+        "200":
+          description: Preview result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationPreviewResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v2/notifications/send:
+    post:
+      summary: Send notification to selected or all channels
+      operationId: sendNotifications
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NotificationSendRequest"
+      responses:
+        "200":
+          description: Delivery report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationSendResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v2/notifications/channels/test:
+    post:
+      summary: Send test message to one channel
+      operationId: testNotificationChannel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NotificationChannelTestRequest"
+      responses:
+        "200":
+          description: Test send result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationChannelTestResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     HealthResponse:
@@ -1108,6 +1269,246 @@ components:
           type: string
         deleted:
           type: boolean
+    NotificationPreviewRequest:
+      type: object
+      required:
+        - title
+        - content
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        content:
+          type: string
+          minLength: 1
+        channels:
+          type: array
+          items:
+            type: string
+    NotificationSendRequest:
+      type: object
+      required:
+        - title
+        - content
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        content:
+          type: string
+          minLength: 1
+        channels:
+          type: array
+          items:
+            type: string
+    NotificationChannelTestRequest:
+      type: object
+      required:
+        - channel
+      properties:
+        channel:
+          type: string
+          minLength: 1
+        title:
+          type: string
+          maxLength: 200
+        content:
+          type: string
+    NotificationDeliveryRetryRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 200
+        content:
+          type: string
+    NotificationChannelDescriptor:
+      type: object
+      required:
+        - channel
+        - display_name
+        - enabled
+      properties:
+        channel:
+          type: string
+        display_name:
+          type: string
+        enabled:
+          type: boolean
+        reason:
+          type: string
+          nullable: true
+    NotificationChannelListResponse:
+      type: object
+      required:
+        - items
+        - count
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/NotificationChannelDescriptor"
+        count:
+          type: integer
+    NotificationPreviewItem:
+      type: object
+      required:
+        - channel
+        - display_name
+        - enabled
+        - title
+        - content
+        - byte_size
+      properties:
+        channel:
+          type: string
+        display_name:
+          type: string
+        enabled:
+          type: boolean
+        reason:
+          type: string
+          nullable: true
+        title:
+          type: string
+        content:
+          type: string
+        byte_size:
+          type: integer
+    NotificationPreviewResponse:
+      type: object
+      required:
+        - items
+        - count
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/NotificationPreviewItem"
+        count:
+          type: integer
+    NotificationSendSummary:
+      type: object
+      required:
+        - attempted
+        - succeeded
+        - failed
+        - skipped
+        - retried
+      properties:
+        attempted:
+          type: integer
+        succeeded:
+          type: integer
+        failed:
+          type: integer
+        skipped:
+          type: integer
+        retried:
+          type: integer
+    NotificationDeliveryResult:
+      type: object
+      required:
+        - channel
+        - display_name
+        - status
+        - source_type
+        - message_id
+        - created_at
+        - attempt_count
+        - retry_count
+      properties:
+        delivery_id:
+          type: string
+          nullable: true
+        message_id:
+          type: string
+        source_type:
+          type: string
+        source_id:
+          type: string
+          nullable: true
+        channel:
+          type: string
+        display_name:
+          type: string
+        status:
+          type: string
+        provider_message_id:
+          type: string
+          nullable: true
+        error_code:
+          type: string
+          nullable: true
+        error_message:
+          type: string
+          nullable: true
+        payload_preview:
+          type: string
+          nullable: true
+        attempt_count:
+          type: integer
+        retry_count:
+          type: integer
+        retry_of_delivery_id:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+    NotificationSendResponse:
+      type: object
+      required:
+        - summary
+        - items
+        - message_id
+        - created_at
+      properties:
+        summary:
+          $ref: "#/components/schemas/NotificationSendSummary"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/NotificationDeliveryResult"
+        message_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    NotificationDeliveryListResponse:
+      type: object
+      required:
+        - items
+        - count
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/NotificationDeliveryResult"
+        count:
+          type: integer
+    NotificationDeliveryRetryResponse:
+      type: object
+      required:
+        - retry_of_delivery_id
+        - report
+      properties:
+        retry_of_delivery_id:
+          type: string
+        report:
+          $ref: "#/components/schemas/NotificationSendResponse"
+    NotificationChannelTestResponse:
+      type: object
+      required:
+        - channel
+        - result
+      properties:
+        channel:
+          type: string
+        result:
+          $ref: "#/components/schemas/NotificationDeliveryResult"
     ErrorResponse:
       type: object
       required:
