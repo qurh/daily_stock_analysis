@@ -557,7 +557,9 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
     - includes full default policy coverage for all `profile_suggestion_actions_*` codes
     - includes `placeholder_markers_cli_args_invalid` for placeholder markers CLI JSON errors
     - includes full default policy coverage for all `alertmanager_route_consistency_*` codes
+    - `alertmanager_route_consistency` override policy requires actionable remediation with rerun guidance for all 13 codes; severity levels keep `warning/error/critical` split by risk
     - includes full default policy coverage for all `notification_retry_runbook_*` codes
+    - `notification_retry_runbook` override policy requires actionable remediation with rerun guidance for all 5 codes; `baseline_mismatch` and `unexpected_error` stay `severity=critical`
     - includes full default policy coverage for all `error_context_high_frequency_*` codes
     - `error_context_high_frequency` override policy requires actionable remediation with rerun guidance for all 8 codes; `unexpected_error` stays `severity=critical`
   - metadata override schema: `refactor/backend/config/schemas/validator-error-code-metadata-overrides.schema.json`

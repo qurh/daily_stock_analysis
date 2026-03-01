@@ -226,7 +226,7 @@
     "alertmanager_route_consistency_ambiguous_alert": {
       "description": "At least one alert matches multiple explicit alertmanager routes.",
       "severity": "critical",
-      "remediation": "Refine route matchers to ensure each alert maps to a single explicit route."
+      "remediation": "Refine route matchers to ensure each alert maps to a single explicit route, then rerun validator."
     },
     "alertmanager_route_consistency_cli_args_invalid": {
       "description": "Alertmanager route consistency validator received invalid CLI arguments.",
@@ -236,7 +236,7 @@
     "alertmanager_route_consistency_file_not_found": {
       "description": "Required alertmanager routing file is missing.",
       "severity": "error",
-      "remediation": "Ensure the alertmanager route file path exists and is readable."
+      "remediation": "Ensure the alertmanager route file path exists and is readable, and rerun the validator."
     },
     "alertmanager_route_consistency_invalid_regex_matcher": {
       "description": "Alertmanager route regex matcher contains an invalid regular expression.",
@@ -251,7 +251,7 @@
     "alertmanager_route_consistency_no_alerts": {
       "description": "No alert definitions were extracted from rule files.",
       "severity": "warning",
-      "remediation": "Add at least one alert rule or update selected files to include alert definitions."
+      "remediation": "Add at least one alert rule or update selected files to include alert definitions, then rerun validator."
     },
     "alertmanager_route_consistency_no_explicit_routes": {
       "description": "Alertmanager routing config has no explicit child routes for matching alerts.",
@@ -261,7 +261,7 @@
     "alertmanager_route_consistency_no_rule_files": {
       "description": "No Prometheus rule files were found for route coverage checks.",
       "severity": "warning",
-      "remediation": "Add rule files with alert definitions or fix the rules directory path."
+      "remediation": "Add rule files with alert definitions or fix the rules directory path, then rerun validator."
     },
     "alertmanager_route_consistency_rules_dir_invalid": {
       "description": "Prometheus rule directory for alert extraction is invalid.",
@@ -271,7 +271,7 @@
     "alertmanager_route_consistency_shadowed_route": {
       "description": "A later alertmanager route is shadowed by an earlier non-continue route.",
       "severity": "error",
-      "remediation": "Reorder routes or adjust matchers to remove shadowing."
+      "remediation": "Reorder routes or adjust matchers to remove shadowing, then rerun validator."
     },
     "alertmanager_route_consistency_unexpected_error": {
       "description": "Unexpected runtime error occurred during alertmanager route consistency validation.",
@@ -281,7 +281,7 @@
     "alertmanager_route_consistency_unmatched_alert": {
       "description": "At least one alert rule is not covered by any explicit alertmanager route.",
       "severity": "critical",
-      "remediation": "Add or adjust route matchers so every alert matches exactly one explicit route."
+      "remediation": "Add or adjust route matchers so every alert matches exactly one explicit route, then rerun validator."
     },
     "alertmanager_route_consistency_yaml_parse_error": {
       "description": "Alertmanager routing YAML cannot be parsed.",
@@ -308,7 +308,7 @@
     "notification_retry_runbook_file_not_found": {
       "description": "Required notification retry runbook or alert rule file is missing.",
       "severity": "error",
-      "remediation": "Ensure all configured runbook and rule file paths exist and are readable."
+      "remediation": "Ensure all configured runbook and rule file paths exist and are readable, and rerun validator."
     },
     "notification_retry_runbook_unexpected_error": {
       "description": "Unexpected runtime error occurred during notification retry runbook validation.",
