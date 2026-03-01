@@ -5,6 +5,7 @@ from typing import Any
 from uuid import uuid4
 
 from app.persistence.sqlite_db import SQLiteDatabase
+from app.services.notification_service import NotificationHub, NotificationMessage
 from app.services.prompt_lock_audit_service import PromptLockAuditService
 from app.services.prompt_routing import (
     PromptLockError,
@@ -33,8 +34,11 @@ class AnalysisService:
         strategy_service: StrategyService | None = None,
         prompt_service: PromptService | None = None,
         prompt_lock_audit_service: PromptLockAuditService | None = None,
+        notification_service: NotificationHub | None = None,
         default_prompt_lock_mode: str = "lenient",
         queue_auto_process: bool = True,
+        auto_notify_enabled: bool = False,
+        auto_notify_channels: list[str] | None = None,
     ) -> None:
         self._database = database
         self._workflow_service = workflow_service
@@ -42,8 +46,11 @@ class AnalysisService:
         self._strategy_service = strategy_service
         self._prompt_service = prompt_service
         self._prompt_lock_audit_service = prompt_lock_audit_service
+        self._notification_service = notification_service
         self._default_prompt_lock_mode = normalize_lock_mode(default_prompt_lock_mode)
         self._queue_auto_process = queue_auto_process
+        self._auto_notify_enabled = bool(auto_notify_enabled)
+        self._auto_notify_channels = [item.strip().lower() for item in (auto_notify_channels or []) if item.strip()]
         self._task_queue.register_handler("analysis.run", self._handle_analysis_task)
 
     def submit_job(self, symbol: str, report_type: str) -> dict[str, str]:
@@ -135,6 +142,13 @@ class AnalysisService:
                     },
                 }
             }
+            self._notify_analysis_result(
+                job_id=job_id,
+                symbol=symbol,
+                report_type=report_type,
+                prompt_ref=prompt_resolution["prompt_ref"],
+                meta=meta,
+            )
             with self._database.connection() as conn:
                 conn.execute(
                     """
@@ -173,6 +187,38 @@ class AnalysisService:
                     (now, job_id),
                 )
             raise
+
+    def _notify_analysis_result(
+        self,
+        job_id: str,
+        symbol: str,
+        report_type: str,
+        prompt_ref: str,
+        meta: dict[str, Any],
+    ) -> None:
+        if not self._auto_notify_enabled or self._notification_service is None:
+            return
+        title = f"Analysis {symbol} ({report_type})"
+        content = (
+            f"job_id: {job_id}\n"
+            f"symbol: {symbol}\n"
+            f"report_type: {report_type}\n"
+            f"prompt_ref: {prompt_ref}\n"
+            "status: succeeded"
+        )
+        try:
+            report = self._notification_service.send(
+                message=NotificationMessage(title=title, content=content),
+                channels=self._auto_notify_channels or None,
+                source_type="analysis_job",
+                source_id=job_id,
+            )
+            meta["notification_delivery"] = {
+                "message_id": report.get("message_id"),
+                "summary": report.get("summary"),
+            }
+        except Exception as exc:
+            meta["notification_delivery"] = {"error": str(exc)}
 
     def _resolve_strategy_context(self, symbol: str, report_type: str) -> dict[str, Any] | None:
         if self._strategy_service is None:

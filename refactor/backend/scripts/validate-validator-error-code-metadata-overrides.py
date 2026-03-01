@@ -6,12 +6,18 @@ import json
 import os
 import re
 import sys
-from difflib import get_close_matches
 from json import JSONDecodeError
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError, ValidationError
+from profile_suggestion_helpers import (
+    build_ordered_available_profiles as _build_ordered_available_profiles,
+    build_profile_mode_config_snippet as _build_profile_mode_config_snippet,
+    build_profile_suggestion_payload as _build_profile_suggestion_payload,
+    build_suggested_actions_for_profile_not_found as _build_suggested_actions_for_profile_not_found,
+    shell_quote as _shell_quote,
+)
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OVERRIDES_FILE = BACKEND_ROOT / "config" / "validator-error-code-metadata-overrides.json"
@@ -20,7 +26,9 @@ DEFAULT_CATALOG_FILE = BACKEND_ROOT / "config" / "validator-error-codes.json"
 DEFAULT_PLACEHOLDER_MARKERS_FILE = BACKEND_ROOT / "config" / "validator-placeholder-markers.json"
 DEFAULT_LINT_CONFIG_FILE = BACKEND_ROOT / "config" / "validator-error-code-metadata-lint.json"
 LINT_PROFILE_ENV_VAR = "LINT_PROFILE"
+OVERRIDES_PROFILE_ENV_VAR = "OVERRIDES_PROFILE"
 VALIDATOR_ERROR_CODES = {
+    "CLI_ARGS_INVALID": "error_code_metadata_overrides_cli_args_invalid",
     "OVERRIDES_FILE_NOT_FOUND": "error_code_metadata_overrides_overrides_file_not_found",
     "SCHEMA_FILE_NOT_FOUND": "error_code_metadata_overrides_schema_file_not_found",
     "CATALOG_FILE_NOT_FOUND": "error_code_metadata_overrides_catalog_file_not_found",
@@ -30,6 +38,7 @@ VALIDATOR_ERROR_CODES = {
     "SCHEMA_VALIDATION_FAILED": "error_code_metadata_overrides_schema_validation_failed",
     "UNKNOWN_OVERRIDE_GROUP": "error_code_metadata_overrides_unknown_override_group",
     "UNKNOWN_OVERRIDE_CODE": "error_code_metadata_overrides_unknown_override_code",
+    "OVERRIDES_PROFILE_NOT_FOUND": "error_code_metadata_overrides_overrides_profile_not_found",
     "LINT_CONFIG_FILE_NOT_FOUND": "error_code_metadata_overrides_lint_config_file_not_found",
     "LINT_CONFIG_INVALID": "error_code_metadata_overrides_lint_config_invalid",
     "LINT_PROFILE_NOT_FOUND": "error_code_metadata_overrides_lint_profile_not_found",
@@ -46,6 +55,91 @@ class MetadataOverridesValidationError(ValueError):
         super().__init__(message)
         self.code = code
         self.context = context or {}
+
+
+class _MetadataOverridesArgumentParser(argparse.ArgumentParser):
+    def error(self, message: str) -> None:
+        raise MetadataOverridesValidationError(
+            code=VALIDATOR_ERROR_CODES["CLI_ARGS_INVALID"],
+            message=f"invalid cli arguments: {message}",
+            context={"failure_mode": "argparse_error", "argparse_message": message},
+        )
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = _MetadataOverridesArgumentParser(
+        description="Validate validator error-code metadata overrides config."
+    )
+    parser.add_argument(
+        "--overrides-file",
+        type=Path,
+        default=DEFAULT_OVERRIDES_FILE,
+        help="Path to metadata overrides config file.",
+    )
+    parser.add_argument(
+        "--schema-file",
+        type=Path,
+        default=DEFAULT_SCHEMA_FILE,
+        help="Path to metadata overrides schema file.",
+    )
+    parser.add_argument(
+        "--catalog-file",
+        type=Path,
+        default=DEFAULT_CATALOG_FILE,
+        help="Path to validator error-code catalog file.",
+    )
+    parser.add_argument(
+        "--placeholder-markers-file",
+        type=Path,
+        default=DEFAULT_PLACEHOLDER_MARKERS_FILE,
+        help="Path to placeholder markers config file.",
+    )
+    parser.add_argument(
+        "--lint-config-file",
+        type=Path,
+        default=DEFAULT_LINT_CONFIG_FILE,
+        help="Path to metadata lint config file.",
+    )
+    parser.add_argument(
+        "--lint-profile",
+        type=str,
+        default=None,
+        help="Optional lint profile name when lint config contains profiles.",
+    )
+    parser.add_argument(
+        "--overrides-profile",
+        type=str,
+        default=None,
+        help="Optional overrides profile name when overrides config contains profiles.",
+    )
+    parser.add_argument(
+        "--json-errors",
+        action="store_true",
+        help="Emit structured JSON errors to stderr.",
+    )
+    parser.add_argument(
+        "--json-output",
+        action="store_true",
+        help="Emit structured JSON success payload to stdout.",
+    )
+    return parser
+
+
+def _parse_args(argv: list[str]) -> argparse.Namespace:
+    parser = _build_parser()
+    try:
+        args, unknown_args = parser.parse_known_args(argv)
+    except MetadataOverridesValidationError as exc:
+        context = dict(exc.context)
+        context.setdefault("argv", list(argv))
+        raise MetadataOverridesValidationError(code=exc.code, message=str(exc), context=context) from exc
+    if unknown_args:
+        raise MetadataOverridesValidationError(
+            code=VALIDATOR_ERROR_CODES["CLI_ARGS_INVALID"],
+            message=f"invalid cli arguments: unrecognized arguments: {' '.join(unknown_args)}",
+            context={"failure_mode": "unknown_args", "unknown_args": unknown_args, "argv": list(argv)},
+        )
+    return args
 
 
 def _load_json_payload(path: Path, role: str) -> dict:
@@ -103,10 +197,119 @@ def _validate_override_targets(overrides: dict, catalog: dict) -> None:
                 )
 
 
+def _resolve_overrides_profile(payload: dict, overrides_profile: str | None, path: Path) -> dict:
+    profiles = payload.get("profiles")
+    if profiles is None:
+        if overrides_profile is not None:
+            selected_profile = overrides_profile.strip()
+            suggested_config_snippet = _build_profile_mode_config_snippet(
+                flat_config=payload,
+                selected_profile=selected_profile,
+            )
+            suggested_actions = _build_suggested_actions_for_profile_not_found(
+                fallback_reason="no_profiles_config",
+                suggested_profiles=[],
+                available_profiles=[],
+                suggested_command=None,
+                suggested_config_snippet=suggested_config_snippet,
+            )
+            raise MetadataOverridesValidationError(
+                code=VALIDATOR_ERROR_CODES["OVERRIDES_PROFILE_NOT_FOUND"],
+                message=(
+                    f"overrides profile not found: {selected_profile}. "
+                    "profile mode is not configured for this overrides config."
+                ),
+                context={
+                    "path": str(path),
+                    "overrides_profile": selected_profile,
+                    "available_profiles": [],
+                    "fallback_reason": "no_profiles_config",
+                    "suggestion_level": "error",
+                    "suggested_profiles": [],
+                    "suggested_cli_args": None,
+                    "suggested_command": None,
+                    "suggested_config_snippet": suggested_config_snippet,
+                    "suggested_actions": suggested_actions,
+                },
+            )
+        return payload
+
+    if not isinstance(profiles, dict) or not profiles:
+        raise MetadataOverridesValidationError(
+            code=VALIDATOR_ERROR_CODES["PAYLOAD_TYPE_INVALID"],
+            message=f"invalid overrides profiles payload: {path}",
+            context={"path": str(path), "field": "profiles"},
+        )
+
+    selected_profile = overrides_profile or payload.get("default_profile")
+    if not isinstance(selected_profile, str) or not selected_profile.strip():
+        raise MetadataOverridesValidationError(
+            code=VALIDATOR_ERROR_CODES["PAYLOAD_TYPE_INVALID"],
+            message=f"invalid overrides default_profile: {path}",
+            context={"path": str(path), "field": "default_profile"},
+        )
+    selected_profile = selected_profile.strip()
+    profile_payload = profiles.get(selected_profile)
+    if not isinstance(profile_payload, dict):
+        available_profiles = _build_ordered_available_profiles(
+            profiles=profiles,
+            default_profile=payload.get("default_profile"),
+        )
+        (
+            message,
+            fallback_reason,
+            suggestion_level,
+            suggested_profiles,
+            suggested_cli_args,
+            suggested_command,
+        ) = _build_profile_suggestion_payload(
+            selected_profile=selected_profile,
+            available_profiles=available_profiles,
+            command_prefix=(
+                "python3 scripts/validate-validator-error-code-metadata-overrides.py "
+                f"--overrides-file {_shell_quote(path)}"
+            ),
+            profile_label="overrides profile",
+            profile_cli_arg="--overrides-profile",
+        )
+        raise MetadataOverridesValidationError(
+            code=VALIDATOR_ERROR_CODES["OVERRIDES_PROFILE_NOT_FOUND"],
+            message=message,
+            context={
+                "path": str(path),
+                "overrides_profile": selected_profile,
+                "available_profiles": available_profiles,
+                "fallback_reason": fallback_reason,
+                "suggestion_level": suggestion_level,
+                "suggested_profiles": suggested_profiles,
+                "suggested_cli_args": suggested_cli_args,
+                "suggested_command": suggested_command,
+                "suggested_actions": _build_suggested_actions_for_profile_not_found(
+                    fallback_reason=fallback_reason,
+                    suggested_profiles=suggested_profiles,
+                    available_profiles=available_profiles,
+                    suggested_command=suggested_command,
+                ),
+            },
+        )
+    return profile_payload
+
+
 def _resolve_lint_profile(payload: dict, lint_profile: str | None, path: Path) -> dict:
     profiles = payload.get("profiles")
     if profiles is None:
         if lint_profile is not None:
+            suggested_config_snippet = _build_profile_mode_config_snippet(
+                flat_config=payload,
+                selected_profile=lint_profile,
+            )
+            suggested_actions = _build_suggested_actions_for_profile_not_found(
+                fallback_reason="no_profiles_config",
+                suggested_profiles=[],
+                available_profiles=[],
+                suggested_command=None,
+                suggested_config_snippet=suggested_config_snippet,
+            )
             raise MetadataOverridesValidationError(
                 code=VALIDATOR_ERROR_CODES["LINT_PROFILE_NOT_FOUND"],
                 message=(
@@ -117,9 +320,12 @@ def _resolve_lint_profile(payload: dict, lint_profile: str | None, path: Path) -
                     "lint_profile": lint_profile,
                     "available_profiles": [],
                     "fallback_reason": "no_profiles_config",
+                    "suggestion_level": "error",
                     "suggested_profiles": [],
                     "suggested_cli_args": None,
                     "suggested_command": None,
+                    "suggested_config_snippet": suggested_config_snippet,
+                    "suggested_actions": suggested_actions,
                 },
             )
         return payload
@@ -147,6 +353,7 @@ def _resolve_lint_profile(payload: dict, lint_profile: str | None, path: Path) -
         (
             message,
             fallback_reason,
+            suggestion_level,
             suggested_profiles,
             suggested_cli_args,
             suggested_command,
@@ -154,7 +361,8 @@ def _resolve_lint_profile(payload: dict, lint_profile: str | None, path: Path) -
             selected_profile=selected_profile,
             available_profiles=available_profiles,
             command_prefix=(
-                "python3 scripts/validate-validator-error-code-metadata-overrides.py " f'--lint-config-file "{path}"'
+                "python3 scripts/validate-validator-error-code-metadata-overrides.py "
+                f"--lint-config-file {_shell_quote(path)}"
             ),
         )
         raise MetadataOverridesValidationError(
@@ -165,40 +373,19 @@ def _resolve_lint_profile(payload: dict, lint_profile: str | None, path: Path) -
                 "lint_profile": selected_profile,
                 "available_profiles": available_profiles,
                 "fallback_reason": fallback_reason,
+                "suggestion_level": suggestion_level,
                 "suggested_profiles": suggested_profiles,
                 "suggested_cli_args": suggested_cli_args,
                 "suggested_command": suggested_command,
+                "suggested_actions": _build_suggested_actions_for_profile_not_found(
+                    fallback_reason=fallback_reason,
+                    suggested_profiles=suggested_profiles,
+                    available_profiles=available_profiles,
+                    suggested_command=suggested_command,
+                ),
             },
         )
     return profile_payload
-
-
-def _build_ordered_available_profiles(profiles: dict, default_profile: str | None) -> list[str]:
-    ordered_profiles = sorted(profiles.keys())
-    if isinstance(default_profile, str) and default_profile in profiles:
-        ordered_profiles = [default_profile] + [item for item in ordered_profiles if item != default_profile]
-    return ordered_profiles
-
-
-def _build_profile_suggestion_payload(
-    selected_profile: str,
-    available_profiles: list[str],
-    command_prefix: str,
-) -> tuple[str, str, list[str], str | None, str | None]:
-    suggested_profiles = get_close_matches(selected_profile, available_profiles, n=3, cutoff=0.5)
-    suggested_cli_args = f"--lint-profile {suggested_profiles[0]}" if suggested_profiles else None
-    suggested_command = f"{command_prefix} {suggested_cli_args}" if suggested_cli_args else None
-    message = f"lint profile not found: {selected_profile}"
-    if suggested_profiles:
-        fallback_reason = "close_match"
-        message += f". Did you mean: {', '.join(suggested_profiles)}?"
-        message += f" Try: {suggested_cli_args}"
-    elif available_profiles:
-        fallback_reason = "no_close_match"
-        message += f". Available profiles: {', '.join(available_profiles)}."
-    else:
-        fallback_reason = "no_profiles_available"
-    return message, fallback_reason, suggested_profiles, suggested_cli_args, suggested_command
 
 
 def _load_lint_config(path: Path, lint_profile: str | None = None) -> tuple[int, re.Pattern[str]]:
@@ -340,53 +527,21 @@ def _validate_remediation_quality(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Validate validator error-code metadata overrides config.")
-    parser.add_argument(
-        "--overrides-file",
-        type=Path,
-        default=DEFAULT_OVERRIDES_FILE,
-        help="Path to metadata overrides config file.",
-    )
-    parser.add_argument(
-        "--schema-file",
-        type=Path,
-        default=DEFAULT_SCHEMA_FILE,
-        help="Path to metadata overrides schema file.",
-    )
-    parser.add_argument(
-        "--catalog-file",
-        type=Path,
-        default=DEFAULT_CATALOG_FILE,
-        help="Path to validator error-code catalog file.",
-    )
-    parser.add_argument(
-        "--placeholder-markers-file",
-        type=Path,
-        default=DEFAULT_PLACEHOLDER_MARKERS_FILE,
-        help="Path to placeholder markers config file.",
-    )
-    parser.add_argument(
-        "--lint-config-file",
-        type=Path,
-        default=DEFAULT_LINT_CONFIG_FILE,
-        help="Path to metadata lint config file.",
-    )
-    parser.add_argument(
-        "--lint-profile",
-        type=str,
-        default=None,
-        help="Optional lint profile name when lint config contains profiles.",
-    )
-    parser.add_argument(
-        "--json-errors",
-        action="store_true",
-        help="Emit structured JSON errors to stderr.",
-    )
-    args = parser.parse_args()
-    env_lint_profile = os.getenv(LINT_PROFILE_ENV_VAR)
-    effective_lint_profile = args.lint_profile if args.lint_profile is not None else env_lint_profile
+    argv = sys.argv[1:]
+    json_errors_requested = "--json-errors" in argv
+    json_output_requested = "--json-output" in argv
 
     try:
+        args = _parse_args(argv=argv)
+        json_errors_requested = bool(args.json_errors)
+        json_output_requested = bool(args.json_output)
+        env_overrides_profile = os.getenv(OVERRIDES_PROFILE_ENV_VAR)
+        effective_overrides_profile = (
+            args.overrides_profile if args.overrides_profile is not None else env_overrides_profile
+        )
+        env_lint_profile = os.getenv(LINT_PROFILE_ENV_VAR)
+        effective_lint_profile = args.lint_profile if args.lint_profile is not None else env_lint_profile
+
         if not args.overrides_file.exists():
             raise MetadataOverridesValidationError(
                 code=VALIDATOR_ERROR_CODES["OVERRIDES_FILE_NOT_FOUND"],
@@ -410,23 +565,44 @@ def main() -> int:
         schema = _load_json_payload(path=args.schema_file, role="schema")
         catalog = _load_json_payload(path=args.catalog_file, role="catalog")
         _validate_overrides_schema(overrides=overrides, schema=schema, schema_file=args.schema_file)
-        _validate_override_targets(overrides=overrides, catalog=catalog)
+        resolved_overrides = _resolve_overrides_profile(
+            payload=overrides,
+            overrides_profile=effective_overrides_profile,
+            path=args.overrides_file,
+        )
+        _validate_override_targets(overrides=resolved_overrides, catalog=catalog)
         min_remediation_length, actionable_remediation_pattern = _load_lint_config(
             path=args.lint_config_file,
             lint_profile=effective_lint_profile,
         )
         placeholder_markers = _load_placeholder_markers(path=args.placeholder_markers_file)
         placeholder_pattern = _build_placeholder_pattern(markers=placeholder_markers)
-        _validate_placeholder_text(overrides=overrides, placeholder_pattern=placeholder_pattern)
+        _validate_placeholder_text(overrides=resolved_overrides, placeholder_pattern=placeholder_pattern)
         _validate_remediation_quality(
-            overrides=overrides,
+            overrides=resolved_overrides,
             min_remediation_length=min_remediation_length,
             actionable_remediation_pattern=actionable_remediation_pattern,
         )
-        print(f"[validate-validator-error-code-metadata-overrides] overrides config is valid: {args.overrides_file}")
+        if json_output_requested:
+            success_payload = {
+                "validator": "validate-validator-error-code-metadata-overrides",
+                "status": "ok",
+                "overrides_file": str(args.overrides_file),
+                "schema_file": str(args.schema_file),
+                "catalog_file": str(args.catalog_file),
+                "lint_config_file": str(args.lint_config_file),
+                "placeholder_markers_file": str(args.placeholder_markers_file),
+                "requested_overrides_profile": effective_overrides_profile,
+                "requested_lint_profile": effective_lint_profile,
+                "total_override_groups": len(resolved_overrides),
+                "total_override_codes": sum(len(group_payload) for group_payload in resolved_overrides.values()),
+            }
+            print(json.dumps(success_payload, ensure_ascii=False))
+        else:
+            print(f"[validate-validator-error-code-metadata-overrides] overrides config is valid: {args.overrides_file}")
         return 0
     except Exception as exc:
-        if args.json_errors:
+        if json_errors_requested:
             if isinstance(exc, MetadataOverridesValidationError):
                 payload = {
                     "validator": "validate-validator-error-code-metadata-overrides",

@@ -7,6 +7,7 @@ from app.services.feedback_service import FeedbackService
 from app.services.knowledge_service import KnowledgeService
 from app.services.memory_service import MemoryService
 from app.services.optimization_service import OptimizationService
+from app.services.notification_service import NotificationHub
 from app.services.prompt_lock_audit_service import PromptLockAuditService
 from app.services.prompt_service import PromptService
 from app.services.strategy_service import StrategyService
@@ -51,6 +52,10 @@ def get_memory_service(request: Request) -> MemoryService:
 
 def get_chat_service(request: Request) -> ChatService:
     return request.app.state.chat_service
+
+
+def get_notification_service(request: Request) -> NotificationHub:
+    return request.app.state.notification_service
 
 
 def get_prompt_lock_audit_service(request: Request) -> PromptLockAuditService:

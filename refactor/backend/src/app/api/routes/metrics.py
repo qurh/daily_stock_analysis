@@ -686,6 +686,64 @@ def _load_optimization_quality_snapshot(request: Request) -> dict[str, Any]:
     }
 
 
+def _load_notification_delivery_snapshot(request: Request) -> dict[str, Any]:
+    with request.app.state.database.connection() as conn:
+        status_rows = conn.execute(
+            "SELECT status, COUNT(1) AS cnt FROM notification_deliveries GROUP BY status"
+        ).fetchall()
+        channel_rows = conn.execute(
+            "SELECT channel, COUNT(1) AS cnt FROM notification_deliveries GROUP BY channel"
+        ).fetchall()
+        summary_row = conn.execute(
+            """
+            SELECT
+                COALESCE(SUM(CASE WHEN source_type = 'delivery_retry' THEN 1 ELSE 0 END), 0) AS retry_attempts_total,
+                COALESCE(
+                    SUM(CASE WHEN source_type = 'delivery_retry' AND status = 'delivered' THEN 1 ELSE 0 END),
+                    0
+                ) AS retry_success_total,
+                COALESCE(
+                    SUM(CASE WHEN source_type = 'delivery_retry' AND status = 'failed' THEN 1 ELSE 0 END),
+                    0
+                ) AS retry_failed_total,
+                COALESCE(SUM(CASE WHEN attempt_count > 1 THEN 1 ELSE 0 END), 0) AS auto_retry_deliveries_total,
+                COALESCE(
+                    SUM(CASE WHEN attempt_count > 1 AND status = 'failed' THEN 1 ELSE 0 END),
+                    0
+                ) AS auto_retry_final_failed_total
+            FROM notification_deliveries
+            """
+        ).fetchone()
+
+    status_counts = {str(row["status"]): int(row["cnt"]) for row in status_rows}
+    channel_counts = {str(row["channel"]): int(row["cnt"]) for row in channel_rows}
+    retry_attempts_total = int(summary_row["retry_attempts_total"] or 0) if summary_row is not None else 0
+    retry_success_total = int(summary_row["retry_success_total"] or 0) if summary_row is not None else 0
+    retry_failed_total = int(summary_row["retry_failed_total"] or 0) if summary_row is not None else 0
+    auto_retry_deliveries_total = int(summary_row["auto_retry_deliveries_total"] or 0) if summary_row is not None else 0
+    auto_retry_final_failed_total = (
+        int(summary_row["auto_retry_final_failed_total"] or 0) if summary_row is not None else 0
+    )
+
+    retry_success_ratio = round((retry_success_total / retry_attempts_total), 4) if retry_attempts_total > 0 else 0.0
+    auto_retry_final_failure_ratio = (
+        round((auto_retry_final_failed_total / auto_retry_deliveries_total), 4)
+        if auto_retry_deliveries_total > 0
+        else 0.0
+    )
+    return {
+        "status_counts": status_counts,
+        "channel_counts": channel_counts,
+        "retry_attempts_total": retry_attempts_total,
+        "retry_success_total": retry_success_total,
+        "retry_failed_total": retry_failed_total,
+        "retry_success_ratio": retry_success_ratio,
+        "auto_retry_deliveries_total": auto_retry_deliveries_total,
+        "auto_retry_final_failed_total": auto_retry_final_failed_total,
+        "auto_retry_final_failure_ratio": auto_retry_final_failure_ratio,
+    }
+
+
 @router.get("/metrics")
 def get_global_metrics(
     request: Request,
@@ -710,6 +768,7 @@ def get_global_metrics(
     )
     backtest_quality = _load_backtest_quality_snapshot(request=request)
     optimization_quality = _load_optimization_quality_snapshot(request=request)
+    notification_delivery = _load_notification_delivery_snapshot(request=request)
     settings = request.app.state.settings
     strategy_publish_strict_gate = _load_strategy_publish_strict_gate_stats(request=request)
     promtool_soft_audit_stats = _load_promtool_soft_fallback_audit_stats(
@@ -1309,6 +1368,61 @@ def get_global_metrics(
         help_text="Current completed optimization recommendation count grouped by recommendation.",
         label_name="recommendation",
         counts=optimization_quality["recommendation_counts"],
+    )
+    _append_status_gauge_lines(
+        lines=lines,
+        metric_name="refactor_notification_deliveries_total",
+        help_text="Current notification delivery count grouped by final status.",
+        counts=notification_delivery["status_counts"],
+    )
+    _append_labeled_gauge_lines(
+        lines=lines,
+        metric_name="refactor_notification_deliveries_by_channel_total",
+        help_text="Current notification delivery count grouped by channel.",
+        label_name="channel",
+        counts=notification_delivery["channel_counts"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_notification_retry_attempts_total",
+        help_text="Current count of manual delivery retry attempts (source_type=delivery_retry).",
+        total=notification_delivery["retry_attempts_total"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_notification_retry_success_total",
+        help_text="Current count of successful manual delivery retries.",
+        total=notification_delivery["retry_success_total"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_notification_retry_failed_total",
+        help_text="Current count of failed manual delivery retries.",
+        total=notification_delivery["retry_failed_total"],
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_notification_retry_success_ratio",
+        help_text="Current success ratio of manual delivery retries (0.0-1.0).",
+        value=notification_delivery["retry_success_ratio"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_notification_auto_retry_deliveries_total",
+        help_text="Current count of deliveries that required at least one automatic retry.",
+        total=notification_delivery["auto_retry_deliveries_total"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_notification_auto_retry_final_failed_total",
+        help_text="Current count of auto-retried deliveries that still ended in failed state.",
+        total=notification_delivery["auto_retry_final_failed_total"],
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_notification_auto_retry_final_failure_ratio",
+        help_text="Current final failure ratio among auto-retried deliveries (0.0-1.0).",
+        value=notification_delivery["auto_retry_final_failure_ratio"],
     )
     lines.append(prompt_lock_audit_service.get_overview_metrics_prometheus().rstrip("\n"))
     return PlainTextResponse(

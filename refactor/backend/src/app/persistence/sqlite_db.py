@@ -325,6 +325,28 @@ CREATE TABLE IF NOT EXISTS long_term_memory_entries (
 
 CREATE INDEX IF NOT EXISTS idx_long_term_memory_session_id
 ON long_term_memory_entries (source_session_id, created_at);
+
+CREATE TABLE IF NOT EXISTS notification_deliveries (
+    delivery_id TEXT PRIMARY KEY,
+    message_id TEXT NOT NULL,
+    source_type TEXT NOT NULL,
+    source_id TEXT,
+    channel TEXT NOT NULL,
+    status TEXT NOT NULL,
+    error_code TEXT,
+    error_message TEXT,
+    provider_message_id TEXT,
+    payload_preview TEXT,
+    created_at TEXT NOT NULL,
+    attempt_count INTEGER NOT NULL DEFAULT 1,
+    retry_of_delivery_id TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_notification_deliveries_created_at
+ON notification_deliveries (created_at);
+
+CREATE INDEX IF NOT EXISTS idx_notification_deliveries_source
+ON notification_deliveries (source_type, source_id, created_at);
 """
 
 
@@ -342,6 +364,18 @@ class SQLiteDatabase:
     def init_schema(self) -> None:
         with self.connection() as conn:
             conn.executescript(SCHEMA_SQL)
+            self._ensure_column(
+                conn=conn,
+                table_name="notification_deliveries",
+                column_name="attempt_count",
+                column_ddl="INTEGER NOT NULL DEFAULT 1",
+            )
+            self._ensure_column(
+                conn=conn,
+                table_name="notification_deliveries",
+                column_name="retry_of_delivery_id",
+                column_ddl="TEXT",
+            )
 
     @contextmanager
     def connection(self) -> Iterator[sqlite3.Connection]:
@@ -384,3 +418,20 @@ class SQLiteDatabase:
         if self._database_path == ":memory:":
             return
         Path(self._database_path).parent.mkdir(parents=True, exist_ok=True)
+
+    @staticmethod
+    def _ensure_column(
+        conn: sqlite3.Connection,
+        table_name: str,
+        column_name: str,
+        column_ddl: str,
+    ) -> None:
+        rows = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+        existing = {str(row["name"]) for row in rows}
+        if column_name in existing:
+            return
+        try:
+            conn.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_ddl}")
+        except sqlite3.OperationalError as exc:
+            if "duplicate column name" not in str(exc).lower():
+                raise

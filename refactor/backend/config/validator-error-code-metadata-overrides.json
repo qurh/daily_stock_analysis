@@ -1,1 +1,196 @@
-{}
+{
+  "profile_suggestion_actions": {
+    "profile_suggestion_actions_cli_args_invalid": {
+      "description": "Profile suggestion actions schema validator received invalid CLI arguments.",
+      "severity": "error",
+      "remediation": "Review CLI flags, fix invalid or missing arguments, and rerun validator."
+    },
+    "profile_suggestion_actions_file_not_found": {
+      "description": "Required profile suggestion actions schema/example/helper file is missing.",
+      "severity": "error",
+      "remediation": "Ensure schema/example/helper file paths exist and rerun validator."
+    },
+    "profile_suggestion_actions_json_parse_error": {
+      "description": "Profile suggestion actions schema or example file cannot be parsed as JSON.",
+      "severity": "error",
+      "remediation": "Fix JSON syntax/encoding issues and rerun validator."
+    },
+    "profile_suggestion_actions_schema_invalid": {
+      "description": "Profile suggestion actions schema definition is invalid.",
+      "severity": "error",
+      "remediation": "Fix schema constraints to satisfy JSON Schema Draft 2020-12 and rerun."
+    },
+    "profile_suggestion_actions_example_validation_failed": {
+      "description": "Profile suggestion actions example payload fails schema validation.",
+      "severity": "error",
+      "remediation": "Update example action fields to satisfy schema and rerun validator."
+    },
+    "profile_suggestion_actions_helper_contract_failed": {
+      "description": "Helper-generated profile suggestion actions violate schema contract checks.",
+      "severity": "critical",
+      "remediation": "Debug helper action generation, fix schema mismatches, and rerun validator."
+    },
+    "profile_suggestion_actions_unexpected_error": {
+      "description": "Unexpected runtime error occurred while validating profile suggestion actions schema.",
+      "severity": "critical",
+      "remediation": "Inspect stack trace and validator logs, patch runtime defect, then rerun."
+    }
+  },
+  "summary_contract": {
+    "summary_contract_cli_args_invalid": {
+      "description": "Summary contract validator received invalid CLI arguments.",
+      "severity": "error",
+      "remediation": "Review CLI flags, fix invalid or missing arguments, and rerun validator."
+    }
+  },
+  "summary_schema": {
+    "summary_schema_cli_args_invalid": {
+      "description": "Summary schema validator received invalid CLI arguments.",
+      "severity": "error",
+      "remediation": "Review CLI flags, fix invalid or missing arguments, and rerun validator."
+    }
+  },
+  "placeholder_markers": {
+    "placeholder_markers_cli_args_invalid": {
+      "description": "Placeholder markers validator received invalid CLI arguments.",
+      "severity": "error",
+      "remediation": "Review CLI flags, fix invalid or missing arguments, and rerun validator."
+    }
+  },
+  "alertmanager_route_consistency": {
+    "alertmanager_route_consistency_cli_args_invalid": {
+      "description": "Alertmanager route consistency validator received invalid CLI arguments.",
+      "severity": "error",
+      "remediation": "Review CLI flags, fix invalid or missing arguments, and rerun the validator."
+    },
+    "alertmanager_route_consistency_file_not_found": {
+      "description": "Required alertmanager routing file is missing.",
+      "severity": "error",
+      "remediation": "Ensure the alertmanager route file path exists and is readable."
+    },
+    "alertmanager_route_consistency_yaml_parse_error": {
+      "description": "Alertmanager routing YAML cannot be parsed.",
+      "severity": "error",
+      "remediation": "Fix YAML syntax and structure, then rerun the validator."
+    },
+    "alertmanager_route_consistency_matcher_format_invalid": {
+      "description": "Alertmanager route matcher format is invalid.",
+      "severity": "error",
+      "remediation": "Correct matcher syntax to valid key-operator-value format and rerun."
+    },
+    "alertmanager_route_consistency_invalid_regex_matcher": {
+      "description": "Alertmanager route regex matcher contains an invalid regular expression.",
+      "severity": "error",
+      "remediation": "Fix the regex pattern to be compilable and rerun the validator."
+    },
+    "alertmanager_route_consistency_rules_dir_invalid": {
+      "description": "Prometheus rule directory for alert extraction is invalid.",
+      "severity": "error",
+      "remediation": "Point to an existing readable rules directory and rerun."
+    },
+    "alertmanager_route_consistency_no_rule_files": {
+      "description": "No Prometheus rule files were found for route coverage checks.",
+      "severity": "warning",
+      "remediation": "Add rule files with alert definitions or fix the rules directory path."
+    },
+    "alertmanager_route_consistency_no_alerts": {
+      "description": "No alert definitions were extracted from rule files.",
+      "severity": "warning",
+      "remediation": "Add at least one alert rule or update selected files to include alert definitions."
+    },
+    "alertmanager_route_consistency_no_explicit_routes": {
+      "description": "Alertmanager routing config has no explicit child routes for matching alerts.",
+      "severity": "error",
+      "remediation": "Add explicit routes for managed alerts and rerun coverage validation."
+    },
+    "alertmanager_route_consistency_shadowed_route": {
+      "description": "A later alertmanager route is shadowed by an earlier non-continue route.",
+      "severity": "error",
+      "remediation": "Reorder routes or adjust matchers to remove shadowing."
+    },
+    "alertmanager_route_consistency_unmatched_alert": {
+      "description": "At least one alert rule is not covered by any explicit alertmanager route.",
+      "severity": "critical",
+      "remediation": "Add or adjust route matchers so every alert matches exactly one explicit route."
+    },
+    "alertmanager_route_consistency_ambiguous_alert": {
+      "description": "At least one alert matches multiple explicit alertmanager routes.",
+      "severity": "critical",
+      "remediation": "Refine route matchers to ensure each alert maps to a single explicit route."
+    },
+    "alertmanager_route_consistency_unexpected_error": {
+      "description": "Unexpected runtime error occurred during alertmanager route consistency validation.",
+      "severity": "critical",
+      "remediation": "Inspect traceback and validator logs, fix runtime defect, then rerun."
+    }
+  },
+  "notification_retry_runbook": {
+    "notification_retry_runbook_cli_args_invalid": {
+      "description": "Notification retry runbook validator received invalid CLI arguments.",
+      "severity": "error",
+      "remediation": "Review CLI flags, fix invalid or missing arguments, and rerun the validator."
+    },
+    "notification_retry_runbook_file_not_found": {
+      "description": "Required notification retry runbook or alert rule file is missing.",
+      "severity": "error",
+      "remediation": "Ensure all configured runbook and rule file paths exist and are readable."
+    },
+    "notification_retry_runbook_baseline_parse_failed": {
+      "description": "Notification retry runbook or rule content cannot be parsed into baseline thresholds.",
+      "severity": "error",
+      "remediation": "Fix baseline text format to match expected alert and runbook templates, then rerun validator."
+    },
+    "notification_retry_runbook_baseline_mismatch": {
+      "description": "Notification retry runbook baselines drift from configured alert rule thresholds.",
+      "severity": "critical",
+      "remediation": "Align runbook and rule thresholds, update baselines consistently, and rerun validator."
+    },
+    "notification_retry_runbook_unexpected_error": {
+      "description": "Unexpected runtime error occurred during notification retry runbook validation.",
+      "severity": "critical",
+      "remediation": "Inspect traceback and validator logs, patch runtime defect, then rerun."
+    }
+  },
+  "error_context_high_frequency": {
+    "error_context_high_frequency_cli_args_invalid": {
+      "description": "High-frequency error context validator received invalid CLI arguments.",
+      "severity": "error",
+      "remediation": "Review CLI flags, fix invalid or missing arguments, and rerun validator."
+    },
+    "error_context_high_frequency_json_parse_error": {
+      "description": "Failed to parse high-frequency error context schema or samples JSON.",
+      "severity": "error",
+      "remediation": "Fix JSON syntax/encoding in schema or samples file and rerun validator."
+    },
+    "error_context_high_frequency_sample_schema_validation_failed": {
+      "description": "At least one high-frequency error context sample does not satisfy schema constraints.",
+      "severity": "error",
+      "remediation": "Update sample fields to satisfy schema constraints and required properties, and rerun validator."
+    },
+    "error_context_high_frequency_samples_file_not_found": {
+      "description": "High-frequency error context samples file is missing.",
+      "severity": "error",
+      "remediation": "Ensure the samples file path exists and is readable in the current environment, and rerun validator."
+    },
+    "error_context_high_frequency_samples_payload_invalid": {
+      "description": "High-frequency error context samples payload is not a valid sample object list.",
+      "severity": "error",
+      "remediation": "Update samples file to a list of JSON objects and rerun validator."
+    },
+    "error_context_high_frequency_schema_file_not_found": {
+      "description": "High-frequency error context schema file is missing.",
+      "severity": "error",
+      "remediation": "Ensure the schema file path exists and is readable in the current environment, and rerun validator."
+    },
+    "error_context_high_frequency_schema_invalid": {
+      "description": "High-frequency error context schema definition is invalid.",
+      "severity": "error",
+      "remediation": "Fix schema definition to satisfy JSON Schema Draft 2020-12 requirements and rerun validator."
+    },
+    "error_context_high_frequency_unexpected_error": {
+      "description": "Unexpected runtime error occurred during high-frequency error context validation.",
+      "severity": "critical",
+      "remediation": "Inspect traceback and validator logs, patch runtime defect, then rerun."
+    }
+  }
+}

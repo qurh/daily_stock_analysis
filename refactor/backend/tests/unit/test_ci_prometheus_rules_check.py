@@ -2,11 +2,14 @@ import json
 import os
 import re
 import runpy
+import shlex
 import subprocess
 import sys
 import tempfile
 import time
 from pathlib import Path
+
+import pytest
 
 PROMTOOL_DEFAULT_VERSION = "2.52.0"
 PROMTOOL_ARCHIVE_SHA256_LINUX_AMD64 = "7f31c5d6474bbff3e514e627e0b7a7fbbd4e5cea3f315fd0b76cad50be4c1ba3"
@@ -23,6 +26,105 @@ def _load_validator_error_codes(script_file: Path) -> dict[str, str]:
         assert isinstance(error_name, str)
         assert isinstance(error_code, str)
     return payload
+
+
+def test_profile_suggestion_helper_module_is_shared_and_contract_stable() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    helper_file = backend_root / "scripts" / "profile_suggestion_helpers.py"
+    lint_script_file = backend_root / "scripts" / "validate-validator-error-code-metadata-lint.py"
+    overrides_script_file = backend_root / "scripts" / "validate-validator-error-code-metadata-overrides.py"
+
+    assert helper_file.exists()
+    assert lint_script_file.exists()
+    assert overrides_script_file.exists()
+
+    lint_script_content = lint_script_file.read_text(encoding="utf-8")
+    overrides_script_content = overrides_script_file.read_text(encoding="utf-8")
+    assert "from profile_suggestion_helpers import" in lint_script_content
+    assert "from profile_suggestion_helpers import" in overrides_script_content
+
+    namespace = runpy.run_path(str(helper_file))
+    build_profile_suggestion_payload = namespace.get("build_profile_suggestion_payload")
+    build_suggested_actions_for_profile_not_found = namespace.get("build_suggested_actions_for_profile_not_found")
+    build_profile_mode_config_snippet = namespace.get("build_profile_mode_config_snippet")
+
+    assert callable(build_profile_suggestion_payload)
+    assert callable(build_suggested_actions_for_profile_not_found)
+    assert callable(build_profile_mode_config_snippet)
+
+    (
+        _message,
+        fallback_reason,
+        suggestion_level,
+        suggested_profiles,
+        suggested_cli_args,
+        suggested_command,
+    ) = build_profile_suggestion_payload(
+        selected_profile="prdo",
+        available_profiles=["prod", "dev"],
+        command_prefix="python3 scripts/validate-validator-error-code-metadata-lint.py --lint-config-file /tmp/a.json",
+    )
+    assert fallback_reason == "close_match"
+    assert suggestion_level == "hint"
+    assert suggested_profiles[0] == "prod"
+    assert suggested_cli_args == "--lint-profile prod"
+    assert suggested_command is not None
+
+    close_actions = build_suggested_actions_for_profile_not_found(
+        fallback_reason=fallback_reason,
+        suggested_profiles=suggested_profiles,
+        available_profiles=["prod", "dev"],
+        suggested_command=suggested_command,
+    )
+    assert close_actions[0]["action"] == "copy_command"
+    assert close_actions[1] == {"action": "use_profile", "profile": "prod"}
+
+    no_close_actions = build_suggested_actions_for_profile_not_found(
+        fallback_reason="no_close_match",
+        suggested_profiles=[],
+        available_profiles=["prod", "dev"],
+        suggested_command=None,
+    )
+    assert no_close_actions == [{"action": "show_profiles", "profiles": ["prod", "dev"]}]
+
+    snippet = build_profile_mode_config_snippet(
+        flat_config={"min_remediation_length": 12, "action_verbs": ["verify"]},
+        selected_profile="dev",
+    )
+    no_profile_actions = build_suggested_actions_for_profile_not_found(
+        fallback_reason="no_profiles_config",
+        suggested_profiles=[],
+        available_profiles=[],
+        suggested_command=None,
+        suggested_config_snippet=snippet,
+    )
+    assert no_profile_actions == [{"action": "migrate_profile_mode", "config_snippet": snippet}]
+
+
+def test_profile_suggestion_helper_rejects_unknown_action_contract() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    helper_file = backend_root / "scripts" / "profile_suggestion_helpers.py"
+    assert helper_file.exists()
+
+    namespace = runpy.run_path(str(helper_file))
+    validate_suggested_actions_contract = namespace.get("validate_suggested_actions_contract")
+    assert callable(validate_suggested_actions_contract)
+
+    with pytest.raises(ValueError, match="unsupported action"):
+        validate_suggested_actions_contract([{"action": "invalid_action"}])
+
+
+def test_profile_suggestion_helper_rejects_missing_required_action_field() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    helper_file = backend_root / "scripts" / "profile_suggestion_helpers.py"
+    assert helper_file.exists()
+
+    namespace = runpy.run_path(str(helper_file))
+    validate_suggested_actions_contract = namespace.get("validate_suggested_actions_contract")
+    assert callable(validate_suggested_actions_contract)
+
+    with pytest.raises(ValueError, match="missing required field"):
+        validate_suggested_actions_contract([{"action": "copy_command"}])
 
 
 def test_ci_script_invokes_prometheus_rules_check() -> None:
@@ -44,8 +146,10 @@ def test_ci_script_invokes_prometheus_rules_check() -> None:
     assert "./scripts/validate-validator-error-code-catalog.py" in ci_content
     assert "./scripts/validate-validator-error-code-metadata-lint.py" in ci_content
     assert "./scripts/validate-validator-error-code-metadata-overrides.py" in ci_content
+    assert "./scripts/validate-profile-suggestion-actions-schema.py" in ci_content
     assert "./scripts/validate-strict-gate-summary-schema.py" in ci_content
     assert "./scripts/validate-summary-contract-changelog.py" in ci_content
+    assert "./scripts/validate-validator-error-context-high-frequency-schema.py" in ci_content
     assert "promtool check rules" in check_content
     assert "PROMTOOL_REQUIRED" in ci_content
     assert "CI" in ci_content
@@ -60,9 +164,17 @@ def test_validator_error_code_catalog_exists_and_has_prefix_groups() -> None:
     assert "summary_schema" in payload
     assert "summary_contract" in payload
     assert "placeholder_markers" in payload
+    assert "profile_suggestion_actions" in payload
+    assert "alertmanager_route_consistency" in payload
+    assert "notification_retry_runbook" in payload
+    assert "error_context_high_frequency" in payload
     assert isinstance(payload["summary_schema"], dict)
     assert isinstance(payload["summary_contract"], dict)
     assert isinstance(payload["placeholder_markers"], dict)
+    assert isinstance(payload["profile_suggestion_actions"], dict)
+    assert isinstance(payload["alertmanager_route_consistency"], dict)
+    assert isinstance(payload["notification_retry_runbook"], dict)
+    assert isinstance(payload["error_context_high_frequency"], dict)
     for group_payload in payload.values():
         for entry_payload in group_payload.values():
             assert isinstance(entry_payload, dict)
@@ -83,6 +195,10 @@ def test_validator_error_code_catalog_schema_exists_and_has_required_fields() ->
     assert "summary_schema" in required_groups
     assert "summary_contract" in required_groups
     assert "placeholder_markers" in required_groups
+    assert "profile_suggestion_actions" in required_groups
+    assert "alertmanager_route_consistency" in required_groups
+    assert "notification_retry_runbook" in required_groups
+    assert "error_context_high_frequency" in required_groups
 
 
 def test_validator_error_code_catalog_validator_script_passes_default_catalog() -> None:
@@ -132,6 +248,84 @@ def test_validator_error_code_catalog_validator_script_json_errors_for_schema_vi
     assert payload["validator"] == "validate-validator-error-code-catalog"
     assert payload["code"] == "error_code_catalog_schema_validation_failed"
     assert "schema validation failed" in payload["message"].lower()
+
+
+def test_validator_error_code_catalog_validator_script_json_errors_for_unknown_args() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-validator-error-code-catalog.py"
+    assert validate_script_file.exists()
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--json-errors",
+            "--unknown-flag",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "validate-validator-error-code-catalog"
+    assert payload["code"] == "error_code_catalog_cli_args_invalid"
+    assert payload["context"]["unknown_args"] == ["--unknown-flag"]
+
+
+def test_validator_error_code_catalog_validator_script_json_errors_for_missing_arg_value() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-validator-error-code-catalog.py"
+    assert validate_script_file.exists()
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--json-errors",
+            "--catalog-file",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "validate-validator-error-code-catalog"
+    assert payload["code"] == "error_code_catalog_cli_args_invalid"
+    assert payload["context"]["failure_mode"] == "argparse_error"
+    assert "--catalog-file" in payload["context"]["argv"]
+
+
+def test_validator_error_code_catalog_validator_script_json_output_on_success() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-validator-error-code-catalog.py"
+    assert validate_script_file.exists()
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--json-output",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0
+    payload = json.loads(completed.stdout)
+    assert payload["validator"] == "validate-validator-error-code-catalog"
+    assert payload["status"] == "ok"
+    assert payload["total_codes"] >= 1
+    assert "summary_schema" in payload["groups"]
+    assert "placeholder_markers" in payload["groups"]
+    assert "error_context_high_frequency" in payload["groups"]
 
 
 def test_validator_error_code_sync_script_migrates_legacy_string_catalog_entries(tmp_path) -> None:
@@ -193,6 +387,26 @@ def test_validator_error_code_catalog_has_specific_metadata_for_key_codes() -> N
     assert parse_entry["severity"] == "error"
     assert "json" in parse_entry["remediation"].lower()
     assert "syntax" in parse_entry["remediation"].lower()
+    summary_schema_cli_entry = payload["summary_schema"]["summary_schema_cli_args_invalid"]
+    assert summary_schema_cli_entry["severity"] == "error"
+    assert "cli" in summary_schema_cli_entry["description"].lower()
+    assert "arguments" in summary_schema_cli_entry["description"].lower()
+
+    profile_actions_entry = payload["profile_suggestion_actions"]["profile_suggestion_actions_helper_contract_failed"]
+    assert profile_actions_entry["severity"] == "critical"
+    assert "schema" in profile_actions_entry["description"].lower()
+    assert "rerun" in profile_actions_entry["remediation"].lower()
+
+    profile_actions_unexpected_entry = payload["profile_suggestion_actions"][
+        "profile_suggestion_actions_unexpected_error"
+    ]
+    assert profile_actions_unexpected_entry["severity"] == "critical"
+    assert "stack trace" in profile_actions_unexpected_entry["remediation"].lower()
+
+    summary_contract_cli_entry = payload["summary_contract"]["summary_contract_cli_args_invalid"]
+    assert summary_contract_cli_entry["severity"] == "error"
+    assert "cli" in summary_contract_cli_entry["description"].lower()
+    assert "arguments" in summary_contract_cli_entry["description"].lower()
 
 
 def test_validator_error_code_sync_script_upgrades_legacy_default_metadata(tmp_path) -> None:
@@ -240,6 +454,82 @@ def test_validator_error_code_metadata_overrides_config_exists() -> None:
 
     payload = json.loads(overrides_file.read_text(encoding="utf-8"))
     assert isinstance(payload, dict)
+    assert "profile_suggestion_actions" in payload
+    profile_suggestion_actions_overrides = payload["profile_suggestion_actions"]
+    expected_profile_suggestion_actions_codes = {
+        "profile_suggestion_actions_file_not_found",
+        "profile_suggestion_actions_json_parse_error",
+        "profile_suggestion_actions_schema_invalid",
+        "profile_suggestion_actions_example_validation_failed",
+        "profile_suggestion_actions_helper_contract_failed",
+        "profile_suggestion_actions_cli_args_invalid",
+        "profile_suggestion_actions_unexpected_error",
+    }
+    assert expected_profile_suggestion_actions_codes.issubset(set(profile_suggestion_actions_overrides.keys()))
+    helper_contract_override = profile_suggestion_actions_overrides["profile_suggestion_actions_helper_contract_failed"]
+    assert helper_contract_override["severity"] == "critical"
+    assert "schema" in helper_contract_override["description"].lower()
+
+    assert "summary_contract" in payload
+    summary_contract_overrides = payload["summary_contract"]
+    expected_summary_contract_codes = {
+        "summary_contract_cli_args_invalid",
+    }
+    assert expected_summary_contract_codes.issubset(set(summary_contract_overrides.keys()))
+    assert "summary_schema" in payload
+    summary_schema_overrides = payload["summary_schema"]
+    expected_summary_schema_codes = {
+        "summary_schema_cli_args_invalid",
+    }
+    assert expected_summary_schema_codes.issubset(set(summary_schema_overrides.keys()))
+    assert "placeholder_markers" in payload
+    placeholder_markers_overrides = payload["placeholder_markers"]
+    expected_placeholder_markers_codes = {
+        "placeholder_markers_cli_args_invalid",
+    }
+    assert expected_placeholder_markers_codes.issubset(set(placeholder_markers_overrides.keys()))
+    assert "error_context_high_frequency" in payload
+    error_context_high_frequency_overrides = payload["error_context_high_frequency"]
+    expected_error_context_high_frequency_codes = {
+        "error_context_high_frequency_cli_args_invalid",
+        "error_context_high_frequency_schema_file_not_found",
+        "error_context_high_frequency_samples_file_not_found",
+        "error_context_high_frequency_json_parse_error",
+        "error_context_high_frequency_schema_invalid",
+        "error_context_high_frequency_samples_payload_invalid",
+        "error_context_high_frequency_sample_schema_validation_failed",
+        "error_context_high_frequency_unexpected_error",
+    }
+    assert expected_error_context_high_frequency_codes.issubset(set(error_context_high_frequency_overrides.keys()))
+
+
+def test_error_context_high_frequency_metadata_overrides_quality_policy() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    overrides_file = backend_root / "config" / "validator-error-code-metadata-overrides.json"
+    assert overrides_file.exists()
+
+    payload = json.loads(overrides_file.read_text(encoding="utf-8"))
+    assert "error_context_high_frequency" in payload
+    group_payload = payload["error_context_high_frequency"]
+
+    expected_severity_by_code = {
+        "error_context_high_frequency_cli_args_invalid": "error",
+        "error_context_high_frequency_schema_file_not_found": "error",
+        "error_context_high_frequency_samples_file_not_found": "error",
+        "error_context_high_frequency_json_parse_error": "error",
+        "error_context_high_frequency_schema_invalid": "error",
+        "error_context_high_frequency_samples_payload_invalid": "error",
+        "error_context_high_frequency_sample_schema_validation_failed": "error",
+        "error_context_high_frequency_unexpected_error": "critical",
+    }
+
+    for code, expected_severity in expected_severity_by_code.items():
+        assert code in group_payload
+        code_payload = group_payload[code]
+        assert code_payload["severity"] == expected_severity
+        remediation = code_payload["remediation"].strip()
+        assert remediation.endswith(".")
+        assert "rerun" in remediation.lower()
 
 
 def test_validator_error_code_metadata_overrides_schema_exists() -> None:
@@ -330,12 +620,88 @@ def test_validator_error_code_metadata_lint_validator_script_json_errors_for_sch
     assert "schema validation failed" in payload["message"].lower()
 
 
+def test_validator_error_code_metadata_lint_validator_script_json_errors_for_unknown_args() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-validator-error-code-metadata-lint.py"
+    assert validate_script_file.exists()
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--json-errors",
+            "--unknown-flag",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "validate-validator-error-code-metadata-lint"
+    assert payload["code"] == "error_code_metadata_lint_cli_args_invalid"
+    assert payload["context"]["unknown_args"] == ["--unknown-flag"]
+
+
+def test_validator_error_code_metadata_lint_validator_script_json_errors_for_missing_arg_value() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-validator-error-code-metadata-lint.py"
+    assert validate_script_file.exists()
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--json-errors",
+            "--lint-config-file",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "validate-validator-error-code-metadata-lint"
+    assert payload["code"] == "error_code_metadata_lint_cli_args_invalid"
+    assert payload["context"]["failure_mode"] == "argparse_error"
+    assert "--lint-config-file" in payload["context"]["argv"]
+
+
+def test_validator_error_code_metadata_lint_validator_script_json_output_on_success() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-validator-error-code-metadata-lint.py"
+    assert validate_script_file.exists()
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--json-output",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0
+    payload = json.loads(completed.stdout)
+    assert payload["validator"] == "validate-validator-error-code-metadata-lint"
+    assert payload["status"] == "ok"
+    assert payload["action_verbs_count"] >= 1
+    assert payload["min_remediation_length"] >= 1
+
+
 def test_validator_error_code_metadata_lint_validator_script_supports_profiled_lint_config(tmp_path) -> None:
     backend_root = Path(__file__).resolve().parents[2]
     validate_script_file = backend_root / "scripts" / "validate-validator-error-code-metadata-lint.py"
     assert validate_script_file.exists()
 
-    lint_config_file = tmp_path / "metadata-lint-profiled.json"
+    lint_config_file = tmp_path / "metadata lint profiled.json"
     lint_config_file.write_text(
         json.dumps(
             {
@@ -474,11 +840,18 @@ def test_validator_error_code_metadata_lint_validator_script_suggests_nearby_pro
     assert payload["validator"] == "validate-validator-error-code-metadata-lint"
     assert payload["code"] == "error_code_metadata_lint_profile_not_found"
     assert payload["context"]["fallback_reason"] == "close_match"
+    assert payload["context"]["suggestion_level"] == "hint"
     assert payload["context"]["suggested_profiles"][0] == "prod"
     assert payload["context"]["suggested_cli_args"] == "--lint-profile prod"
+    expected_lint_config_arg = f"--lint-config-file {shlex.quote(str(lint_config_file))}"
     assert "validate-validator-error-code-metadata-lint.py" in payload["context"]["suggested_command"]
+    assert expected_lint_config_arg in payload["context"]["suggested_command"]
     assert "--lint-profile prod" in payload["context"]["suggested_command"]
     assert str(lint_config_file) in payload["context"]["suggested_command"]
+    suggested_actions = payload["context"]["suggested_actions"]
+    assert suggested_actions[0]["action"] == "copy_command"
+    assert suggested_actions[0]["command"] == payload["context"]["suggested_command"]
+    assert suggested_actions[1] == {"action": "use_profile", "profile": "prod"}
 
 
 def test_validator_error_code_metadata_lint_validator_script_handles_no_nearby_profile_suggestion(
@@ -532,10 +905,14 @@ def test_validator_error_code_metadata_lint_validator_script_handles_no_nearby_p
     assert payload["validator"] == "validate-validator-error-code-metadata-lint"
     assert payload["code"] == "error_code_metadata_lint_profile_not_found"
     assert payload["context"]["fallback_reason"] == "no_close_match"
+    assert payload["context"]["suggestion_level"] == "warning"
     assert payload["context"]["available_profiles"][0] == "prod"
     assert payload["context"]["suggested_profiles"] == []
     assert payload["context"]["suggested_cli_args"] is None
     assert payload["context"]["suggested_command"] is None
+    assert payload["context"]["suggested_actions"] == [
+        {"action": "show_profiles", "profiles": payload["context"]["available_profiles"]}
+    ]
     assert "available profiles" in payload["message"].lower()
 
 
@@ -578,9 +955,17 @@ def test_validator_error_code_metadata_lint_validator_script_reports_non_profile
     assert payload["validator"] == "validate-validator-error-code-metadata-lint"
     assert payload["code"] == "error_code_metadata_lint_profile_not_found"
     assert payload["context"]["fallback_reason"] == "no_profiles_config"
+    assert payload["context"]["suggestion_level"] == "error"
     assert payload["context"]["suggested_profiles"] == []
     assert payload["context"]["suggested_cli_args"] is None
     assert payload["context"]["suggested_command"] is None
+    suggested_config_snippet = payload["context"]["suggested_config_snippet"]
+    assert suggested_config_snippet["default_profile"] == "dev"
+    assert suggested_config_snippet["profiles"]["dev"]["min_remediation_length"] == 12
+    assert suggested_config_snippet["profiles"]["dev"]["action_verbs"] == ["verify"]
+    suggested_actions = payload["context"]["suggested_actions"]
+    assert suggested_actions[0]["action"] == "migrate_profile_mode"
+    assert suggested_actions[0]["config_snippet"] == suggested_config_snippet
     assert "profile mode is not configured" in payload["message"].lower()
 
 
@@ -739,6 +1124,82 @@ def test_validator_error_code_metadata_overrides_validator_script_json_errors_fo
     assert "unknown override code" in payload["message"].lower()
 
 
+def test_validator_error_code_metadata_overrides_validator_script_json_errors_for_unknown_args() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-validator-error-code-metadata-overrides.py"
+    assert validate_script_file.exists()
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--json-errors",
+            "--unknown-flag",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "validate-validator-error-code-metadata-overrides"
+    assert payload["code"] == "error_code_metadata_overrides_cli_args_invalid"
+    assert payload["context"]["unknown_args"] == ["--unknown-flag"]
+
+
+def test_validator_error_code_metadata_overrides_validator_script_json_errors_for_missing_arg_value() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-validator-error-code-metadata-overrides.py"
+    assert validate_script_file.exists()
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--json-errors",
+            "--overrides-file",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "validate-validator-error-code-metadata-overrides"
+    assert payload["code"] == "error_code_metadata_overrides_cli_args_invalid"
+    assert payload["context"]["failure_mode"] == "argparse_error"
+    assert "--overrides-file" in payload["context"]["argv"]
+
+
+def test_validator_error_code_metadata_overrides_validator_script_json_output_on_success() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-validator-error-code-metadata-overrides.py"
+    assert validate_script_file.exists()
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--json-output",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0
+    payload = json.loads(completed.stdout)
+    assert payload["validator"] == "validate-validator-error-code-metadata-overrides"
+    assert payload["status"] == "ok"
+    assert payload["total_override_groups"] >= 1
+    assert payload["total_override_codes"] >= 1
+
+
 def test_validator_error_code_metadata_overrides_validator_script_supports_custom_lint_config(tmp_path) -> None:
     backend_root = Path(__file__).resolve().parents[2]
     validate_script_file = backend_root / "scripts" / "validate-validator-error-code-metadata-overrides.py"
@@ -799,7 +1260,7 @@ def test_validator_error_code_metadata_overrides_validator_script_supports_lint_
         + "\n",
         encoding="utf-8",
     )
-    lint_config_file = tmp_path / "metadata-lint-config-profiled.json"
+    lint_config_file = tmp_path / "metadata lint config profiled.json"
     lint_config_file.write_text(
         json.dumps(
             {
@@ -841,6 +1302,205 @@ def test_validator_error_code_metadata_overrides_validator_script_supports_lint_
 
     assert completed.returncode == 0
     assert "overrides config is valid" in completed.stdout.lower()
+
+
+def test_validator_error_code_metadata_overrides_validator_script_supports_overrides_profile(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-validator-error-code-metadata-overrides.py"
+    assert validate_script_file.exists()
+
+    overrides_file = tmp_path / "metadata-overrides-profiled.json"
+    overrides_file.write_text(
+        json.dumps(
+            {
+                "default_profile": "prod",
+                "profiles": {
+                    "dev": {
+                        "summary_schema": {"summary_schema_json_parse_error": {"remediation": "Do now"}},
+                    },
+                    "prod": {
+                        "summary_schema": {
+                            "summary_schema_json_parse_error": {
+                                "remediation": "Verify JSON syntax and rerun validation with expected schema."
+                            }
+                        },
+                    },
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    lint_config_file = tmp_path / "metadata-lint-config-profiled-overrides-profile.json"
+    lint_config_file.write_text(
+        json.dumps(
+            {
+                "default_profile": "prod",
+                "profiles": {
+                    "dev": {
+                        "min_remediation_length": 2,
+                        "action_verbs": ["do"],
+                    },
+                    "prod": {
+                        "min_remediation_length": 30,
+                        "action_verbs": ["verify"],
+                    },
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--overrides-file",
+            str(overrides_file),
+            "--overrides-profile",
+            "dev",
+            "--lint-config-file",
+            str(lint_config_file),
+            "--lint-profile",
+            "dev",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0
+    assert "overrides config is valid" in completed.stdout.lower()
+
+
+def test_validator_error_code_metadata_overrides_validator_script_json_errors_for_unknown_overrides_profile(
+    tmp_path,
+) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-validator-error-code-metadata-overrides.py"
+    assert validate_script_file.exists()
+
+    overrides_file = tmp_path / "metadata-overrides-profiled-unknown.json"
+    overrides_file.write_text(
+        json.dumps(
+            {
+                "default_profile": "prod",
+                "profiles": {
+                    "prod": {
+                        "summary_schema": {"summary_schema_json_parse_error": {"remediation": "Verify and rerun."}},
+                    }
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--overrides-file",
+            str(overrides_file),
+            "--overrides-profile",
+            "staging",
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "validate-validator-error-code-metadata-overrides"
+    assert payload["code"] == "error_code_metadata_overrides_overrides_profile_not_found"
+    assert payload["context"]["fallback_reason"] == "no_close_match"
+    assert payload["context"]["suggestion_level"] == "warning"
+    assert payload["context"]["available_profiles"][0] == "prod"
+    assert payload["context"]["suggested_profiles"] == []
+    assert payload["context"]["suggested_cli_args"] is None
+    assert payload["context"]["suggested_command"] is None
+    assert payload["context"]["suggested_actions"] == [
+        {"action": "show_profiles", "profiles": payload["context"]["available_profiles"]}
+    ]
+    assert "overrides profile" in payload["message"].lower()
+    assert "available profiles" in payload["message"].lower()
+
+
+def test_validator_error_code_metadata_overrides_validator_script_suggests_nearby_overrides_profile(
+    tmp_path,
+) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-validator-error-code-metadata-overrides.py"
+    assert validate_script_file.exists()
+
+    overrides_file = tmp_path / "metadata-overrides-profiled-nearby.json"
+    overrides_file.write_text(
+        json.dumps(
+            {
+                "default_profile": "prod",
+                "profiles": {
+                    "dev": {
+                        "summary_schema": {"summary_schema_json_parse_error": {"remediation": "Do now"}},
+                    },
+                    "prod": {
+                        "summary_schema": {
+                            "summary_schema_json_parse_error": {
+                                "remediation": "Verify JSON syntax and rerun validation with expected schema."
+                            }
+                        },
+                    },
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--overrides-file",
+            str(overrides_file),
+            "--overrides-profile",
+            "prdo",
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "validate-validator-error-code-metadata-overrides"
+    assert payload["code"] == "error_code_metadata_overrides_overrides_profile_not_found"
+    assert payload["context"]["fallback_reason"] == "close_match"
+    assert payload["context"]["suggestion_level"] == "hint"
+    assert payload["context"]["suggested_profiles"][0] == "prod"
+    assert payload["context"]["suggested_cli_args"] == "--overrides-profile prod"
+    expected_overrides_file_arg = f"--overrides-file {shlex.quote(str(overrides_file))}"
+    assert "validate-validator-error-code-metadata-overrides.py" in payload["context"]["suggested_command"]
+    assert expected_overrides_file_arg in payload["context"]["suggested_command"]
+    assert "--overrides-profile prod" in payload["context"]["suggested_command"]
+    suggested_actions = payload["context"]["suggested_actions"]
+    assert suggested_actions[0]["action"] == "copy_command"
+    assert suggested_actions[0]["command"] == payload["context"]["suggested_command"]
+    assert suggested_actions[1] == {"action": "use_profile", "profile": "prod"}
 
 
 def test_validator_error_code_metadata_overrides_validator_script_json_errors_for_unknown_lint_profile(
@@ -944,11 +1604,18 @@ def test_validator_error_code_metadata_overrides_validator_script_suggests_nearb
     assert payload["validator"] == "validate-validator-error-code-metadata-overrides"
     assert payload["code"] == "error_code_metadata_overrides_lint_profile_not_found"
     assert payload["context"]["fallback_reason"] == "close_match"
+    assert payload["context"]["suggestion_level"] == "hint"
     assert payload["context"]["suggested_profiles"][0] == "prod"
     assert payload["context"]["suggested_cli_args"] == "--lint-profile prod"
+    expected_lint_config_arg = f"--lint-config-file {shlex.quote(str(lint_config_file))}"
     assert "validate-validator-error-code-metadata-overrides.py" in payload["context"]["suggested_command"]
+    assert expected_lint_config_arg in payload["context"]["suggested_command"]
     assert "--lint-profile prod" in payload["context"]["suggested_command"]
     assert str(lint_config_file) in payload["context"]["suggested_command"]
+    suggested_actions = payload["context"]["suggested_actions"]
+    assert suggested_actions[0]["action"] == "copy_command"
+    assert suggested_actions[0]["command"] == payload["context"]["suggested_command"]
+    assert suggested_actions[1] == {"action": "use_profile", "profile": "prod"}
 
 
 def test_validator_error_code_metadata_overrides_validator_script_handles_no_nearby_lint_profile_suggestion(
@@ -1002,10 +1669,14 @@ def test_validator_error_code_metadata_overrides_validator_script_handles_no_nea
     assert payload["validator"] == "validate-validator-error-code-metadata-overrides"
     assert payload["code"] == "error_code_metadata_overrides_lint_profile_not_found"
     assert payload["context"]["fallback_reason"] == "no_close_match"
+    assert payload["context"]["suggestion_level"] == "warning"
     assert payload["context"]["available_profiles"][0] == "prod"
     assert payload["context"]["suggested_profiles"] == []
     assert payload["context"]["suggested_cli_args"] is None
     assert payload["context"]["suggested_command"] is None
+    assert payload["context"]["suggested_actions"] == [
+        {"action": "show_profiles", "profiles": payload["context"]["available_profiles"]}
+    ]
     assert "available profiles" in payload["message"].lower()
 
 
@@ -1048,9 +1719,17 @@ def test_validator_error_code_metadata_overrides_validator_script_reports_non_pr
     assert payload["validator"] == "validate-validator-error-code-metadata-overrides"
     assert payload["code"] == "error_code_metadata_overrides_lint_profile_not_found"
     assert payload["context"]["fallback_reason"] == "no_profiles_config"
+    assert payload["context"]["suggestion_level"] == "error"
     assert payload["context"]["suggested_profiles"] == []
     assert payload["context"]["suggested_cli_args"] is None
     assert payload["context"]["suggested_command"] is None
+    suggested_config_snippet = payload["context"]["suggested_config_snippet"]
+    assert suggested_config_snippet["default_profile"] == "dev"
+    assert suggested_config_snippet["profiles"]["dev"]["min_remediation_length"] == 12
+    assert suggested_config_snippet["profiles"]["dev"]["action_verbs"] == ["verify"]
+    suggested_actions = payload["context"]["suggested_actions"]
+    assert suggested_actions[0]["action"] == "migrate_profile_mode"
+    assert suggested_actions[0]["config_snippet"] == suggested_config_snippet
     assert "profile mode is not configured" in payload["message"].lower()
 
 
@@ -1327,6 +2006,800 @@ def test_validator_error_code_sync_script_applies_custom_metadata_overrides(tmp_
     assert entry["remediation"] == "Use jq/JSONLint to validate syntax before rerun."
 
 
+def test_validator_error_code_sync_script_supports_metadata_overrides_profile(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+    assert sync_script_file.exists()
+    assert catalog_file.exists()
+
+    source_payload = json.loads(catalog_file.read_text(encoding="utf-8"))
+    output_file = tmp_path / "validator-error-codes-profiled-overrides.json"
+    output_file.write_text(json.dumps(source_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    overrides_file = tmp_path / "metadata-overrides-profiled.json"
+    overrides_file.write_text(
+        json.dumps(
+            {
+                "default_profile": "prod",
+                "profiles": {
+                    "dev": {
+                        "summary_schema": {
+                            "summary_schema_json_parse_error": {
+                                "severity": "warning",
+                            }
+                        }
+                    },
+                    "prod": {
+                        "summary_schema": {
+                            "summary_schema_json_parse_error": {
+                                "severity": "error",
+                            }
+                        }
+                    },
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--output-file",
+            str(output_file),
+            "--metadata-overrides-file",
+            str(overrides_file),
+            "--metadata-overrides-profile",
+            "dev",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0
+    payload = json.loads(output_file.read_text(encoding="utf-8"))
+    entry = payload["summary_schema"]["summary_schema_json_parse_error"]
+    assert entry["severity"] == "warning"
+
+
+def test_validator_error_code_sync_script_suggests_nearby_metadata_overrides_profile(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+    assert sync_script_file.exists()
+    assert catalog_file.exists()
+
+    source_payload = json.loads(catalog_file.read_text(encoding="utf-8"))
+    output_file = tmp_path / "validator-error-codes-profiled-overrides-nearby.json"
+    output_file.write_text(json.dumps(source_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    overrides_file = tmp_path / "metadata-overrides-profiled-nearby.json"
+    overrides_file.write_text(
+        json.dumps(
+            {
+                "default_profile": "prod",
+                "profiles": {
+                    "dev": {
+                        "summary_schema": {
+                            "summary_schema_json_parse_error": {
+                                "severity": "warning",
+                            }
+                        }
+                    },
+                    "prod": {
+                        "summary_schema": {
+                            "summary_schema_json_parse_error": {
+                                "severity": "error",
+                            }
+                        }
+                    },
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--output-file",
+            str(output_file),
+            "--metadata-overrides-file",
+            str(overrides_file),
+            "--metadata-overrides-profile",
+            "prdo",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "metadata overrides profile not found: prdo" in completed.stderr.lower()
+    assert "did you mean: prod" in completed.stderr.lower()
+    assert "try: --metadata-overrides-profile prod" in completed.stderr.lower()
+
+
+def test_validator_error_code_sync_script_reports_available_profiles_for_unknown_metadata_overrides_profile(
+    tmp_path,
+) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+    assert sync_script_file.exists()
+    assert catalog_file.exists()
+
+    source_payload = json.loads(catalog_file.read_text(encoding="utf-8"))
+    output_file = tmp_path / "validator-error-codes-profiled-overrides-unknown.json"
+    output_file.write_text(json.dumps(source_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    overrides_file = tmp_path / "metadata-overrides-profiled-unknown-sync.json"
+    overrides_file.write_text(
+        json.dumps(
+            {
+                "default_profile": "prod",
+                "profiles": {
+                    "dev": {
+                        "summary_schema": {
+                            "summary_schema_json_parse_error": {
+                                "severity": "warning",
+                            }
+                        }
+                    },
+                    "prod": {
+                        "summary_schema": {
+                            "summary_schema_json_parse_error": {
+                                "severity": "error",
+                            }
+                        }
+                    },
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--output-file",
+            str(output_file),
+            "--metadata-overrides-file",
+            str(overrides_file),
+            "--metadata-overrides-profile",
+            "staging",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "metadata overrides profile not found: staging" in completed.stderr.lower()
+    assert "available profiles: prod, dev" in completed.stderr.lower()
+
+
+def test_validator_error_code_sync_script_json_errors_for_unknown_metadata_overrides_profile(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+    assert sync_script_file.exists()
+    assert catalog_file.exists()
+
+    source_payload = json.loads(catalog_file.read_text(encoding="utf-8"))
+    output_file = tmp_path / "validator-error-codes-profiled-overrides-json-errors.json"
+    output_file.write_text(json.dumps(source_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    overrides_file = tmp_path / "metadata-overrides-profiled-json-errors.json"
+    overrides_file.write_text(
+        json.dumps(
+            {
+                "default_profile": "prod",
+                "profiles": {
+                    "dev": {
+                        "summary_schema": {
+                            "summary_schema_json_parse_error": {
+                                "severity": "warning",
+                            }
+                        }
+                    },
+                    "prod": {
+                        "summary_schema": {
+                            "summary_schema_json_parse_error": {
+                                "severity": "error",
+                            }
+                        }
+                    },
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--output-file",
+            str(output_file),
+            "--metadata-overrides-file",
+            str(overrides_file),
+            "--metadata-overrides-profile",
+            "prdo",
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "sync-validator-error-codes"
+    assert payload["code"] == "error_code_sync_validator_error_codes_metadata_overrides_profile_not_found"
+    assert payload["context"]["fallback_reason"] == "close_match"
+    assert payload["context"]["suggestion_level"] == "hint"
+    assert payload["context"]["suggested_profiles"][0] == "prod"
+    assert payload["context"]["suggested_cli_args"] == "--metadata-overrides-profile prod"
+    suggested_actions = payload["context"]["suggested_actions"]
+    assert suggested_actions[0]["action"] == "copy_command"
+    assert suggested_actions[0]["command"] == payload["context"]["suggested_command"]
+    assert suggested_actions[1] == {"action": "use_profile", "profile": "prod"}
+
+
+def test_validator_error_code_sync_script_json_errors_for_non_profile_overrides_config_when_profile_requested(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+    assert sync_script_file.exists()
+    assert catalog_file.exists()
+
+    source_payload = json.loads(catalog_file.read_text(encoding="utf-8"))
+    output_file = tmp_path / "validator-error-codes-non-profile-overrides-json-errors.json"
+    output_file.write_text(json.dumps(source_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    overrides_file = tmp_path / "metadata-overrides-flat-sync.json"
+    overrides_file.write_text(
+        json.dumps(
+            {
+                "summary_schema": {
+                    "summary_schema_json_parse_error": {
+                        "severity": "warning",
+                    }
+                }
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--output-file",
+            str(output_file),
+            "--metadata-overrides-file",
+            str(overrides_file),
+            "--metadata-overrides-profile",
+            "dev",
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "sync-validator-error-codes"
+    assert payload["code"] == "error_code_sync_validator_error_codes_metadata_overrides_profile_not_found"
+    assert payload["context"]["fallback_reason"] == "no_profiles_config"
+    assert payload["context"]["suggestion_level"] == "error"
+    assert payload["context"]["suggested_profiles"] == []
+    assert payload["context"]["suggested_cli_args"] is None
+    assert payload["context"]["suggested_command"] is None
+    suggested_config_snippet = payload["context"]["suggested_config_snippet"]
+    assert suggested_config_snippet["default_profile"] == "dev"
+    assert "summary_schema" in suggested_config_snippet["profiles"]["dev"]
+    assert payload["context"]["suggested_actions"] == [
+        {"action": "migrate_profile_mode", "config_snippet": suggested_config_snippet}
+    ]
+
+
+def test_validator_error_code_sync_script_json_errors_for_missing_metadata_overrides_file(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+    assert sync_script_file.exists()
+    assert catalog_file.exists()
+
+    source_payload = json.loads(catalog_file.read_text(encoding="utf-8"))
+    output_file = tmp_path / "validator-error-codes-sync-missing-overrides.json"
+    output_file.write_text(json.dumps(source_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    missing_overrides_file = tmp_path / "metadata-overrides-missing-sync.json"
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--output-file",
+            str(output_file),
+            "--metadata-overrides-file",
+            str(missing_overrides_file),
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "sync-validator-error-codes"
+    assert payload["code"] == "error_code_sync_validator_error_codes_metadata_overrides_file_not_found"
+    assert payload["context"]["path"] == str(missing_overrides_file)
+    assert payload["context"]["failure_mode"] == "metadata_overrides_file_not_found"
+
+
+def test_validator_error_code_sync_script_json_errors_for_unknown_cli_arguments() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    assert sync_script_file.exists()
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--json-errors",
+            "--unknown-flag",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "sync-validator-error-codes"
+    assert payload["code"] == "error_code_sync_validator_error_codes_unexpected_error"
+    assert "unrecognized arguments" in payload["message"]
+    assert payload["context"]["stage"] == "argument_parsing"
+    assert payload["context"]["exception_type"] == "SystemExit"
+    assert payload["context"]["exit_code"] == 2
+    assert payload["context"]["argv"] == ["--json-errors", "--unknown-flag"]
+    assert payload["context"]["unknown_args"] == ["--unknown-flag"]
+
+
+def test_validator_error_code_sync_script_json_errors_for_missing_cli_argument_value() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    assert sync_script_file.exists()
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--json-errors",
+            "--metadata-overrides-profile",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "sync-validator-error-codes"
+    assert payload["code"] == "error_code_sync_validator_error_codes_unexpected_error"
+    assert "expected one argument" in payload["message"]
+    assert payload["context"]["stage"] == "argument_parsing"
+    assert payload["context"]["exception_type"] == "SystemExit"
+    assert payload["context"]["exit_code"] == 2
+    assert payload["context"]["argv"] == ["--json-errors", "--metadata-overrides-profile"]
+    assert payload["context"]["unknown_args"] == []
+
+
+def test_validator_error_code_sync_script_json_errors_for_unexpected_runtime_exception_context(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_source = backend_root / "scripts" / "sync-validator-error-codes.py"
+    helper_source = backend_root / "scripts" / "profile_suggestion_helpers.py"
+    assert sync_script_source.exists()
+    assert helper_source.exists()
+
+    isolated_backend_root = tmp_path / "isolated-backend-unexpected-runtime"
+    isolated_scripts_dir = isolated_backend_root / "scripts"
+    isolated_scripts_dir.mkdir(parents=True, exist_ok=True)
+
+    isolated_sync_script = isolated_scripts_dir / "sync-validator-error-codes.py"
+    isolated_helper = isolated_scripts_dir / "profile_suggestion_helpers.py"
+
+    source_content = sync_script_source.read_text(encoding="utf-8")
+    injected_content = source_content.replace(
+        "existing_catalog = _load_existing_catalog(path=args.output_file)",
+        "raise RuntimeError('simulated runtime failure')\n        existing_catalog = _load_existing_catalog(path=args.output_file)",
+        1,
+    )
+    assert injected_content != source_content
+
+    isolated_sync_script.write_text(injected_content, encoding="utf-8")
+    isolated_helper.write_text(helper_source.read_text(encoding="utf-8"), encoding="utf-8")
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(isolated_sync_script),
+            "--json-errors",
+        ],
+        cwd=isolated_backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "sync-validator-error-codes"
+    assert payload["code"] == "error_code_sync_validator_error_codes_unexpected_error"
+    assert "simulated runtime failure" in payload["message"]
+    assert payload["context"]["stage"] == "runtime"
+    assert payload["context"]["exception_type"] == "RuntimeError"
+    assert payload["context"]["exit_code"] == 1
+    assert payload["context"]["argv"] == ["--json-errors"]
+    assert payload["context"]["unknown_args"] == []
+
+
+def test_validator_error_code_sync_script_json_errors_for_unreadable_metadata_overrides_path(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+    assert sync_script_file.exists()
+    assert catalog_file.exists()
+
+    source_payload = json.loads(catalog_file.read_text(encoding="utf-8"))
+    output_file = tmp_path / "validator-error-codes-sync-unreadable-overrides.json"
+    output_file.write_text(json.dumps(source_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    unreadable_overrides_path = tmp_path / "metadata-overrides-dir"
+    unreadable_overrides_path.mkdir(parents=True, exist_ok=True)
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--output-file",
+            str(output_file),
+            "--metadata-overrides-file",
+            str(unreadable_overrides_path),
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "sync-validator-error-codes"
+    assert payload["code"] == "error_code_sync_validator_error_codes_metadata_overrides_file_read_failed"
+    assert payload["context"]["path"] == str(unreadable_overrides_path)
+    assert payload["context"]["failure_mode"] == "metadata_overrides_file_read_failed"
+    assert payload["context"]["exception_type"] == "IsADirectoryError"
+
+
+def test_validator_error_code_sync_script_json_errors_for_invalid_utf8_metadata_overrides(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+    assert sync_script_file.exists()
+    assert catalog_file.exists()
+
+    source_payload = json.loads(catalog_file.read_text(encoding="utf-8"))
+    output_file = tmp_path / "validator-error-codes-sync-invalid-utf8-overrides.json"
+    output_file.write_text(json.dumps(source_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    invalid_overrides_file = tmp_path / "metadata-overrides-invalid-utf8.json"
+    invalid_overrides_file.write_bytes(b"\xff\xfe\xfd")
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--output-file",
+            str(output_file),
+            "--metadata-overrides-file",
+            str(invalid_overrides_file),
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "sync-validator-error-codes"
+    assert payload["code"] == "error_code_sync_validator_error_codes_json_parse_error"
+    assert payload["context"]["path"] == str(invalid_overrides_file)
+    assert payload["context"]["role"] == "metadata_overrides"
+    assert payload["context"]["exception_type"] == "UnicodeDecodeError"
+
+
+def test_validator_error_code_sync_script_json_errors_for_malformed_metadata_overrides(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+    assert sync_script_file.exists()
+    assert catalog_file.exists()
+
+    source_payload = json.loads(catalog_file.read_text(encoding="utf-8"))
+    output_file = tmp_path / "validator-error-codes-sync-malformed-overrides.json"
+    output_file.write_text(json.dumps(source_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    malformed_overrides_file = tmp_path / "metadata-overrides-malformed.json"
+    malformed_overrides_file.write_text("{not-json", encoding="utf-8")
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--output-file",
+            str(output_file),
+            "--metadata-overrides-file",
+            str(malformed_overrides_file),
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "sync-validator-error-codes"
+    assert payload["code"] == "error_code_sync_validator_error_codes_json_parse_error"
+    assert payload["context"]["path"] == str(malformed_overrides_file)
+    assert payload["context"]["role"] == "metadata_overrides"
+    assert payload["context"]["exception_type"] == "JSONDecodeError"
+
+
+def test_validator_error_code_sync_script_json_errors_for_missing_validator_script_file(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_source = backend_root / "scripts" / "sync-validator-error-codes.py"
+    helper_source = backend_root / "scripts" / "profile_suggestion_helpers.py"
+    assert sync_script_source.exists()
+    assert helper_source.exists()
+
+    isolated_backend_root = tmp_path / "isolated-backend"
+    isolated_scripts_dir = isolated_backend_root / "scripts"
+    isolated_scripts_dir.mkdir(parents=True, exist_ok=True)
+    isolated_sync_script = isolated_scripts_dir / "sync-validator-error-codes.py"
+    isolated_helper = isolated_scripts_dir / "profile_suggestion_helpers.py"
+    isolated_sync_script.write_text(sync_script_source.read_text(encoding="utf-8"), encoding="utf-8")
+    isolated_helper.write_text(helper_source.read_text(encoding="utf-8"), encoding="utf-8")
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(isolated_sync_script),
+            "--json-errors",
+        ],
+        cwd=isolated_backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "sync-validator-error-codes"
+    assert payload["code"] == "error_code_sync_validator_error_codes_validator_script_file_not_found"
+    assert payload["context"]["group"] == "summary_schema"
+    assert payload["context"]["path"] == str(isolated_backend_root / "scripts" / "validate-strict-gate-summary-schema.py")
+
+
+def test_validator_error_code_sync_script_json_errors_for_missing_validator_registry(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_source = backend_root / "scripts" / "sync-validator-error-codes.py"
+    helper_source = backend_root / "scripts" / "profile_suggestion_helpers.py"
+    assert sync_script_source.exists()
+    assert helper_source.exists()
+
+    isolated_backend_root = tmp_path / "isolated-backend-missing-registry"
+    isolated_scripts_dir = isolated_backend_root / "scripts"
+    isolated_scripts_dir.mkdir(parents=True, exist_ok=True)
+
+    isolated_sync_script = isolated_scripts_dir / "sync-validator-error-codes.py"
+    isolated_helper = isolated_scripts_dir / "profile_suggestion_helpers.py"
+    isolated_summary_script = isolated_scripts_dir / "validate-strict-gate-summary-schema.py"
+
+    isolated_sync_script.write_text(sync_script_source.read_text(encoding="utf-8"), encoding="utf-8")
+    isolated_helper.write_text(helper_source.read_text(encoding="utf-8"), encoding="utf-8")
+    isolated_summary_script.write_text("DUMMY = True\n", encoding="utf-8")
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(isolated_sync_script),
+            "--json-errors",
+        ],
+        cwd=isolated_backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "sync-validator-error-codes"
+    assert payload["code"] == "error_code_sync_validator_error_codes_validator_registry_missing"
+    assert payload["context"]["group"] == "summary_schema"
+    assert payload["context"]["path"] == str(isolated_summary_script)
+    assert payload["context"]["stage"] == "validator_registry_validation"
+    assert payload["context"]["failure_mode"] == "missing_registry"
+
+
+def test_validator_error_code_sync_script_json_errors_for_invalid_validator_registry_item(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_source = backend_root / "scripts" / "sync-validator-error-codes.py"
+    helper_source = backend_root / "scripts" / "profile_suggestion_helpers.py"
+    assert sync_script_source.exists()
+    assert helper_source.exists()
+
+    isolated_backend_root = tmp_path / "isolated-backend-invalid-registry"
+    isolated_scripts_dir = isolated_backend_root / "scripts"
+    isolated_scripts_dir.mkdir(parents=True, exist_ok=True)
+
+    isolated_sync_script = isolated_scripts_dir / "sync-validator-error-codes.py"
+    isolated_helper = isolated_scripts_dir / "profile_suggestion_helpers.py"
+    isolated_summary_script = isolated_scripts_dir / "validate-strict-gate-summary-schema.py"
+
+    isolated_sync_script.write_text(sync_script_source.read_text(encoding="utf-8"), encoding="utf-8")
+    isolated_helper.write_text(helper_source.read_text(encoding="utf-8"), encoding="utf-8")
+    isolated_summary_script.write_text(
+        "VALIDATOR_ERROR_CODES = {'summary_schema_invalid_registry_entry': 100}\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(isolated_sync_script),
+            "--json-errors",
+        ],
+        cwd=isolated_backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "sync-validator-error-codes"
+    assert payload["code"] == "error_code_sync_validator_error_codes_validator_registry_invalid"
+    assert payload["context"]["group"] == "summary_schema"
+    assert payload["context"]["path"] == str(isolated_summary_script)
+    assert payload["context"]["stage"] == "validator_registry_validation"
+    assert payload["context"]["failure_mode"] == "invalid_registry_item"
+    assert payload["context"]["registry_key"] == "summary_schema_invalid_registry_entry"
+
+
+def test_validator_error_code_sync_script_json_errors_for_validator_registry_load_failed(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_source = backend_root / "scripts" / "sync-validator-error-codes.py"
+    helper_source = backend_root / "scripts" / "profile_suggestion_helpers.py"
+    assert sync_script_source.exists()
+    assert helper_source.exists()
+
+    isolated_backend_root = tmp_path / "isolated-backend-registry-load-failed"
+    isolated_scripts_dir = isolated_backend_root / "scripts"
+    isolated_scripts_dir.mkdir(parents=True, exist_ok=True)
+
+    isolated_sync_script = isolated_scripts_dir / "sync-validator-error-codes.py"
+    isolated_helper = isolated_scripts_dir / "profile_suggestion_helpers.py"
+    isolated_summary_script = isolated_scripts_dir / "validate-strict-gate-summary-schema.py"
+
+    isolated_sync_script.write_text(sync_script_source.read_text(encoding="utf-8"), encoding="utf-8")
+    isolated_helper.write_text(helper_source.read_text(encoding="utf-8"), encoding="utf-8")
+    isolated_summary_script.write_text("def broken(:\n    pass\n", encoding="utf-8")
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(isolated_sync_script),
+            "--json-errors",
+        ],
+        cwd=isolated_backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "sync-validator-error-codes"
+    assert payload["code"] == "error_code_sync_validator_error_codes_validator_registry_load_failed"
+    assert payload["context"]["group"] == "summary_schema"
+    assert payload["context"]["path"] == str(isolated_summary_script)
+    assert payload["context"]["stage"] == "validator_registry_loading"
+    assert payload["context"]["exception_type"] == "SyntaxError"
+    assert payload["context"]["failure_mode"] == "exception"
+
+
+def test_validator_error_code_sync_script_json_errors_for_validator_registry_load_failed_system_exit(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_source = backend_root / "scripts" / "sync-validator-error-codes.py"
+    helper_source = backend_root / "scripts" / "profile_suggestion_helpers.py"
+    assert sync_script_source.exists()
+    assert helper_source.exists()
+
+    isolated_backend_root = tmp_path / "isolated-backend-registry-load-failed-system-exit"
+    isolated_scripts_dir = isolated_backend_root / "scripts"
+    isolated_scripts_dir.mkdir(parents=True, exist_ok=True)
+
+    isolated_sync_script = isolated_scripts_dir / "sync-validator-error-codes.py"
+    isolated_helper = isolated_scripts_dir / "profile_suggestion_helpers.py"
+    isolated_summary_script = isolated_scripts_dir / "validate-strict-gate-summary-schema.py"
+
+    isolated_sync_script.write_text(sync_script_source.read_text(encoding="utf-8"), encoding="utf-8")
+    isolated_helper.write_text(helper_source.read_text(encoding="utf-8"), encoding="utf-8")
+    isolated_summary_script.write_text("import sys\nsys.exit(7)\n", encoding="utf-8")
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(isolated_sync_script),
+            "--json-errors",
+        ],
+        cwd=isolated_backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "sync-validator-error-codes"
+    assert payload["code"] == "error_code_sync_validator_error_codes_validator_registry_load_failed"
+    assert payload["context"]["group"] == "summary_schema"
+    assert payload["context"]["path"] == str(isolated_summary_script)
+    assert payload["context"]["stage"] == "validator_registry_loading"
+    assert payload["context"]["exception_type"] == "SystemExit"
+    assert payload["context"]["failure_mode"] == "system_exit"
+    assert payload["context"]["exit_code"] == 7
+
+
 def test_validator_error_code_sync_script_fails_on_unknown_override_code(tmp_path) -> None:
     backend_root = Path(__file__).resolve().parents[2]
     sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
@@ -1374,6 +2847,58 @@ def test_validator_error_code_sync_script_fails_on_unknown_override_code(tmp_pat
     assert "unknown override code" in completed.stderr.lower()
 
 
+def test_validator_error_code_sync_script_json_errors_for_unknown_override_code(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+    assert sync_script_file.exists()
+    assert catalog_file.exists()
+
+    source_payload = json.loads(catalog_file.read_text(encoding="utf-8"))
+    output_file = tmp_path / "validator-error-codes-json-errors-unknown-code.json"
+    output_file.write_text(json.dumps(source_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    overrides_file = tmp_path / "metadata-overrides-invalid-json-errors.json"
+    overrides_file.write_text(
+        json.dumps(
+            {
+                "summary_schema": {
+                    "summary_schema_not_exists": {
+                        "severity": "warning",
+                    }
+                }
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--output-file",
+            str(output_file),
+            "--metadata-overrides-file",
+            str(overrides_file),
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "sync-validator-error-codes"
+    assert payload["code"] == "error_code_sync_validator_error_codes_unknown_override_code"
+    assert payload["context"]["group"] == "summary_schema"
+    assert payload["context"]["code"] == "summary_schema_not_exists"
+
+
 def test_validator_placeholder_markers_config_exists_and_is_non_empty() -> None:
     backend_root = Path(__file__).resolve().parents[2]
     markers_file = backend_root / "config" / "validator-placeholder-markers.json"
@@ -1401,6 +2926,31 @@ def test_validator_placeholder_markers_validator_script_passes_default_config() 
 
     assert completed.returncode == 0
     assert "is valid" in completed.stdout.lower()
+
+
+def test_validator_placeholder_markers_validator_script_json_output_on_success() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-validator-placeholder-markers.py"
+    assert validate_script_file.exists()
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--json-output",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0
+    payload = json.loads(completed.stdout)
+    assert payload["validator"] == "validate-validator-placeholder-markers"
+    assert payload["status"] == "ok"
+    assert payload["markers_count"] >= 1
+    assert payload["markers_file"].endswith("validator-placeholder-markers.json")
 
 
 def test_validator_placeholder_markers_validator_script_fails_on_duplicate_markers(tmp_path) -> None:
@@ -1562,6 +3112,57 @@ def test_validator_placeholder_markers_validator_script_json_errors_for_schema_v
     assert "schema validation failed" in payload["message"].lower()
 
 
+def test_validator_placeholder_markers_validator_script_json_errors_for_unknown_args() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-validator-placeholder-markers.py"
+    assert validate_script_file.exists()
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--json-errors",
+            "--unknown-flag",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "validate-validator-placeholder-markers"
+    assert payload["code"] == "placeholder_markers_cli_args_invalid"
+    assert payload["context"]["unknown_args"] == ["--unknown-flag"]
+
+
+def test_validator_placeholder_markers_validator_script_json_errors_for_missing_arg_value() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-validator-placeholder-markers.py"
+    assert validate_script_file.exists()
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--json-errors",
+            "--markers-file",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "validate-validator-placeholder-markers"
+    assert payload["code"] == "placeholder_markers_cli_args_invalid"
+    assert payload["context"]["failure_mode"] == "argparse_error"
+    assert "--markers-file" in payload["context"]["argv"]
+
+
 def test_validator_error_code_sync_script_passes_default_catalog() -> None:
     backend_root = Path(__file__).resolve().parents[2]
     sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
@@ -1630,6 +3231,77 @@ def test_validator_error_code_sync_script_check_fails_on_drift(tmp_path) -> None
     assert "not in sync" in completed.stderr.lower()
 
 
+def test_validator_error_code_sync_script_json_errors_for_check_drift(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+
+    assert sync_script_file.exists()
+    assert catalog_file.exists()
+
+    payload = json.loads(catalog_file.read_text(encoding="utf-8"))
+    payload["summary_contract"].pop("summary_contract_unexpected_error", None)
+    drifted_catalog_file = tmp_path / "validator-error-codes-drifted-json-errors.json"
+    drifted_catalog_file.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--check",
+            "--output-file",
+            str(drifted_catalog_file),
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "sync-validator-error-codes"
+    assert payload["code"] == "error_code_sync_validator_error_codes_catalog_not_in_sync"
+    assert payload["context"]["path"] == str(drifted_catalog_file)
+
+
+def test_validator_error_code_sync_script_json_errors_for_check_unreadable_catalog_path(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+
+    assert sync_script_file.exists()
+
+    unreadable_catalog_path = tmp_path / "catalog-dir-for-check"
+    unreadable_catalog_path.mkdir(parents=True, exist_ok=True)
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--check",
+            "--output-file",
+            str(unreadable_catalog_path),
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "sync-validator-error-codes"
+    assert payload["code"] == "error_code_sync_validator_error_codes_catalog_file_read_failed"
+    assert payload["context"]["path"] == str(unreadable_catalog_path)
+    assert payload["context"]["failure_mode"] == "catalog_file_read_failed"
+    assert payload["context"]["exception_type"] == "IsADirectoryError"
+
+
 def test_validator_error_code_sync_script_strict_descriptions_fail_on_todo(tmp_path) -> None:
     backend_root = Path(__file__).resolve().parents[2]
     sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
@@ -1665,6 +3337,421 @@ def test_validator_error_code_sync_script_strict_descriptions_fail_on_todo(tmp_p
 
     assert completed.returncode != 0
     assert "placeholder descriptions" in completed.stderr.lower()
+
+
+def test_validator_error_code_sync_script_json_errors_for_strict_placeholder_descriptions(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+
+    assert sync_script_file.exists()
+    assert catalog_file.exists()
+
+    payload = json.loads(catalog_file.read_text(encoding="utf-8"))
+    payload["summary_schema"]["summary_schema_json_parse_error"][
+        "description"
+    ] = "TODO: document summary_schema_json_parse_error."
+    todo_catalog_file = tmp_path / "validator-error-codes-strict-json-errors.json"
+    todo_catalog_file.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--check",
+            "--strict-descriptions",
+            "--output-file",
+            str(todo_catalog_file),
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "sync-validator-error-codes"
+    assert payload["code"] == "error_code_sync_validator_error_codes_placeholder_text_detected"
+    assert payload["context"]["markers"]
+    assert payload["context"]["violations"]
+    first_violation = payload["context"]["violations"][0]
+    assert first_violation["group"] == "summary_schema"
+    assert first_violation["code"] == "summary_schema_json_parse_error"
+    assert first_violation["field"] == "description"
+    assert first_violation["marker"] == "TODO"
+
+
+def test_validator_error_code_sync_script_json_errors_for_missing_placeholder_markers_file(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+
+    assert sync_script_file.exists()
+    assert catalog_file.exists()
+
+    missing_markers_file = tmp_path / "missing-placeholder-markers.json"
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--check",
+            "--strict-descriptions",
+            "--placeholder-markers-file",
+            str(missing_markers_file),
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "sync-validator-error-codes"
+    assert payload["code"] == "error_code_sync_validator_error_codes_placeholder_markers_file_not_found"
+    assert payload["context"]["path"] == str(missing_markers_file)
+    assert payload["context"]["failure_mode"] == "placeholder_markers_file_not_found"
+
+
+def test_validator_error_code_sync_script_json_errors_for_unreadable_placeholder_markers_path(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+
+    assert sync_script_file.exists()
+    assert catalog_file.exists()
+
+    unreadable_markers_path = tmp_path / "placeholder-markers-dir"
+    unreadable_markers_path.mkdir(parents=True, exist_ok=True)
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--check",
+            "--strict-descriptions",
+            "--placeholder-markers-file",
+            str(unreadable_markers_path),
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "sync-validator-error-codes"
+    assert payload["code"] == "error_code_sync_validator_error_codes_placeholder_markers_read_failed"
+    assert payload["context"]["path"] == str(unreadable_markers_path)
+    assert payload["context"]["failure_mode"] == "placeholder_markers_file_read_failed"
+    assert payload["context"]["exception_type"] == "IsADirectoryError"
+
+
+def test_validator_error_code_sync_script_json_errors_for_invalid_placeholder_markers_payload(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+
+    assert sync_script_file.exists()
+    assert catalog_file.exists()
+
+    invalid_markers_file = tmp_path / "invalid-placeholder-markers.json"
+    invalid_markers_file.write_text(
+        json.dumps({"markers": "TODO"}, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--check",
+            "--strict-descriptions",
+            "--placeholder-markers-file",
+            str(invalid_markers_file),
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "sync-validator-error-codes"
+    assert payload["code"] == "error_code_sync_validator_error_codes_placeholder_markers_invalid"
+    assert payload["context"]["path"] == str(invalid_markers_file)
+
+
+def test_validator_error_code_sync_script_json_errors_for_non_object_placeholder_markers_payload(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+
+    assert sync_script_file.exists()
+    assert catalog_file.exists()
+
+    invalid_markers_file = tmp_path / "invalid-placeholder-markers-non-object.json"
+    invalid_markers_file.write_text(
+        json.dumps(["TODO", "FIXME"], ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--check",
+            "--strict-descriptions",
+            "--placeholder-markers-file",
+            str(invalid_markers_file),
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "sync-validator-error-codes"
+    assert payload["code"] == "error_code_sync_validator_error_codes_placeholder_markers_invalid"
+    assert payload["context"]["path"] == str(invalid_markers_file)
+
+
+def test_validator_error_code_sync_script_json_errors_for_invalid_utf8_placeholder_markers(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+
+    assert sync_script_file.exists()
+    assert catalog_file.exists()
+
+    invalid_markers_file = tmp_path / "invalid-placeholder-markers-utf8.json"
+    invalid_markers_file.write_bytes(b"\xff\xfe\xfd")
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--check",
+            "--strict-descriptions",
+            "--placeholder-markers-file",
+            str(invalid_markers_file),
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "sync-validator-error-codes"
+    assert payload["code"] == "error_code_sync_validator_error_codes_placeholder_markers_invalid"
+    assert payload["context"]["path"] == str(invalid_markers_file)
+    assert payload["context"]["exception_type"] == "UnicodeDecodeError"
+
+
+def test_validator_error_code_sync_script_json_errors_for_malformed_placeholder_markers(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+
+    assert sync_script_file.exists()
+    assert catalog_file.exists()
+
+    malformed_markers_file = tmp_path / "invalid-placeholder-markers-malformed.json"
+    malformed_markers_file.write_text("{not-json", encoding="utf-8")
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--check",
+            "--strict-descriptions",
+            "--placeholder-markers-file",
+            str(malformed_markers_file),
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "sync-validator-error-codes"
+    assert payload["code"] == "error_code_sync_validator_error_codes_placeholder_markers_invalid"
+    assert payload["context"]["path"] == str(malformed_markers_file)
+    assert payload["context"]["exception_type"] == "JSONDecodeError"
+
+
+def test_validator_error_code_sync_script_json_errors_for_unreadable_catalog_path(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    catalog_dir = tmp_path / "catalog-dir"
+    catalog_dir.mkdir(parents=True, exist_ok=True)
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--output-file",
+            str(catalog_dir),
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "sync-validator-error-codes"
+    assert payload["code"] == "error_code_sync_validator_error_codes_catalog_file_read_failed"
+    assert payload["context"]["path"] == str(catalog_dir)
+    assert payload["context"]["failure_mode"] == "catalog_file_read_failed"
+    assert payload["context"]["exception_type"] == "IsADirectoryError"
+
+
+def test_validator_error_code_sync_script_json_errors_for_invalid_utf8_catalog(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    invalid_catalog_file = tmp_path / "validator-error-codes-invalid-utf8.json"
+    invalid_catalog_file.write_bytes(b"\xff\xfe\xfd")
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--output-file",
+            str(invalid_catalog_file),
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "sync-validator-error-codes"
+    assert payload["code"] == "error_code_sync_validator_error_codes_json_parse_error"
+    assert payload["context"]["path"] == str(invalid_catalog_file)
+    assert payload["context"]["role"] == "existing_catalog"
+    assert payload["context"]["exception_type"] == "UnicodeDecodeError"
+
+
+def test_validator_error_code_sync_script_json_errors_for_malformed_catalog(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    malformed_catalog_file = tmp_path / "validator-error-codes-malformed.json"
+    malformed_catalog_file.write_text("{not-json", encoding="utf-8")
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--output-file",
+            str(malformed_catalog_file),
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "sync-validator-error-codes"
+    assert payload["code"] == "error_code_sync_validator_error_codes_json_parse_error"
+    assert payload["context"]["path"] == str(malformed_catalog_file)
+    assert payload["context"]["role"] == "existing_catalog"
+    assert payload["context"]["exception_type"] == "JSONDecodeError"
+
+
+def test_validator_error_code_sync_script_json_errors_for_output_parent_create_failed(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+
+    output_parent_file = tmp_path / "output-parent-file"
+    output_parent_file.write_text("not-a-directory", encoding="utf-8")
+    output_file = output_parent_file / "validator-error-codes.json"
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(sync_script_file),
+            "--output-file",
+            str(output_file),
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "sync-validator-error-codes"
+    assert payload["code"] == "error_code_sync_validator_error_codes_output_parent_create_failed"
+    assert payload["context"]["path"] == str(output_file)
+    assert payload["context"]["parent"] == str(output_parent_file)
+    assert payload["context"]["exception_type"] == "FileExistsError"
+
+
+def test_validator_error_code_sync_script_json_errors_for_output_write_failed(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    sync_script_file = backend_root / "scripts" / "sync-validator-error-codes.py"
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+    assert sync_script_file.exists()
+    assert catalog_file.exists()
+
+    source_payload = json.loads(catalog_file.read_text(encoding="utf-8"))
+    output_file = tmp_path / "validator-error-codes-readonly.json"
+    output_file.write_text(json.dumps(source_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    os.chmod(output_file, 0o400)
+    try:
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(sync_script_file),
+                "--output-file",
+                str(output_file),
+                "--json-errors",
+            ],
+            cwd=backend_root,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    finally:
+        os.chmod(output_file, 0o600)
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "sync-validator-error-codes"
+    assert payload["code"] == "error_code_sync_validator_error_codes_output_write_failed"
+    assert payload["context"]["path"] == str(output_file)
+    assert payload["context"]["exception_type"] == "PermissionError"
 
 
 def test_validator_error_code_sync_script_strict_error_includes_group_and_remediation(tmp_path) -> None:
@@ -1829,21 +3916,43 @@ def test_validator_scripts_expose_error_code_registries() -> None:
     summary_script = backend_root / "scripts" / "validate-strict-gate-summary-schema.py"
     contract_script = backend_root / "scripts" / "validate-summary-contract-changelog.py"
     placeholder_markers_script = backend_root / "scripts" / "validate-validator-placeholder-markers.py"
+    profile_suggestion_actions_script = backend_root / "scripts" / "validate-profile-suggestion-actions-schema.py"
+    alertmanager_route_consistency_script = backend_root / "scripts" / "validate-alertmanager-route-consistency.py"
+    notification_retry_runbook_script = backend_root / "scripts" / "validate-notification-retry-runbook.py"
+    error_context_high_frequency_script = (
+        backend_root / "scripts" / "validate-validator-error-context-high-frequency-schema.py"
+    )
 
     assert summary_script.exists()
     assert contract_script.exists()
     assert placeholder_markers_script.exists()
+    assert profile_suggestion_actions_script.exists()
+    assert alertmanager_route_consistency_script.exists()
+    assert notification_retry_runbook_script.exists()
+    assert error_context_high_frequency_script.exists()
 
     summary_codes = set(_load_validator_error_codes(summary_script).values())
     contract_codes = set(_load_validator_error_codes(contract_script).values())
     placeholder_markers_codes = set(_load_validator_error_codes(placeholder_markers_script).values())
+    profile_suggestion_actions_codes = set(_load_validator_error_codes(profile_suggestion_actions_script).values())
+    alertmanager_route_consistency_codes = set(_load_validator_error_codes(alertmanager_route_consistency_script).values())
+    notification_retry_runbook_codes = set(_load_validator_error_codes(notification_retry_runbook_script).values())
+    error_context_high_frequency_codes = set(_load_validator_error_codes(error_context_high_frequency_script).values())
 
     assert summary_codes
     assert contract_codes
     assert placeholder_markers_codes
+    assert profile_suggestion_actions_codes
+    assert alertmanager_route_consistency_codes
+    assert notification_retry_runbook_codes
+    assert error_context_high_frequency_codes
     assert all(code.startswith("summary_schema_") for code in summary_codes)
     assert all(code.startswith("summary_contract_") for code in contract_codes)
     assert all(code.startswith("placeholder_markers_") for code in placeholder_markers_codes)
+    assert all(code.startswith("profile_suggestion_actions_") for code in profile_suggestion_actions_codes)
+    assert all(code.startswith("alertmanager_route_consistency_") for code in alertmanager_route_consistency_codes)
+    assert all(code.startswith("notification_retry_runbook_") for code in notification_retry_runbook_codes)
+    assert all(code.startswith("error_context_high_frequency_") for code in error_context_high_frequency_codes)
 
 
 def test_validator_error_code_catalog_covers_all_script_error_codes() -> None:
@@ -1852,17 +3961,39 @@ def test_validator_error_code_catalog_covers_all_script_error_codes() -> None:
     summary_script = backend_root / "scripts" / "validate-strict-gate-summary-schema.py"
     contract_script = backend_root / "scripts" / "validate-summary-contract-changelog.py"
     placeholder_markers_script = backend_root / "scripts" / "validate-validator-placeholder-markers.py"
+    profile_suggestion_actions_script = backend_root / "scripts" / "validate-profile-suggestion-actions-schema.py"
+    alertmanager_route_consistency_script = backend_root / "scripts" / "validate-alertmanager-route-consistency.py"
+    notification_retry_runbook_script = backend_root / "scripts" / "validate-notification-retry-runbook.py"
+    error_context_high_frequency_script = (
+        backend_root / "scripts" / "validate-validator-error-context-high-frequency-schema.py"
+    )
 
     assert catalog_file.exists()
     catalog_payload = json.loads(catalog_file.read_text(encoding="utf-8"))
     catalog_codes = {
         code
-        for group in ("summary_schema", "summary_contract", "placeholder_markers")
+        for group in (
+            "summary_schema",
+            "summary_contract",
+            "placeholder_markers",
+            "profile_suggestion_actions",
+            "alertmanager_route_consistency",
+            "notification_retry_runbook",
+            "error_context_high_frequency",
+        )
         for code in catalog_payload.get(group, {}).keys()
     }
 
     script_codes: set[str] = set()
-    for script_file in (summary_script, contract_script, placeholder_markers_script):
+    for script_file in (
+        summary_script,
+        contract_script,
+        placeholder_markers_script,
+        profile_suggestion_actions_script,
+        alertmanager_route_consistency_script,
+        notification_retry_runbook_script,
+        error_context_high_frequency_script,
+    ):
         assert script_file.exists()
         content = script_file.read_text(encoding="utf-8")
         script_codes.update(VALIDATOR_CODE_PATTERN.findall(content))
@@ -1870,6 +4001,54 @@ def test_validator_error_code_catalog_covers_all_script_error_codes() -> None:
 
     missing_codes = sorted(script_codes.difference(catalog_codes))
     assert not missing_codes
+
+
+def test_validator_error_code_catalog_covers_alertmanager_route_consistency_codes() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+    alertmanager_script = backend_root / "scripts" / "validate-alertmanager-route-consistency.py"
+
+    assert catalog_file.exists()
+    assert alertmanager_script.exists()
+
+    payload = json.loads(catalog_file.read_text(encoding="utf-8"))
+    assert "alertmanager_route_consistency" in payload
+
+    expected_codes = set(_load_validator_error_codes(alertmanager_script).values())
+    assert expected_codes
+    assert expected_codes.issubset(set(payload["alertmanager_route_consistency"].keys()))
+
+
+def test_validator_error_code_catalog_covers_notification_retry_runbook_codes() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+    runbook_script = backend_root / "scripts" / "validate-notification-retry-runbook.py"
+
+    assert catalog_file.exists()
+    assert runbook_script.exists()
+
+    payload = json.loads(catalog_file.read_text(encoding="utf-8"))
+    assert "notification_retry_runbook" in payload
+
+    expected_codes = set(_load_validator_error_codes(runbook_script).values())
+    assert expected_codes
+    assert expected_codes.issubset(set(payload["notification_retry_runbook"].keys()))
+
+
+def test_validator_error_code_catalog_covers_error_context_high_frequency_codes() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    catalog_file = backend_root / "config" / "validator-error-codes.json"
+    error_context_script = backend_root / "scripts" / "validate-validator-error-context-high-frequency-schema.py"
+
+    assert catalog_file.exists()
+    assert error_context_script.exists()
+
+    payload = json.loads(catalog_file.read_text(encoding="utf-8"))
+    assert "error_context_high_frequency" in payload
+
+    expected_codes = set(_load_validator_error_codes(error_context_script).values())
+    assert expected_codes
+    assert expected_codes.issubset(set(payload["error_context_high_frequency"].keys()))
 
 
 def test_summary_schema_validator_script_passes_default_schema() -> None:
@@ -1950,6 +4129,32 @@ def test_summary_schema_validator_script_passes_default_example_payload() -> Non
     assert "example payload is valid" in completed.stdout.lower()
 
 
+def test_summary_schema_validator_script_json_output_on_success() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-strict-gate-summary-schema.py"
+    assert validate_script_file.exists()
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--json-output",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0
+    payload = json.loads(completed.stdout)
+    assert payload["validator"] == "validate-strict-gate-summary-schema"
+    assert payload["status"] == "ok"
+    assert payload["schema_version"] >= "1"
+    assert payload["schema_file"].endswith("strict-gate-summary.schema.json")
+    assert payload["example_file"].endswith("strict-gate-summary.example.json")
+
+
 def test_summary_schema_validator_script_fails_on_invalid_example_payload(tmp_path) -> None:
     backend_root = Path(__file__).resolve().parents[2]
     validate_script_file = backend_root / "scripts" / "validate-strict-gate-summary-schema.py"
@@ -1974,6 +4179,139 @@ def test_summary_schema_validator_script_fails_on_invalid_example_payload(tmp_pa
     assert "example payload validation failed" in completed.stderr.lower()
 
 
+def test_profile_suggestion_actions_schema_validator_script_passes_default_files() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-profile-suggestion-actions-schema.py"
+    assert validate_script_file.exists()
+
+    completed = subprocess.run(
+        [sys.executable, str(validate_script_file)],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0
+    assert "schema is valid" in completed.stdout.lower()
+    assert "example payload is valid" in completed.stdout.lower()
+    assert "helper actions are valid" in completed.stdout.lower()
+
+
+def test_profile_suggestion_actions_schema_validator_script_json_output_on_success() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-profile-suggestion-actions-schema.py"
+    assert validate_script_file.exists()
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--json-output",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0
+    payload = json.loads(completed.stdout)
+    assert payload["validator"] == "validate-profile-suggestion-actions-schema"
+    assert payload["status"] == "ok"
+    assert payload["schema_file"].endswith("profile-suggestion-actions.schema.json")
+    assert payload["example_file"].endswith("profile-suggestion-actions.example.json")
+    assert payload["helper_file"].endswith("profile_suggestion_helpers.py")
+    assert payload["example_action_count"] >= 1
+
+
+def test_profile_suggestion_actions_schema_validator_script_json_errors_for_invalid_example(tmp_path) -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-profile-suggestion-actions-schema.py"
+    source_example_file = backend_root / "config" / "schemas" / "profile-suggestion-actions.example.json"
+    assert validate_script_file.exists()
+    assert source_example_file.exists()
+
+    invalid_example_payload = json.loads(source_example_file.read_text(encoding="utf-8"))
+    invalid_example_payload[0].pop("action", None)
+    invalid_example_file = tmp_path / "invalid-profile-suggestion-actions-example.json"
+    invalid_example_file.write_text(
+        json.dumps(invalid_example_payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--example-file",
+            str(invalid_example_file),
+            "--json-errors",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "validate-profile-suggestion-actions-schema"
+    assert payload["code"] == "profile_suggestion_actions_example_validation_failed"
+    assert "example payload validation failed" in payload["message"].lower()
+
+
+def test_profile_suggestion_actions_schema_validator_script_json_errors_for_unknown_args() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-profile-suggestion-actions-schema.py"
+    assert validate_script_file.exists()
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--json-errors",
+            "--unknown-flag",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "validate-profile-suggestion-actions-schema"
+    assert payload["code"] == "profile_suggestion_actions_cli_args_invalid"
+    assert payload["context"]["unknown_args"] == ["--unknown-flag"]
+
+
+def test_profile_suggestion_actions_schema_validator_script_json_errors_for_missing_arg_value() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-profile-suggestion-actions-schema.py"
+    assert validate_script_file.exists()
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--json-errors",
+            "--schema-file",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "validate-profile-suggestion-actions-schema"
+    assert payload["code"] == "profile_suggestion_actions_cli_args_invalid"
+    assert payload["context"]["failure_mode"] == "argparse_error"
+    assert "--schema-file" in payload["context"]["argv"]
+
+
 def _extract_app_version_from_file(path: Path) -> str:
     content = path.read_text(encoding="utf-8")
     match = re.search(r'version="([^"]+)"', content)
@@ -1996,6 +4334,32 @@ def test_summary_contract_changelog_validator_script_passes_default_files() -> N
 
     assert completed.returncode == 0
     assert "contract changelog is valid" in completed.stdout.lower()
+
+
+def test_summary_contract_changelog_validator_script_json_output_on_success() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-summary-contract-changelog.py"
+    assert validate_script_file.exists()
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--json-output",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0
+    payload = json.loads(completed.stdout)
+    assert payload["validator"] == "validate-summary-contract-changelog"
+    assert payload["status"] == "ok"
+    assert payload["schema_version"] >= "1"
+    assert payload["schema_file"].endswith("strict-gate-summary.schema.json")
+    assert payload["changelog_file"].endswith("CHANGELOG.md")
 
 
 def test_summary_contract_changelog_validator_script_fails_without_schema_version_note(tmp_path) -> None:
@@ -2092,6 +4456,57 @@ def test_summary_contract_changelog_validator_script_json_errors_for_missing_sch
     payload = json.loads(completed.stderr)
     assert payload["validator"] == "validate-summary-contract-changelog"
     assert payload["code"] == "summary_contract_missing_summary_schema_version_note"
+
+
+def test_summary_contract_changelog_validator_script_json_errors_for_unknown_args() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-summary-contract-changelog.py"
+    assert validate_script_file.exists()
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--json-errors",
+            "--unknown-flag",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "validate-summary-contract-changelog"
+    assert payload["code"] == "summary_contract_cli_args_invalid"
+    assert payload["context"]["unknown_args"] == ["--unknown-flag"]
+
+
+def test_summary_contract_changelog_validator_script_json_errors_for_missing_arg_value() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-summary-contract-changelog.py"
+    assert validate_script_file.exists()
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--json-errors",
+            "--schema-file",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "validate-summary-contract-changelog"
+    assert payload["code"] == "summary_contract_cli_args_invalid"
+    assert payload["context"]["failure_mode"] == "argparse_error"
+    assert "--schema-file" in payload["context"]["argv"]
 
 
 def test_summary_contract_changelog_validator_script_json_errors_for_version_mismatch(tmp_path) -> None:
@@ -2260,6 +4675,57 @@ def test_summary_schema_validator_json_error_code_uses_prefix(tmp_path) -> None:
     assert completed.returncode != 0
     payload = json.loads(completed.stderr)
     assert payload["code"].startswith("summary_schema_")
+
+
+def test_summary_schema_validator_script_json_errors_for_unknown_args() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-strict-gate-summary-schema.py"
+    assert validate_script_file.exists()
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--json-errors",
+            "--unknown-flag",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "validate-strict-gate-summary-schema"
+    assert payload["code"] == "summary_schema_cli_args_invalid"
+    assert payload["context"]["unknown_args"] == ["--unknown-flag"]
+
+
+def test_summary_schema_validator_script_json_errors_for_missing_arg_value() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    validate_script_file = backend_root / "scripts" / "validate-strict-gate-summary-schema.py"
+    assert validate_script_file.exists()
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(validate_script_file),
+            "--json-errors",
+            "--schema-file",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    payload = json.loads(completed.stderr)
+    assert payload["validator"] == "validate-strict-gate-summary-schema"
+    assert payload["code"] == "summary_schema_cli_args_invalid"
+    assert payload["context"]["failure_mode"] == "argparse_error"
+    assert "--schema-file" in payload["context"]["argv"]
 
 
 def test_prometheus_rules_check_fails_in_strict_mode_when_promtool_missing() -> None:

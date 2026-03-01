@@ -15,6 +15,7 @@ DEFAULT_APP_FILE = BACKEND_ROOT / "src" / "app" / "main.py"
 APP_VERSION_PATTERN = re.compile(r'version="([^"]+)"')
 CHANGELOG_ENTRY_PATTERN = re.compile(r"^## \[([^\]]+)\].*$", re.MULTILINE)
 VALIDATOR_ERROR_CODES = {
+    "CLI_ARGS_INVALID": "summary_contract_cli_args_invalid",
     "APP_VERSION_NOT_FOUND": "summary_contract_app_version_not_found",
     "SCHEMA_PROPERTIES_MISSING": "summary_contract_schema_properties_missing",
     "SCHEMA_VERSION_FIELD_MISSING": "summary_contract_schema_version_field_missing",
@@ -32,6 +33,50 @@ class SummaryContractValidationError(ValueError):
         super().__init__(message)
         self.code = code
         self.context = context or {}
+
+
+class _SummaryContractArgumentParser(argparse.ArgumentParser):
+    def error(self, message: str) -> None:
+        raise SummaryContractValidationError(
+            code=VALIDATOR_ERROR_CODES["CLI_ARGS_INVALID"],
+            message=f"invalid cli arguments: {message}",
+            context={"failure_mode": "argparse_error", "argparse_message": message},
+        )
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = _SummaryContractArgumentParser(description="Validate strict gate summary contract changelog linkage.")
+    parser.add_argument("--schema-file", type=Path, default=DEFAULT_SCHEMA_FILE, help="Path to summary schema file.")
+    parser.add_argument("--changelog-file", type=Path, default=DEFAULT_CHANGELOG_FILE, help="Path to changelog file.")
+    parser.add_argument("--app-file", type=Path, default=DEFAULT_APP_FILE, help="Path to app file with version field.")
+    parser.add_argument(
+        "--json-errors",
+        action="store_true",
+        help="Emit structured JSON errors to stderr.",
+    )
+    parser.add_argument(
+        "--json-output",
+        action="store_true",
+        help="Emit structured JSON success payload to stdout.",
+    )
+    return parser
+
+
+def _parse_args(argv: list[str]) -> argparse.Namespace:
+    parser = _build_parser()
+    try:
+        args, unknown_args = parser.parse_known_args(argv)
+    except SummaryContractValidationError as exc:
+        context = dict(exc.context)
+        context.setdefault("argv", list(argv))
+        raise SummaryContractValidationError(code=exc.code, message=str(exc), context=context) from exc
+    if unknown_args:
+        raise SummaryContractValidationError(
+            code=VALIDATOR_ERROR_CODES["CLI_ARGS_INVALID"],
+            message=f"invalid cli arguments: unrecognized arguments: {' '.join(unknown_args)}",
+            context={"failure_mode": "unknown_args", "unknown_args": unknown_args, "argv": list(argv)},
+        )
+    return args
 
 
 def _extract_app_version(path: Path) -> str:
@@ -102,18 +147,14 @@ def _validate_summary_schema_note(latest_section: str, schema_version: str) -> N
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Validate strict gate summary contract changelog linkage.")
-    parser.add_argument("--schema-file", type=Path, default=DEFAULT_SCHEMA_FILE, help="Path to summary schema file.")
-    parser.add_argument("--changelog-file", type=Path, default=DEFAULT_CHANGELOG_FILE, help="Path to changelog file.")
-    parser.add_argument("--app-file", type=Path, default=DEFAULT_APP_FILE, help="Path to app file with version field.")
-    parser.add_argument(
-        "--json-errors",
-        action="store_true",
-        help="Emit structured JSON errors to stderr.",
-    )
-    args = parser.parse_args()
+    argv = sys.argv[1:]
+    json_errors_requested = "--json-errors" in argv
+    json_output_requested = "--json-output" in argv
 
     try:
+        args = _parse_args(argv=argv)
+        json_errors_requested = bool(args.json_errors)
+        json_output_requested = bool(args.json_output)
         for path in (args.schema_file, args.changelog_file, args.app_file):
             if not path.exists():
                 raise SummaryContractValidationError(
@@ -134,10 +175,23 @@ def main() -> int:
             )
 
         _validate_summary_schema_note(latest_section=latest_section, schema_version=schema_version)
-        print(f"[validate-summary-contract-changelog] contract changelog is valid: {args.changelog_file}")
+        if json_output_requested:
+            payload = {
+                "validator": "validate-summary-contract-changelog",
+                "status": "ok",
+                "schema_file": str(args.schema_file),
+                "changelog_file": str(args.changelog_file),
+                "app_file": str(args.app_file),
+                "app_version": app_version,
+                "schema_version": schema_version,
+                "changelog_version": changelog_version,
+            }
+            print(json.dumps(payload, ensure_ascii=False))
+        else:
+            print(f"[validate-summary-contract-changelog] contract changelog is valid: {args.changelog_file}")
         return 0
     except Exception as exc:
-        if args.json_errors:
+        if json_errors_requested:
             if isinstance(exc, SummaryContractValidationError):
                 payload = {
                     "validator": "validate-summary-contract-changelog",

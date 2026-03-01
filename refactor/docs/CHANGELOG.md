@@ -2,6 +2,1817 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.4.41-m4-error-context-overrides-quality-policy] - 2026-02-20
+
+### Added
+
+- Added `error_context_high_frequency` metadata override quality-policy guard:
+  - `refactor/backend/tests/unit/test_ci_prometheus_rules_check.py`
+  - validates fixed severity mapping for all 8 codes
+  - requires each remediation to include rerun guidance
+
+### Changed
+
+- Updated `error_context_high_frequency` remediations to satisfy rerun-guidance policy for:
+  - `error_context_high_frequency_schema_file_not_found`
+  - `error_context_high_frequency_samples_file_not_found`
+  - `error_context_high_frequency_schema_invalid`
+  - `error_context_high_frequency_sample_schema_validation_failed`
+- README metadata override section now documents this quality policy.
+- Backend app version bumped to `0.4.41-m4-error-context-overrides-quality-policy`.
+- Summary schema version: `1`
+
+## [0.4.40-m4-error-context-overrides-full-coverage] - 2026-02-20
+
+### Added
+
+- Full metadata overrides default policy coverage for `error_context_high_frequency` group:
+  - `refactor/backend/config/validator-error-code-metadata-overrides.json`
+  - newly added codes:
+    - `error_context_high_frequency_schema_file_not_found`
+    - `error_context_high_frequency_samples_file_not_found`
+    - `error_context_high_frequency_json_parse_error`
+    - `error_context_high_frequency_schema_invalid`
+    - `error_context_high_frequency_samples_payload_invalid`
+    - `error_context_high_frequency_sample_schema_validation_failed`
+  - combined with existing:
+    - `error_context_high_frequency_cli_args_invalid`
+    - `error_context_high_frequency_unexpected_error`
+- Expanded metadata overrides coverage assertion:
+  - `refactor/backend/tests/unit/test_ci_prometheus_rules_check.py`
+  - `error_context_high_frequency` now requires full 8-code subset coverage
+
+### Changed
+
+- README metadata overrides section now states full default policy coverage for all `error_context_high_frequency_*` codes.
+- Backend app version bumped to `0.4.40-m4-error-context-overrides-full-coverage`.
+- Summary schema version: `1`
+
+## [0.4.39-m4-error-context-overrides-default-policy] - 2026-02-20
+
+### Added
+
+- Metadata overrides default policies for high-frequency context validator:
+  - `refactor/backend/config/validator-error-code-metadata-overrides.json`
+  - added:
+    - `error_context_high_frequency_cli_args_invalid`
+    - `error_context_high_frequency_unexpected_error`
+- Expanded metadata overrides coverage assertion:
+  - `refactor/backend/tests/unit/test_ci_prometheus_rules_check.py`
+  - now requires `error_context_high_frequency` group in overrides config
+  - validates the two default policy codes above are present
+
+### Changed
+
+- README metadata overrides section now documents default policy coverage for the two `error_context_high_frequency_*` codes.
+- Backend app version bumped to `0.4.39-m4-error-context-overrides-default-policy`.
+- Summary schema version: `1`
+
+## [0.4.38-m4-error-context-catalog-sync] - 2026-02-20
+
+### Added
+
+- Error-code catalog group integration for high-frequency context validator:
+  - `error_context_high_frequency` group added to:
+    - `refactor/backend/config/validator-error-codes.json`
+    - `refactor/backend/config/schemas/validator-error-codes.schema.json`
+- `sync-validator-error-codes.py` now includes:
+  - `validate-validator-error-context-high-frequency-schema.py`
+  - in `VALIDATOR_SCRIPT_FILES` group mapping for catalog sync generation
+- Expanded sync/catalog coverage tests:
+  - `refactor/backend/tests/unit/test_ci_prometheus_rules_check.py`
+  - validates:
+    - catalog contains `error_context_high_frequency`
+    - schema required groups include `error_context_high_frequency`
+    - catalog json-output groups include `error_context_high_frequency`
+    - all new script error codes are covered by catalog entries
+
+### Changed
+
+- README catalog groups list now includes `error_context_high_frequency`.
+- Backend app version bumped to `0.4.38-m4-error-context-catalog-sync`.
+- Summary schema version: `1`
+
+## [0.4.37-m4-validator-error-context-schema-validator] - 2026-02-20
+
+### Added
+
+- New validator script for high-frequency error context contract:
+  - `refactor/backend/scripts/validate-validator-error-context-high-frequency-schema.py`
+  - validates:
+    - `validator-error-context-high-frequency.schema.json` schema validity
+    - sample payloads against the schema
+  - supports:
+    - `--json-errors`
+    - `--json-output`
+- New default sample payload file:
+  - `refactor/backend/config/validator-error-context-high-frequency-samples.json`
+- New unit test file:
+  - `refactor/backend/tests/unit/test_validator_error_context_high_frequency_validator.py`
+  - covers success/json-output/json-errors/validation-failure branches
+- Expanded common validator contract coverage to include the new script:
+  - `refactor/backend/tests/unit/test_validator_success_output_contract.py`
+  - added into shared success/CLI-failure/business-failure matrices
+
+### Changed
+
+- CI script now runs the new validator:
+  - `refactor/backend/scripts/ci.sh`
+- CI script contract test now asserts this invocation:
+  - `refactor/backend/tests/unit/test_ci_prometheus_rules_check.py`
+- README now documents new validator command and contracts.
+- Backend app version bumped to `0.4.37-m4-validator-error-context-schema-validator`.
+- Summary schema version: `1`
+
+## [0.4.36-m4-validator-error-context-high-frequency-schema] - 2026-02-20
+
+### Added
+
+- New high-frequency validator error context sub-schema:
+  - `refactor/backend/config/schemas/validator-error-context-high-frequency.schema.json`
+  - defines code-specific `context` shape contracts for selected high-frequency business-failure errors
+- Expanded shared validator contract tests:
+  - `refactor/backend/tests/unit/test_validator_success_output_contract.py`
+  - new tests:
+    - `test_validator_error_context_high_frequency_schema_exists_and_is_valid`
+    - `test_validator_json_errors_high_frequency_context_contract`
+  - validates 18 high-frequency business-failure payload samples against the new context sub-schema
+
+### Changed
+
+- README now documents high-frequency error context sub-schema path and scope.
+- Backend app version bumped to `0.4.36-m4-validator-error-context-high-frequency-schema`.
+- Summary schema version: `1`
+
+## [0.4.35-m4-all-validator-business-failure-matrix] - 2026-02-20
+
+### Added
+
+- Expanded remaining validator business-failure matrix coverage:
+  - `refactor/backend/tests/unit/test_validator_success_output_contract.py`
+  - new test:
+    - `test_remaining_validator_scripts_json_errors_multi_business_failure_matrix`
+  - covers remaining 5 validators with 10 business failure scenarios:
+    - `validate-alertmanager-route-consistency.py`
+    - `validate-notification-retry-runbook.py`
+    - `validate-profile-suggestion-actions-schema.py`
+    - `validate-validator-placeholder-markers.py`
+    - `validate-validator-error-code-catalog.py`
+  - each scenario validates:
+    - payload matches validator error output base schema
+    - exact `validator` and `code`
+    - required `context` keys exist
+
+### Changed
+
+- README now documents that business-failure matrix tests cover all 9 validator scripts.
+- Backend app version bumped to `0.4.35-m4-all-validator-business-failure-matrix`.
+- Summary schema version: `1`
+
+## [0.4.34-m4-key-validator-business-failure-matrix] - 2026-02-20
+
+### Added
+
+- Expanded key validator business-failure contract coverage:
+  - `refactor/backend/tests/unit/test_validator_success_output_contract.py`
+  - new test:
+    - `test_key_validator_scripts_json_errors_multi_business_failure_matrix`
+  - covers 4 key validators with 8 business failure scenarios:
+    - `validate-summary-contract-changelog.py`
+    - `validate-strict-gate-summary-schema.py`
+    - `validate-validator-error-code-metadata-lint.py`
+    - `validate-validator-error-code-metadata-overrides.py`
+  - each scenario validates:
+    - error payload matches base schema
+    - `validator` and `code` are exact-match
+    - required `context` keys are present
+
+### Changed
+
+- `validate-strict-gate-summary-schema.py` now includes `context.validation_path`
+  when raising `summary_schema_example_payload_schema_validation_failed`.
+- README summary schema validator section now documents `context.validation_path`.
+- Backend app version bumped to `0.4.34-m4-key-validator-business-failure-matrix`.
+- Summary schema version: `1`
+
+## [0.4.33-m4-validator-error-output-schema] - 2026-02-20
+
+### Added
+
+- New validator error output base schema:
+  - `refactor/backend/config/schemas/validator-error-output.schema.json`
+  - base contract:
+    - `validator` must be non-empty string
+    - `code` must be non-empty string
+    - `message` must be non-empty string
+    - `context` must be object
+- Expanded shared validator contract tests:
+  - `refactor/backend/tests/unit/test_validator_success_output_contract.py`
+  - new coverage:
+    - `test_validator_error_output_schema_exists_and_is_valid`
+    - `test_validator_scripts_json_errors_conform_base_contract_cli_failures`
+    - `test_validator_scripts_json_errors_conform_base_contract_business_failures`
+  - validates `--json-errors` payload base contract for all validator scripts in both:
+    - CLI failure mode
+    - representative business failure mode
+
+### Changed
+
+- README now documents validator error output base contract and schema path.
+- Backend app version bumped to `0.4.33-m4-validator-error-output-schema`.
+- Summary schema version: `1`
+
+## [0.4.32-m4-validator-json-mode-business-failure-contract] - 2026-02-20
+
+### Added
+
+- Expanded combined JSON mode contract tests:
+  - `refactor/backend/tests/unit/test_validator_success_output_contract.py`
+  - new business-failure matrix test with both flags enabled:
+    - `test_validator_scripts_both_json_flags_business_failure_emit_structured_error`
+  - for all validator scripts, verifies:
+    - non-zero exit code on business failure
+    - stdout remains empty
+    - stderr contains structured JSON error
+    - error code is not `*_cli_args_invalid` for business failures
+
+### Changed
+
+- README now clarifies combined JSON mode routing contract covers both CLI failures and business validation failures.
+- Backend app version bumped to `0.4.32-m4-validator-json-mode-business-failure-contract`.
+- Summary schema version: `1`
+
+## [0.4.31-m4-validator-json-mode-contract] - 2026-02-20
+
+### Added
+
+- New combined JSON mode contract tests:
+  - `refactor/backend/tests/unit/test_validator_success_output_contract.py`
+  - validates all validator scripts when both `--json-output` and `--json-errors` are provided
+  - success branch contract:
+    - exit code `0`
+    - JSON success payload on stdout
+    - stderr empty
+  - failure branch contract (unknown args):
+    - non-zero exit code
+    - stdout empty
+    - structured JSON error payload on stderr
+    - `code` equals each validator's `*_cli_args_invalid`
+
+### Changed
+
+- README now documents combined JSON mode behavior contract.
+- Backend app version bumped to `0.4.31-m4-validator-json-mode-contract`.
+- Summary schema version: `1`
+
+## [0.4.30-m4-validator-success-output-schema] - 2026-02-20
+
+### Added
+
+- New validator success output base schema:
+  - `refactor/backend/config/schemas/validator-success-output.schema.json`
+  - base contract:
+    - `validator` must be non-empty string
+    - `status` must be `ok`
+- New shared contract test:
+  - `refactor/backend/tests/unit/test_validator_success_output_contract.py`
+  - validates all validator `--json-output` payloads against the base schema
+  - validates `validator` naming consistency for each validator script
+
+### Changed
+
+- README now documents the validator success output base contract schema and required fields.
+- Backend app version bumped to `0.4.30-m4-validator-success-output-schema`.
+- Summary schema version: `1`
+
+## [0.4.29-m4-validator-json-output-phase2] - 2026-02-20
+
+### Added
+
+- `validate-alertmanager-route-consistency.py` now supports structured success output:
+  - `--json-output`
+  - payload fields:
+    - `validator`, `status`, `rules_dir`, `alertmanager_file`
+    - `alert_count`, `explicit_route_count`
+- `validate-notification-retry-runbook.py` now supports structured success output:
+  - `--json-output`
+  - payload fields:
+    - `validator`, `status`
+    - `default_rule_file`, `dev_rule_file`, `staging_rule_file`, `prod_rule_file`
+    - `runbook_file`, `profile_count`
+- `validate-profile-suggestion-actions-schema.py` now supports structured success output:
+  - `--json-output`
+  - payload fields:
+    - `validator`, `status`, `schema_file`, `example_file`, `helper_file`, `example_action_count`
+- New validator success JSON output tests:
+  - alertmanager route consistency success branch with `--json-output`
+  - notification retry runbook success branch with `--json-output`
+  - profile suggestion actions success branch with `--json-output`
+
+### Changed
+
+- README now documents these three validators' `--json-output` contracts.
+- Backend app version bumped to `0.4.29-m4-validator-json-output-phase2`.
+- Summary schema version: `1`
+
+## [0.4.28-m4-summary-json-output] - 2026-02-20
+
+### Added
+
+- `validate-strict-gate-summary-schema.py` now supports structured success output:
+  - `--json-output`
+  - payload fields: `validator`, `status`, `schema_file`, `sync_script_file`, `example_file`, `schema_version`
+- `validate-summary-contract-changelog.py` now supports structured success output:
+  - `--json-output`
+  - payload fields:
+    - `validator`, `status`, `schema_file`, `changelog_file`, `app_file`
+    - `app_version`, `schema_version`, `changelog_version`
+- New summary validator success JSON output tests:
+  - summary schema success branch with `--json-output`
+  - summary contract success branch with `--json-output`
+
+### Changed
+
+- README now documents summary schema / summary contract validator `--json-output` success payload contracts.
+- Backend app version bumped to `0.4.28-m4-summary-json-output`.
+- Summary schema version: `1`
+
+## [0.4.27-m4-placeholder-json-output] - 2026-02-20
+
+### Added
+
+- `validate-validator-placeholder-markers.py` now supports structured success output:
+  - `--json-output`
+  - payload fields: `validator`, `status`, `markers_file`, `schema_file`, `markers_count`
+- New placeholder markers validator success JSON output test:
+  - success branch with `--json-output`
+
+### Changed
+
+- README now documents placeholder markers validator `--json-output` success payload contract.
+- Backend app version bumped to `0.4.27-m4-placeholder-json-output`.
+- Summary schema version: `1`
+
+## [0.4.26-m4-metadata-json-output] - 2026-02-20
+
+### Added
+
+- `validate-validator-error-code-metadata-lint.py` now supports structured success output:
+  - `--json-output`
+  - payload fields:
+    - `validator`, `status`, `lint_config_file`, `schema_file`, `selected_profile`
+    - `min_remediation_length`, `action_verbs_count`
+- `validate-validator-error-code-metadata-overrides.py` now supports structured success output:
+  - `--json-output`
+  - payload fields:
+    - `validator`, `status`, `overrides_file`, `schema_file`, `catalog_file`
+    - `lint_config_file`, `placeholder_markers_file`
+    - `requested_overrides_profile`, `requested_lint_profile`
+    - `total_override_groups`, `total_override_codes`
+- New success JSON output tests:
+  - metadata lint success branch with `--json-output`
+  - metadata overrides success branch with `--json-output`
+
+### Changed
+
+- README now documents metadata lint / metadata overrides `--json-output` success payload contracts.
+- Backend app version bumped to `0.4.26-m4-metadata-json-output`.
+- Summary schema version: `1`
+
+## [0.4.25-m4-error-code-catalog-json-output] - 2026-02-20
+
+### Added
+
+- `validate-validator-error-code-catalog.py` now supports structured success output:
+  - `--json-output`
+  - payload fields: `validator`, `status`, `catalog_file`, `schema_file`, `groups`, `total_codes`
+- New catalog validator success JSON output test:
+  - success branch with `--json-output`
+
+### Changed
+
+- README now documents catalog validator `--json-output` success payload contract.
+- Backend app version bumped to `0.4.25-m4-error-code-catalog-json-output`.
+- Summary schema version: `1`
+
+## [0.4.24-m4-metadata-overrides-cli-json-errors] - 2026-02-20
+
+### Added
+
+- `validate-validator-error-code-metadata-overrides.py` now returns structured JSON errors for CLI argument failures:
+  - unknown arguments (`parse_known_args` unknown list)
+  - argparse parse errors (such as missing option values)
+  - code: `error_code_metadata_overrides_cli_args_invalid`
+- New metadata overrides validator JSON error tests:
+  - unknown args with `--json-errors`
+  - missing option value with `--json-errors`
+
+### Changed
+
+- Metadata overrides validator argument parsing now uses custom parser error handling
+  to normalize CLI failures into validator error-code contract.
+- README now documents metadata overrides validator JSON error namespace and `cli_args_invalid`.
+- Backend app version bumped to `0.4.24-m4-metadata-overrides-cli-json-errors`.
+- Summary schema version: `1`
+
+## [0.4.23-m4-metadata-lint-cli-json-errors] - 2026-02-20
+
+### Added
+
+- `validate-validator-error-code-metadata-lint.py` now returns structured JSON errors for CLI argument failures:
+  - unknown arguments (`parse_known_args` unknown list)
+  - argparse parse errors (such as missing option values)
+  - code: `error_code_metadata_lint_cli_args_invalid`
+- New metadata lint validator JSON error tests:
+  - unknown args with `--json-errors`
+  - missing option value with `--json-errors`
+
+### Changed
+
+- Metadata lint validator argument parsing now uses custom parser error handling
+  to normalize CLI failures into validator error-code contract.
+- README now documents metadata lint validator JSON error namespace and `cli_args_invalid`.
+- Backend app version bumped to `0.4.23-m4-metadata-lint-cli-json-errors`.
+- Summary schema version: `1`
+
+## [0.4.22-m4-error-code-catalog-cli-json-errors] - 2026-02-20
+
+### Added
+
+- `validate-validator-error-code-catalog.py` now returns structured JSON errors for CLI argument failures:
+  - unknown arguments (`parse_known_args` unknown list)
+  - argparse parse errors (such as missing option values)
+  - code: `error_code_catalog_cli_args_invalid`
+- New catalog validator JSON error tests:
+  - unknown args with `--json-errors`
+  - missing option value with `--json-errors`
+
+### Changed
+
+- Catalog validator argument parsing now uses custom parser error handling
+  to normalize CLI failures into validator error-code contract.
+- README now documents catalog validator JSON error namespace and `cli_args_invalid`.
+- Backend app version bumped to `0.4.22-m4-error-code-catalog-cli-json-errors`.
+- Summary schema version: `1`
+
+## [0.4.21-m4-placeholder-markers-cli-json-errors] - 2026-02-20
+
+### Added
+
+- `validate-validator-placeholder-markers.py` now returns structured JSON errors for CLI argument failures:
+  - unknown arguments (`parse_known_args` unknown list)
+  - argparse parse errors (such as missing option values)
+  - code: `placeholder_markers_cli_args_invalid`
+- New placeholder markers validator JSON error tests:
+  - unknown args with `--json-errors`
+  - missing option value with `--json-errors`
+- Validator metadata/catalog now include `placeholder_markers_cli_args_invalid`.
+
+### Changed
+
+- Placeholder markers validator argument parsing now uses custom parser error handling
+  to normalize CLI failures into validator error-code contract.
+- README now documents placeholder markers validator JSON error namespace and `cli_args_invalid`.
+- Backend app version bumped to `0.4.21-m4-placeholder-markers-cli-json-errors`.
+- Summary schema version: `1`
+
+## [0.4.20-m4-summary-schema-cli-json-errors] - 2026-02-20
+
+### Added
+
+- `validate-strict-gate-summary-schema.py` now returns structured JSON errors for CLI argument failures:
+  - unknown arguments (`parse_known_args` unknown list)
+  - argparse parse errors (such as missing option values)
+  - code: `summary_schema_cli_args_invalid`
+- New summary schema validator JSON error tests:
+  - unknown args with `--json-errors`
+  - missing option value with `--json-errors`
+- Validator metadata/catalog now include `summary_schema_cli_args_invalid`.
+
+### Changed
+
+- Summary schema validator argument parsing now uses custom parser error handling
+  to normalize CLI failures into validator error-code contract.
+- README now documents summary schema validator JSON error namespace and `cli_args_invalid`.
+- Backend app version bumped to `0.4.20-m4-summary-schema-cli-json-errors`.
+- Summary schema version: `1`
+
+## [0.4.19-m4-summary-contract-cli-json-errors] - 2026-02-20
+
+### Added
+
+- `validate-summary-contract-changelog.py` now returns structured JSON errors for CLI argument failures:
+  - unknown arguments (`parse_known_args` unknown list)
+  - argparse parse errors (such as missing option values)
+  - code: `summary_contract_cli_args_invalid`
+- New summary contract validator JSON error tests:
+  - unknown args with `--json-errors`
+  - missing option value with `--json-errors`
+- Validator metadata/catalog now include `summary_contract_cli_args_invalid`.
+
+### Changed
+
+- Summary contract validator argument parsing now uses custom parser error handling
+  to normalize CLI failures into validator error-code contract.
+- README now documents summary contract validator JSON error namespace and `cli_args_invalid`.
+- Backend app version bumped to `0.4.19-m4-summary-contract-cli-json-errors`.
+- Summary schema version: `1`
+
+## [0.4.18-m4-profile-suggestion-cli-json-errors] - 2026-02-20
+
+### Added
+
+- `validate-profile-suggestion-actions-schema.py` now returns structured JSON errors for CLI argument failures:
+  - unknown arguments (`parse_known_args` unknown list)
+  - argparse parse errors (such as missing option values)
+  - code: `profile_suggestion_actions_cli_args_invalid`
+- New profile suggestion schema validator JSON error tests:
+  - unknown args with `--json-errors`
+  - missing option value with `--json-errors`
+- Validator metadata/catalog now include `profile_suggestion_actions_cli_args_invalid`.
+
+### Changed
+
+- Profile suggestion schema validator argument parsing now uses custom parser error handling
+  to normalize CLI failures into validator error-code contract.
+- README now documents profile suggestion validator JSON error namespace and `cli_args_invalid`.
+- Backend app version bumped to `0.4.18-m4-profile-suggestion-cli-json-errors`.
+- Summary schema version: `1`
+
+## [0.4.17-m4-alertmanager-cli-json-errors] - 2026-02-20
+
+### Added
+
+- `validate-alertmanager-route-consistency.py` now returns structured JSON errors for CLI argument failures:
+  - unknown arguments (`parse_known_args` unknown list)
+  - argparse parse errors (such as missing option values)
+  - code: `alertmanager_route_consistency_cli_args_invalid`
+- New alertmanager validator JSON error tests:
+  - unknown args with `--json-errors`
+  - missing option value with `--json-errors`
+- Validator metadata/catalog now include `alertmanager_route_consistency_cli_args_invalid`.
+
+### Changed
+
+- Alertmanager route consistency argument parsing now uses custom parser error handling
+  to normalize CLI failures into validator error-code contract.
+- README now documents alertmanager validator JSON error namespace and `cli_args_invalid`.
+- Backend app version bumped to `0.4.17-m4-alertmanager-cli-json-errors`.
+- Summary schema version: `1`
+
+## [0.4.16-m4-notification-runbook-cli-json-errors] - 2026-02-20
+
+### Added
+
+- `validate-notification-retry-runbook.py` now returns structured JSON errors for CLI argument failures:
+  - unknown arguments (`parse_known_args` unknown list)
+  - argparse parse errors (such as missing option values)
+  - code: `notification_retry_runbook_cli_args_invalid`
+- New runbook validator JSON error tests:
+  - unknown args with `--json-errors`
+  - missing option value with `--json-errors`
+- Validator metadata/catalog now include `notification_retry_runbook_cli_args_invalid`.
+
+### Changed
+
+- Runbook validator argument parsing now uses custom parser error handling to normalize CLI failures
+  into validator error-code contract.
+- README now documents runbook validator JSON error namespace and `cli_args_invalid`.
+- Backend app version bumped to `0.4.16-m4-notification-runbook-cli-json-errors`.
+- Summary schema version: `1`
+
+## [0.4.15-m4-notification-runbook-json-error-catalog-sync] - 2026-02-20
+
+### Added
+
+- `validate-notification-retry-runbook.py` now exposes validator registry and structured JSON errors:
+  - `VALIDATOR_ERROR_CODES` with `notification_retry_runbook_*` namespace
+  - `--json-errors` payload contract: `{validator, code, message, context}`
+  - typed validation errors for:
+    - file not found
+    - baseline parse failed
+    - baseline mismatch
+- New runbook validator JSON error test coverage:
+  - mismatch branch with `--json-errors`
+  - missing file branch with `--json-errors`
+- Validator error-code governance now includes `notification_retry_runbook` group end-to-end:
+  - `sync-validator-error-codes.py` registry adds `validate-notification-retry-runbook.py`
+  - `validator-error-codes.json` includes all `notification_retry_runbook_*` entries
+  - `validator-error-code-metadata-overrides.json` includes full default metadata for
+    `notification_retry_runbook_*`
+
+### Changed
+
+- Validator error-code catalog schema now requires `notification_retry_runbook`.
+- README now documents `validate-notification-retry-runbook.py --json-errors` and
+  catalog/override inclusion for `notification_retry_runbook`.
+- Backend app version bumped to `0.4.15-m4-notification-runbook-json-error-catalog-sync`.
+- Summary schema version: `1`
+
+## [0.4.14-m4-alertmanager-error-code-catalog-sync] - 2026-02-20
+
+### Added
+
+- Validator error-code governance now includes `alertmanager_route_consistency` group end-to-end:
+  - `sync-validator-error-codes.py` registry adds `validate-alertmanager-route-consistency.py`
+  - `validator-error-codes.json` now contains all `alertmanager_route_consistency_*` entries
+  - `validator-error-code-metadata-overrides.json` now includes full default metadata for all
+    `alertmanager_route_consistency_*` entries
+- New catalog coverage test for alertmanager route consistency codes:
+  - `refactor/backend/tests/unit/test_ci_prometheus_rules_check.py`
+
+### Changed
+
+- Validator error-code catalog schema now requires:
+  - `profile_suggestion_actions`
+  - `alertmanager_route_consistency`
+- README now documents alertmanager group inclusion in validator error-code catalog/overrides.
+- Backend app version bumped to `0.4.14-m4-alertmanager-error-code-catalog-sync`.
+- Summary schema version: `1`
+
+## [0.4.13-m4-alertmanager-json-error-contract] - 2026-02-20
+
+### Added
+
+- `validate-alertmanager-route-consistency.py` now supports structured JSON error output:
+  - `--json-errors`
+  - payload contract: `{validator, code, message, context}`
+- New JSON error coverage in route consistency tests:
+  - unmatched alert with `--json-errors`
+  - invalid regex matcher with `--json-errors`
+
+### Changed
+
+- Alertmanager route consistency validator now uses typed error codes for:
+  - matcher format invalid
+  - invalid regex matcher
+  - no explicit routes / unmatched alerts / ambiguous alerts / shadowed routes
+  - file or yaml loading failures
+- README now documents `--json-errors` usage for alertmanager route consistency validation.
+- Backend app version bumped to `0.4.13-m4-alertmanager-json-error-contract`.
+- Summary schema version: `1`
+
+## [0.4.12-m4-alertmanager-regex-matcher-support] - 2026-02-20
+
+### Added
+
+- Alertmanager route consistency tests now cover matcher operator expansion:
+  - regex/non-regex matcher pass case (`=~`, `!~`)
+  - invalid regex matcher failure case (`invalid regex`)
+
+### Changed
+
+- `validate-alertmanager-route-consistency.py` matcher parser now supports operators:
+  - `=`
+  - `!=`
+  - `=~`
+  - `!~`
+- route matching and ambiguity/shadow checks now evaluate matcher operator semantics.
+- README now documents matcher operator support in alertmanager route consistency validation.
+- Backend app version bumped to `0.4.12-m4-alertmanager-regex-matcher-support`.
+- Summary schema version: `1`
+
+## [0.4.11-m4-alertmanager-route-shadow-guard] - 2026-02-20
+
+### Added
+
+- Alertmanager route consistency tests now cover static shadow route detection:
+  - `refactor/backend/tests/unit/test_alertmanager_route_consistency.py`
+  - fails when a later sibling route is shadowed by an earlier non-`continue` route,
+    even if no current alert hits that route
+
+### Changed
+
+- `validate-alertmanager-route-consistency.py` now enforces static sibling shadow guard:
+  - if `route_i` matcher set is a subset of later `route_j` matcher set
+  - and `route_i` has `continue=false`
+  - then `route_j` is treated as shadowed and validation fails
+- README now documents shadow route guard in alertmanager route guardrails.
+- Backend app version bumped to `0.4.11-m4-alertmanager-route-shadow-guard`.
+- Summary schema version: `1`
+
+## [0.4.10-m4-alertmanager-route-ambiguity-guard] - 2026-02-20
+
+### Added
+
+- Alertmanager route consistency tests now cover ambiguous routing case:
+  - `refactor/backend/tests/unit/test_alertmanager_route_consistency.py`
+  - fails when one alert matches multiple explicit routes
+
+### Changed
+
+- `validate-alertmanager-route-consistency.py` now enforces:
+  - unmatched alerts fail validation
+  - alerts matching multiple explicit routes fail validation (`multiple explicit routes matched alert`)
+- README now documents route ambiguity guardrails for alertmanager validation.
+- Backend app version bumped to `0.4.10-m4-alertmanager-route-ambiguity-guard`.
+- Summary schema version: `1`
+
+## [0.4.9-m4-alertmanager-route-consistency-guard] - 2026-02-20
+
+### Added
+
+- New alertmanager routing config for refactor alerts:
+  - `refactor/backend/monitoring/alertmanager/refactor-alertmanager-routing.yml`
+- New validator script:
+  - `refactor/backend/scripts/validate-alertmanager-route-consistency.py`
+  - validates that every alert from prometheus rule files is covered by at least one explicit route
+  - validates route receiver references exist in alertmanager `receivers`
+- New unit tests:
+  - `refactor/backend/tests/unit/test_alertmanager_route_consistency.py`
+  - covers default pass, missing notification route failure, and CI invocation wiring
+
+### Changed
+
+- Backend CI script now runs alertmanager route consistency validation before promtool checks.
+- Notification runbook references now include alertmanager routing config and validator script.
+- Backend app version bumped to `0.4.9-m4-alertmanager-route-consistency-guard`.
+- Summary schema version: `1`
+
+## [0.4.8-m4-notification-runbook-thresholds-autogen] - 2026-02-20
+
+### Added
+
+- Notification retry runbook threshold block now supports marker-based auto rendering:
+  - `<!-- notification-retry-thresholds:start -->`
+  - `<!-- notification-retry-thresholds:end -->`
+- Notification retry threshold sync test coverage now includes runbook drift detection:
+  - `refactor/backend/tests/unit/test_notification_retry_alert_threshold_sync.py`
+
+### Changed
+
+- `sync-notification-retry-alert-thresholds.py` now syncs both:
+  - notification retry Prometheus rule files (`default/dev/staging/prod`)
+  - runbook threshold section in `2026-02-20-notification-retry-alert-runbook.md`
+- `sync-notification-retry-alert-thresholds.py --check` now fails when runbook threshold section drifts.
+- Backend app version bumped to `0.4.8-m4-notification-runbook-thresholds-autogen`.
+- Summary schema version: `1`
+
+## [0.4.7-m4-notification-alert-threshold-config-sync] - 2026-02-20
+
+### Added
+
+- New single-source threshold config for notification retry alerts:
+  - `refactor/backend/config/notification-retry-alert-thresholds.json`
+- New sync/check script:
+  - `refactor/backend/scripts/sync-notification-retry-alert-thresholds.py`
+  - generates `default/dev/staging/prod` notification retry alert rule files from config
+  - supports `--check` drift gate mode
+- New unit tests:
+  - `refactor/backend/tests/unit/test_notification_retry_alert_threshold_sync.py`
+  - covers default `--check` pass, profile drift fail, and CI invocation wiring
+
+### Changed
+
+- Backend CI script now runs:
+  - `python3 scripts/sync-notification-retry-alert-thresholds.py --check`
+- Notification retry runbook references now include threshold config and sync script paths.
+- Backend app version bumped to `0.4.7-m4-notification-alert-threshold-config-sync`.
+- Summary schema version: `1`
+
+## [0.4.6-m4-notification-runbook-multi-profile-consistency] - 2026-02-20
+
+### Added
+
+- Notification retry runbook now includes profile baseline matrix for:
+  - `dev`
+  - `staging`
+  - `prod`
+- Validator coverage extended in unit tests:
+  - runbook profile matrix drift detection
+  - default rule drift from prod rule detection
+
+### Changed
+
+- `validate-notification-retry-runbook.py` now validates:
+  - `refactor-notification-retry-alerts.dev.yml`
+  - `refactor-notification-retry-alerts.staging.yml`
+  - `refactor-notification-retry-alerts.prod.yml`
+  - `refactor-notification-retry-alerts.yml == .prod.yml` baseline
+  - runbook prod baseline bullets and profile matrix consistency
+- Backend app version bumped to `0.4.6-m4-notification-runbook-multi-profile-consistency`.
+- Summary schema version: `1`
+
+## [0.4.5-m4-notification-runbook-consistency-guard] - 2026-02-20
+
+### Added
+
+- New validator script:
+  - `refactor/backend/scripts/validate-notification-retry-runbook.py`
+  - validates that notification retry runbook prod baseline thresholds are consistent with
+    `refactor-notification-retry-alerts.yml`.
+- Unit tests for validator:
+  - default files pass
+  - threshold drift in runbook fails validation
+  - CI script includes validator invocation
+
+### Changed
+
+- Backend CI script now runs notification retry runbook consistency validation before promtool checks.
+- Backend app version bumped to `0.4.5-m4-notification-runbook-consistency-guard`.
+- Summary schema version: `1`
+
+## [0.4.4-m4-notification-retry-alert-rules] - 2026-02-20
+
+### Added
+
+- Notification retry governance alert rules (Prometheus) added under:
+  - `refactor/backend/monitoring/prometheus/rules/refactor-notification-retry-alerts.yml`
+  - `refactor/backend/monitoring/prometheus/rules/refactor-notification-retry-alerts.dev.yml`
+  - `refactor/backend/monitoring/prometheus/rules/refactor-notification-retry-alerts.staging.yml`
+  - `refactor/backend/monitoring/prometheus/rules/refactor-notification-retry-alerts.prod.yml`
+- Alert coverage includes:
+  - low manual retry success ratio (`RefactorNotificationRetrySuccessRatioWarn/Critical`)
+  - high auto-retry final failure ratio (`RefactorNotificationAutoRetryFinalFailureRatioWarn/Critical`)
+- Unit tests for notification retry alert templates and profile files.
+
+### Changed
+
+- Backend app version bumped to `0.4.4-m4-notification-retry-alert-rules`.
+- Summary schema version: `1`
+
+## [0.4.3-m4-notification-retry-metrics] - 2026-02-20
+
+### Added
+
+- Global metrics now include notification delivery and retry quality series:
+  - `refactor_notification_deliveries_total{status=...}`
+  - `refactor_notification_deliveries_by_channel_total{channel=...}`
+  - `refactor_notification_retry_attempts_total`
+  - `refactor_notification_retry_success_total`
+  - `refactor_notification_retry_failed_total`
+  - `refactor_notification_retry_success_ratio`
+  - `refactor_notification_auto_retry_deliveries_total`
+  - `refactor_notification_auto_retry_final_failed_total`
+  - `refactor_notification_auto_retry_final_failure_ratio`
+- Unit test coverage for notification retry metrics in `/api/v2/metrics`.
+
+### Changed
+
+- Backend app version bumped to `0.4.3-m4-notification-retry-metrics`.
+- Summary schema version: `1`
+
+## [0.4.2-m4-notification-retry-loop] - 2026-02-20
+
+### Added
+
+- Notification delivery retry loop:
+  - `NotificationHub` supports per-channel retry attempts via `NOTIFICATION_SEND_MAX_RETRIES`.
+  - Optional linear backoff between retries via `NOTIFICATION_RETRY_BACKOFF_MS`.
+  - Delivery result now tracks `attempt_count` and `retry_count`.
+- Manual retry API:
+  - `POST /api/v2/notifications/deliveries/{delivery_id}/retry`.
+  - Retry records are persisted with `source_type=delivery_retry` and `retry_of_delivery_id`.
+- Notification delivery persistence schema upgrades:
+  - `notification_deliveries.attempt_count`
+  - `notification_deliveries.retry_of_delivery_id`
+  - Startup schema bootstrap adds backward-compatible column ensure for existing SQLite files.
+- Unit tests:
+  - auto retry success path with persisted attempt metadata
+  - retry failed delivery through API and verify retry-linked persistence
+
+### Changed
+
+- `GET /api/v2/notifications/deliveries` now returns:
+  - `display_name`
+  - `attempt_count`
+  - `retry_count`
+  - `retry_of_delivery_id`
+- `NotificationHub.send()` summary now includes `retried`.
+- Refactor backend app version bumped to `0.4.2-m4-notification-retry-loop`.
+- Summary schema version: `1`
+
+## [0.4.1-m4-notification-delivery-persistence-auto-trigger] - 2026-02-19
+
+### Added
+
+- Notification delivery persistence:
+  - New SQLite table `notification_deliveries` with source/channel/status/error/message tracking.
+  - New API `GET /api/v2/notifications/deliveries` for querying persisted delivery records.
+- Analysis auto notification trigger:
+  - `ANALYSIS_AUTO_NOTIFY_ENABLED` to enable auto-send after successful analysis jobs.
+  - `ANALYSIS_AUTO_NOTIFY_CHANNELS` to restrict channels by CSV list.
+  - Delivery records tagged with `source_type=analysis_job` and `source_id=<job_id>`.
+- Unit tests for:
+  - Delivery persistence and query API behavior
+  - Analysis auto-notify source binding persistence
+
+### Changed
+
+- `NotificationHub.send()` now returns `message_id` and `created_at`.
+- Delivery result payload now includes `source_type`, `source_id`, `message_id`, and timestamp fields.
+- OpenAPI draft extended for notification delivery query and updated notification response schemas.
+- Summary schema version: `1`
+- Backend app version bumped to `0.4.1-m4-notification-delivery-persistence-auto-trigger`.
+
+## [0.4.0-m4-notification-hub-min-loop] - 2026-02-19
+
+### Added
+
+- Notification hub pluginized backend minimum loop:
+  - `GET /api/v2/notifications/channels`
+  - `POST /api/v2/notifications/preview`
+  - `POST /api/v2/notifications/send`
+  - `POST /api/v2/notifications/channels/test`
+- New notification service module:
+  - `ChannelPlugin` interface
+  - `NotificationHub` orchestration
+  - channel-aware formatter and delivery aggregation
+- Built-in channels (config-driven):
+  - `wechat`, `feishu`, `telegram`, `email`, `pushover`, `pushplus`, `serverchan3`, `custom`, `discord`, `astrbot`
+- Unit tests for notification hub behavior and API contract:
+  - channel listing, preview, send aggregation, per-channel test send
+  - partial failure isolation (single channel failure does not block others)
+
+### Changed
+
+- Global error code contract extended with notification domain:
+  - `NTF-CHANNEL-001`
+  - `NTF-FORMAT-002`
+  - `NTF-SEND-003`
+  - `NTF-RETRY-004`
+- Backend app version bumped to `0.4.0-m4-notification-hub-min-loop`.
+- OpenAPI draft updated with notification APIs and schemas.
+- README updated to M4 status and notification hub usage.
+- `.env.example` updated with notification timeout and AstrBot optional keys.
+
+## [0.3.200-m3-sync-json-errors-catalog-file-read-failure-mode-context] - 2026-02-19
+
+### Added
+
+- New assertions:
+  - catalog file read-failed JSON errors now assert `context.failure_mode`
+
+### Changed
+
+- `sync-validator-error-codes.py` now includes `failure_mode` for catalog read failures:
+  - `catalog_file_read_failed` for `error_code_sync_validator_error_codes_catalog_file_read_failed`
+- README documents failure-mode mapping for catalog read failures.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.200-m3-sync-json-errors-catalog-file-read-failure-mode-context`.
+
+## [0.3.199-m3-sync-json-errors-placeholder-markers-file-failure-mode-context] - 2026-02-19
+
+### Added
+
+- New assertions:
+  - placeholder markers file missing/read-failed JSON errors now assert `context.failure_mode`
+
+### Changed
+
+- `sync-validator-error-codes.py` now includes `failure_mode` for placeholder markers file access errors:
+  - `placeholder_markers_file_not_found` for `error_code_sync_validator_error_codes_placeholder_markers_file_not_found`
+  - `placeholder_markers_file_read_failed` for `error_code_sync_validator_error_codes_placeholder_markers_read_failed`
+- README documents failure-mode mapping for placeholder markers file access errors.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.199-m3-sync-json-errors-placeholder-markers-file-failure-mode-context`.
+
+## [0.3.198-m3-sync-json-errors-metadata-overrides-file-failure-mode-context] - 2026-02-19
+
+### Added
+
+- New assertions:
+  - metadata overrides file missing/read-failed JSON errors now assert `context.failure_mode`
+
+### Changed
+
+- `sync-validator-error-codes.py` now includes `failure_mode` for metadata overrides file access errors:
+  - `metadata_overrides_file_not_found` for `error_code_sync_validator_error_codes_metadata_overrides_file_not_found`
+  - `metadata_overrides_file_read_failed` for `error_code_sync_validator_error_codes_metadata_overrides_file_read_failed`
+- README documents failure-mode mapping for metadata overrides file access errors.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.198-m3-sync-json-errors-metadata-overrides-file-failure-mode-context`.
+
+## [0.3.197-m3-sync-json-errors-validator-registry-validation-failure-mode-context] - 2026-02-19
+
+### Added
+
+- New assertions:
+  - validator registry missing/invalid JSON errors now assert `context.failure_mode`
+
+### Changed
+
+- `sync-validator-error-codes.py` now includes `failure_mode` in registry validation errors:
+  - `missing_registry` for `error_code_sync_validator_error_codes_validator_registry_missing`
+  - `invalid_registry_item` for `error_code_sync_validator_error_codes_validator_registry_invalid`
+- README documents failure-mode mapping for registry validation errors.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.197-m3-sync-json-errors-validator-registry-validation-failure-mode-context`.
+
+## [0.3.196-m3-sync-json-errors-validator-registry-validation-stage-context] - 2026-02-19
+
+### Added
+
+- New assertions:
+  - validator registry missing/invalid JSON errors now assert `context.stage=validator_registry_validation`
+
+### Changed
+
+- `sync-validator-error-codes.py` now includes `stage=validator_registry_validation` in:
+  - `error_code_sync_validator_error_codes_validator_registry_missing`
+  - `error_code_sync_validator_error_codes_validator_registry_invalid`
+- README documents stage context for registry validation errors.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.196-m3-sync-json-errors-validator-registry-validation-stage-context`.
+
+## [0.3.195-m3-sync-json-errors-validator-registry-failure-mode-context] - 2026-02-19
+
+### Added
+
+- New assertions:
+  - validator registry load failed (SyntaxError/SystemExit) now assert `context.failure_mode`
+
+### Changed
+
+- `sync-validator-error-codes.py` now includes `failure_mode` in `validator_registry_load_failed` context:
+  - `exception` for generic loader exceptions
+  - `system_exit` for `SystemExit` loader failures
+- README documents `failure_mode` context mapping for registry load failures.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.195-m3-sync-json-errors-validator-registry-failure-mode-context`.
+
+## [0.3.194-m3-sync-json-errors-validator-registry-stage-context] - 2026-02-19
+
+### Added
+
+- New assertions:
+  - validator registry load failed (SyntaxError/SystemExit) now assert `context.stage=validator_registry_loading`
+
+### Changed
+
+- `sync-validator-error-codes.py` now includes `stage=validator_registry_loading` in `validator_registry_load_failed` context for:
+  - generic loader exceptions
+  - `SystemExit` loader failures
+- README documents registry load failure stage context.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.194-m3-sync-json-errors-validator-registry-stage-context`.
+
+## [0.3.193-m3-sync-json-errors-validator-registry-system-exit-code] - 2026-02-19
+
+### Added
+
+- New assertion:
+  - validator registry load failed (`SystemExit`) now asserts `context.exit_code`
+
+### Changed
+
+- `sync-validator-error-codes.py` now includes `exit_code` in `validator_registry_load_failed` context when loader fails with `SystemExit`.
+- README clarifies `exit_code` availability for registry loader `SystemExit` failures.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.193-m3-sync-json-errors-validator-registry-system-exit-code`.
+
+## [0.3.192-m3-sync-json-errors-unexpected-runtime-exit-code] - 2026-02-19
+
+### Added
+
+- New assertion:
+  - runtime unexpected-error JSON context now asserts `exit_code=1`
+
+### Changed
+
+- `sync-validator-error-codes.py` runtime unexpected-error context now includes:
+  - `exit_code=1`
+- README clarifies runtime unexpected-error exit code context.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.192-m3-sync-json-errors-unexpected-runtime-exit-code`.
+
+## [0.3.191-m3-sync-json-errors-unexpected-runtime-unknown-args] - 2026-02-19
+
+### Added
+
+- New assertion:
+  - runtime unexpected-error JSON context now asserts `unknown_args=[]`
+
+### Changed
+
+- `sync-validator-error-codes.py` runtime unexpected-error context now includes:
+  - `unknown_args` (empty list)
+- README clarifies runtime unexpected-error context field parity (`argv` + `unknown_args`).
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.191-m3-sync-json-errors-unexpected-runtime-unknown-args`.
+
+## [0.3.190-m3-sync-json-errors-unexpected-runtime-argv-context] - 2026-02-19
+
+### Added
+
+- New assertion:
+  - unexpected runtime fallback JSON errors now assert `context.argv`
+
+### Changed
+
+- `sync-validator-error-codes.py` runtime unexpected-error context now includes:
+  - `argv`
+- README documents `argv` for runtime unexpected-error context.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.190-m3-sync-json-errors-unexpected-runtime-argv-context`.
+
+## [0.3.189-m3-sync-json-errors-unexpected-runtime-context] - 2026-02-19
+
+### Added
+
+- New test:
+  - injected runtime exception now asserts unexpected-error JSON context includes runtime stage and exception type
+
+### Changed
+
+- `sync-validator-error-codes.py` unexpected runtime fallback JSON now includes:
+  - `context.stage=runtime`
+  - `context.exception_type`
+- README documents unexpected runtime failure context fields for `--json-errors`.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.189-m3-sync-json-errors-unexpected-runtime-context`.
+
+## [0.3.188-m3-sync-json-errors-cli-unknown-args-empty-parity] - 2026-02-19
+
+### Added
+
+- New assertion:
+  - missing-value argument parsing errors under `--json-errors` now assert `context.unknown_args=[]`
+
+### Changed
+
+- `sync-validator-error-codes.py` parse-time argument error JSON context now always includes:
+  - `unknown_args` (empty list when not applicable)
+- This aligns parse-time and unknown-argument parsing error context schema.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.188-m3-sync-json-errors-cli-unknown-args-empty-parity`.
+
+## [0.3.187-m3-sync-json-errors-cli-argv-parity] - 2026-02-19
+
+### Added
+
+- New test:
+  - unknown CLI arguments under `--json-errors` now assert `context.argv` for parsing-context parity
+
+### Changed
+
+- `sync-validator-error-codes.py` unknown-argument JSON error branch now includes:
+  - `context.argv`
+- README clarifies that unknown-argument parsing errors include both `unknown_args` and `argv`.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.187-m3-sync-json-errors-cli-argv-parity`.
+
+## [0.3.186-m3-sync-json-errors-cli-missing-arg-value] - 2026-02-19
+
+### Added
+
+- New test:
+  - missing value for known CLI argument under `--json-errors` now asserts structured JSON payload
+
+### Changed
+
+- `sync-validator-error-codes.py` now captures argparse parse-time `SystemExit` failures in `--json-errors` mode and emits structured JSON:
+  - `error_code_sync_validator_error_codes_unexpected_error`
+  - with `context.stage=argument_parsing`
+  - with `context.argv` and `context.exit_code`
+- Existing unknown-argument JSON behavior is preserved.
+- README clarifies argument parsing failure coverage in structured JSON mode.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.186-m3-sync-json-errors-cli-missing-arg-value`.
+
+## [0.3.185-m3-sync-json-errors-cli-unknown-arguments] - 2026-02-19
+
+### Added
+
+- New tests:
+  - unknown CLI arguments under `--json-errors` now assert structured JSON error payload
+  - check mode unreadable catalog path JSON error coverage is now explicitly asserted
+
+### Changed
+
+- `sync-validator-error-codes.py` now parses arguments via `parse_known_args` and maps unknown arguments to:
+  - `error_code_sync_validator_error_codes_unexpected_error`
+  - with `context.stage=argument_parsing`
+  - with `context.unknown_args` and `context.exit_code=2`
+- README documents unknown-argument structured error behavior.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.185-m3-sync-json-errors-cli-unknown-arguments`.
+
+## [0.3.184-m3-sync-json-errors-validator-registry-system-exit] - 2026-02-19
+
+### Added
+
+- New test:
+  - validator registry loader now asserts structured JSON error when validator script exits with `SystemExit`
+
+### Changed
+
+- `sync-validator-error-codes.py` now maps `SystemExit` during validator registry loading to:
+  - `error_code_sync_validator_error_codes_validator_registry_load_failed`
+  - with `context.exception_type=SystemExit`
+- README clarifies that registry load failures include syntax/runtime/SystemExit cases with `exception_type`.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.184-m3-sync-json-errors-validator-registry-system-exit`.
+
+## [0.3.183-m3-sync-json-errors-jsondecode-context-exception-type] - 2026-02-19
+
+### Added
+
+- New tests:
+  - malformed existing catalog JSON parse errors now assert `context.exception_type=JSONDecodeError`
+  - malformed metadata overrides JSON parse errors now assert `context.exception_type=JSONDecodeError`
+  - malformed placeholder marker JSON parse errors now assert `context.exception_type=JSONDecodeError`
+
+### Changed
+
+- `sync-validator-error-codes.py` now attaches `exception_type` to JSON decode parse error contexts for:
+  - existing catalog (`json_parse_error`)
+  - metadata overrides (`json_parse_error`)
+  - placeholder markers (`placeholder_markers_invalid`)
+- README clarifies `exception_type` coverage for both decode and parse failures.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.183-m3-sync-json-errors-jsondecode-context-exception-type`.
+
+## [0.3.182-m3-sync-json-errors-parse-context-exception-type] - 2026-02-19
+
+### Added
+
+- New tests:
+  - invalid UTF-8 existing catalog parse errors now assert `context.exception_type`
+  - invalid UTF-8 metadata overrides parse errors now assert `context.exception_type`
+  - invalid UTF-8 placeholder marker parse errors now assert `context.exception_type`
+
+### Changed
+
+- `sync-validator-error-codes.py` now attaches `exception_type` to UTF-8 decode error contexts for:
+  - existing catalog parse errors
+  - metadata overrides parse errors
+  - placeholder marker invalid payload errors
+- README documents the new parse-context field behavior.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.182-m3-sync-json-errors-parse-context-exception-type`.
+
+## [0.3.181-m3-sync-json-errors-output-write-failed] - 2026-02-19
+
+### Added
+
+- Sync `--json-errors` now includes dedicated code for output write failures:
+  - `error_code_sync_validator_error_codes_output_write_failed`
+- New test:
+  - when output file is read-only, sync now emits `output_write_failed` with `exception_type=PermissionError`
+
+### Changed
+
+- `sync-validator-error-codes.py` now captures output file write failures and emits structured sync errors instead of `unexpected_error`.
+- README documents the new output-write-failed code.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.181-m3-sync-json-errors-output-write-failed`.
+
+## [0.3.180-m3-sync-json-errors-placeholder-markers-utf8-parse] - 2026-02-19
+
+### Added
+
+- New test:
+  - placeholder markers file with invalid UTF-8 bytes now asserts `error_code_sync_validator_error_codes_placeholder_markers_invalid`
+
+### Changed
+
+- `sync-validator-error-codes.py` placeholder marker loader now maps UTF-8 decode failures to marker-invalid errors instead of `unexpected_error`.
+- README clarifies that invalid UTF-8 marker payloads are covered by `placeholder_markers_invalid`.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.180-m3-sync-json-errors-placeholder-markers-utf8-parse`.
+
+## [0.3.179-m3-sync-json-errors-metadata-overrides-utf8-parse] - 2026-02-19
+
+### Added
+
+- New test:
+  - metadata overrides file with invalid UTF-8 bytes now asserts `error_code_sync_validator_error_codes_json_parse_error`
+
+### Changed
+
+- `sync-validator-error-codes.py` metadata overrides loader now maps UTF-8 decode failures to structured parse errors instead of `unexpected_error`.
+- README clarifies that invalid UTF-8/invalid JSON metadata overrides payloads return `json_parse_error`.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.179-m3-sync-json-errors-metadata-overrides-utf8-parse`.
+
+## [0.3.178-m3-sync-json-errors-existing-catalog-utf8-parse] - 2026-02-19
+
+### Added
+
+- New test:
+  - existing catalog file with invalid UTF-8 bytes now asserts `error_code_sync_validator_error_codes_json_parse_error`
+
+### Changed
+
+- `sync-validator-error-codes.py` existing catalog loader now maps UTF-8 decode failures to structured parse errors instead of `unexpected_error`.
+- README clarifies that invalid UTF-8/invalid JSON existing catalog payloads return `json_parse_error`.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.178-m3-sync-json-errors-existing-catalog-utf8-parse`.
+
+## [0.3.177-m3-sync-json-errors-placeholder-markers-read-failed] - 2026-02-19
+
+### Added
+
+- Sync `--json-errors` now includes dedicated code for unreadable placeholder marker path:
+  - `error_code_sync_validator_error_codes_placeholder_markers_read_failed`
+- New test:
+  - when `--placeholder-markers-file` points to a directory, sync now emits `placeholder_markers_read_failed` with `exception_type=IsADirectoryError`
+
+### Changed
+
+- `sync-validator-error-codes.py` placeholder marker loader now distinguishes read failures from generic unexpected errors.
+- README documents the new placeholder marker read-failure code.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.177-m3-sync-json-errors-placeholder-markers-read-failed`.
+
+## [0.3.176-m3-sync-json-errors-output-parent-create-failed] - 2026-02-19
+
+### Added
+
+- Sync `--json-errors` now includes dedicated code for output parent directory creation failures:
+  - `error_code_sync_validator_error_codes_output_parent_create_failed`
+- New test:
+  - when output file parent path is a regular file, sync now emits `output_parent_create_failed` with `exception_type=FileExistsError`
+
+### Changed
+
+- `sync-validator-error-codes.py` now captures `mkdir` failures before writing output and emits structured sync errors.
+- README documents the new output-parent-create-failed code.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.176-m3-sync-json-errors-output-parent-create-failed`.
+
+## [0.3.175-m3-sync-json-errors-metadata-overrides-read-failed] - 2026-02-19
+
+### Added
+
+- Sync `--json-errors` now includes dedicated code for unreadable metadata overrides path:
+  - `error_code_sync_validator_error_codes_metadata_overrides_file_read_failed`
+- New test:
+  - when `--metadata-overrides-file` points to a directory, sync now emits `metadata_overrides_file_read_failed` with `exception_type=IsADirectoryError`
+
+### Changed
+
+- `sync-validator-error-codes.py` metadata overrides loader now distinguishes file read failures from generic unexpected errors.
+- README documents the new metadata overrides read-failure code.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.175-m3-sync-json-errors-metadata-overrides-read-failed`.
+
+## [0.3.174-m3-sync-json-errors-catalog-read-failed] - 2026-02-19
+
+### Added
+
+- Sync `--json-errors` now includes dedicated code for unreadable catalog path:
+  - `error_code_sync_validator_error_codes_catalog_file_read_failed`
+- New test:
+  - when `--output-file` points to a directory, sync now emits `catalog_file_read_failed` with `exception_type=IsADirectoryError`
+
+### Changed
+
+- `sync-validator-error-codes.py` existing catalog loader now distinguishes file read failure from generic unexpected errors.
+- README documents the new catalog read-failure code.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.174-m3-sync-json-errors-catalog-read-failed`.
+
+## [0.3.173-m3-sync-json-errors-placeholder-markers-non-object] - 2026-02-19
+
+### Added
+
+- New test:
+  - sync `--json-errors` now covers non-object placeholder marker payload (array payload) and asserts invalid marker code
+
+### Changed
+
+- `sync-validator-error-codes.py` placeholder marker loader now validates that marker payload is a JSON object before reading `markers`.
+- Non-object marker payload no longer falls back to `unexpected_error`; it returns:
+  - `error_code_sync_validator_error_codes_placeholder_markers_invalid`
+- README clarifies that `placeholder_markers_invalid` includes non-object payload cases.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.173-m3-sync-json-errors-placeholder-markers-non-object`.
+
+## [0.3.172-m3-sync-json-errors-validator-registry-load-failed] - 2026-02-19
+
+### Added
+
+- Sync `--json-errors` now includes dedicated code when validator registry script execution fails:
+  - `error_code_sync_validator_error_codes_validator_registry_load_failed`
+- New test:
+  - isolated backend with syntax-error validator script now returns `validator_registry_load_failed` with `exception_type` context
+
+### Changed
+
+- `sync-validator-error-codes.py` now catches runtime load failures in `runpy.run_path` and emits structured sync errors.
+- README documents the new registry load failure code.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.172-m3-sync-json-errors-validator-registry-load-failed`.
+
+## [0.3.171-m3-sync-json-errors-validator-registry-codes] - 2026-02-19
+
+### Added
+
+- Sync `--json-errors` now includes dedicated validator registry error codes:
+  - `error_code_sync_validator_error_codes_validator_registry_missing`
+  - `error_code_sync_validator_error_codes_validator_registry_invalid`
+- New tests:
+  - isolated backend with missing `VALIDATOR_ERROR_CODES` registry returns `validator_registry_missing`
+  - isolated backend with invalid registry entry type returns `validator_registry_invalid`
+
+### Changed
+
+- `sync-validator-error-codes.py` now raises typed sync errors in registry loading path with `group/path` context.
+- README documents new registry-related sync JSON error codes.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.171-m3-sync-json-errors-validator-registry-codes`.
+
+## [0.3.170-m3-sync-json-errors-missing-validator-script-file] - 2026-02-19
+
+### Added
+
+- Sync `--json-errors` now includes dedicated error code for missing validator script files:
+  - `error_code_sync_validator_error_codes_validator_script_file_not_found`
+- New test:
+  - isolated backend copy with missing validator registry scripts now returns dedicated code with `group/path` context
+
+### Changed
+
+- `sync-validator-error-codes.py` now raises typed sync error in `_build_catalog` when a validator script file is missing.
+- README documents the new sync JSON error code.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.170-m3-sync-json-errors-missing-validator-script-file`.
+
+## [0.3.169-m3-sync-json-errors-missing-metadata-overrides-file] - 2026-02-19
+
+### Added
+
+- Sync `--json-errors` now includes dedicated error code for missing metadata overrides file:
+  - `error_code_sync_validator_error_codes_metadata_overrides_file_not_found`
+- New test:
+  - sync missing metadata overrides file (`--json-errors`) now asserts dedicated code and path context
+
+### Changed
+
+- `sync-validator-error-codes.py` now raises typed sync error instead of generic exception when metadata overrides file does not exist.
+- README documents the new sync JSON error code.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.169-m3-sync-json-errors-missing-metadata-overrides-file`.
+
+## [0.3.168-m3-sync-json-errors-profile-actions-context] - 2026-02-19
+
+### Added
+
+- Sync `--json-errors` unknown metadata overrides profile context now includes `suggested_actions`:
+  - close match: `copy_command` + `use_profile`
+  - no close match: `show_profiles`
+  - no profile mode config: `migrate_profile_mode`
+- Sync `--json-errors` `fallback_reason=no_profiles_config` context now includes:
+  - `suggested_config_snippet` for flat-to-profile migration
+- New tests:
+  - sync unknown metadata overrides profile (`--json-errors`) asserts `suggested_actions` payload
+  - sync profile requested on flat overrides config (`--json-errors`) asserts `suggested_config_snippet` + migrate action
+
+### Changed
+
+- `sync-validator-error-codes.py` now reuses shared profile suggestion action helper for JSON context parity.
+- README now documents sync profile suggestion `suggested_actions` and migration snippet fields.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.168-m3-sync-json-errors-profile-actions-context`.
+
+## [0.3.167-m3-sync-json-errors-placeholder-marker-exceptions] - 2026-02-19
+
+### Added
+
+- Sync `--json-errors` now includes placeholder marker file exception coverage:
+  - `error_code_sync_validator_error_codes_placeholder_markers_file_not_found`
+  - `error_code_sync_validator_error_codes_placeholder_markers_invalid`
+- New tests:
+  - missing placeholder marker file (`--check --strict-descriptions --json-errors`) returns structured error code
+  - invalid placeholder marker payload (`--check --strict-descriptions --json-errors`) returns structured error code
+
+### Changed
+
+- `sync-validator-error-codes.py` placeholder marker loader now raises typed sync errors instead of generic exceptions.
+- README documents placeholder marker exception codes for sync JSON errors.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.167-m3-sync-json-errors-placeholder-marker-exceptions`.
+
+## [0.3.166-m3-sync-json-errors-check-coverage] - 2026-02-19
+
+### Added
+
+- Sync `--json-errors` now covers additional `--check` failure branches:
+  - `error_code_sync_validator_error_codes_catalog_not_in_sync`
+  - `error_code_sync_validator_error_codes_placeholder_text_detected`
+- New tests:
+  - check drift (`--check --json-errors`) now asserts structured payload
+  - strict placeholder failure (`--check --strict-descriptions --json-errors`) now asserts structured payload with violations
+
+### Changed
+
+- `sync-validator-error-codes.py` now emits structured JSON errors for:
+  - catalog not found in check mode
+  - catalog drift in check mode
+  - strict placeholder violations (check/update mode)
+- README updates sync JSON error code documentation for check/strict branches.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.166-m3-sync-json-errors-check-coverage`.
+
+## [0.3.165-m3-sync-json-errors] - 2026-02-19
+
+### Added
+
+- Sync validator error-code script now supports structured JSON errors via:
+  - `--json-errors`
+- Structured sync JSON error codes added for key failure paths:
+  - `error_code_sync_validator_error_codes_metadata_overrides_profile_not_found`
+  - `error_code_sync_validator_error_codes_unknown_override_code`
+  - plus payload/parse/unexpected categories in sync script runtime
+- New tests:
+  - sync unknown metadata overrides profile (`--json-errors`) now asserts structured payload fields
+  - sync unknown override code (`--json-errors`) now asserts structured payload and context
+
+### Changed
+
+- `sync-validator-error-codes.py` now uses typed runtime error objects for structured error emission.
+- README documents sync `--json-errors` usage and key error codes.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.165-m3-sync-json-errors`.
+
+## [0.3.164-m3-sync-overrides-profile-suggestions] - 2026-02-19
+
+### Added
+
+- Sync script unknown metadata overrides profile errors now provide close-match suggestion hints:
+  - `Did you mean: <profile>`
+  - `Try: --metadata-overrides-profile <profile>`
+- New tests:
+  - close-match unknown profile on sync path now asserts suggestion hint text
+  - no-close-match unknown profile on sync path now asserts available profile listing
+
+### Changed
+
+- `sync-validator-error-codes.py` now reuses shared profile suggestion helpers for metadata overrides profile selection.
+- Unknown sync profile errors now keep default-profile-first ordering in available profile messages.
+- README documents sync unknown profile suggestion behavior.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.164-m3-sync-overrides-profile-suggestions`.
+
+## [0.3.163-m3-overrides-profile-suggestion-parity] - 2026-02-19
+
+### Added
+
+- Unknown `--overrides-profile` errors now provide the same suggestion payload quality as lint profile errors:
+  - `fallback_reason` / `suggestion_level`
+  - `suggested_profiles` / `suggested_cli_args`
+  - `suggested_command`
+  - `suggested_actions` (`copy_command`, `use_profile`, `show_profiles`)
+- New tests:
+  - unknown overrides profile (`no_close_match`) now asserts structured suggestion fields
+  - nearby overrides profile (`close_match`) now asserts suggested command and actions
+
+### Changed
+
+- `validate-validator-error-code-metadata-overrides.py` now reuses shared helper payload generation for overrides profile
+  suggestions.
+- `profile_suggestion_helpers.py` now supports custom profile labels and CLI arg names
+  (e.g. `--overrides-profile`).
+- README adds unknown overrides profile suggestion contract notes.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.163-m3-overrides-profile-suggestion-parity`.
+
+## [0.3.162-m3-metadata-overrides-profile-mode] - 2026-02-19
+
+### Added
+
+- Metadata overrides validator now supports overrides profile selection:
+  - CLI: `--overrides-profile <profile>`
+  - env fallback: `OVERRIDES_PROFILE`
+  - structured JSON error code for unknown profile: `error_code_metadata_overrides_overrides_profile_not_found`
+- Validator metadata overrides schema now supports both payload shapes:
+  - flat: `group -> code -> fields`
+  - profile mode: `default_profile + profiles.<name>.(group -> code -> fields)`
+- Sync script now supports metadata overrides profile selection:
+  - CLI: `--metadata-overrides-profile <profile>`
+  - env fallback: `METADATA_OVERRIDES_PROFILE`
+
+### Changed
+
+- `validate-validator-error-code-metadata-overrides.py` now resolves overrides payload by profile before target/lint checks.
+- `sync-validator-error-codes.py` now resolves metadata overrides profile before applying overrides.
+- README documents overrides profile mode, CLI/env precedence, and sync profile usage.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.162-m3-metadata-overrides-profile-mode`.
+
+## [0.3.161-m3-profile-suggestion-actions-full-metadata-overrides] - 2026-02-19
+
+### Added
+
+- Full default metadata override policy coverage for all `profile_suggestion_actions_*` codes:
+  - `profile_suggestion_actions_file_not_found`
+  - `profile_suggestion_actions_json_parse_error`
+  - `profile_suggestion_actions_schema_invalid`
+  - `profile_suggestion_actions_example_validation_failed`
+  - `profile_suggestion_actions_helper_contract_failed`
+  - `profile_suggestion_actions_unexpected_error`
+- New tests:
+  - metadata overrides config now requires full coverage for all profile suggestion actions codes
+  - catalog key metadata checks include unexpected-error critical policy for profile suggestion actions
+
+### Changed
+
+- `validator-error-code-metadata-overrides.json` now includes full policy entries for profile suggestion actions group.
+- `validator-error-codes.json` regenerated to apply full profile suggestion actions policy set.
+- README now documents full policy coverage for `profile_suggestion_actions_*` codes.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.161-m3-profile-suggestion-actions-full-metadata-overrides`.
+
+## [0.3.160-m3-profile-suggestion-actions-metadata-overrides-policy] - 2026-02-19
+
+### Added
+
+- Default metadata override policy for `profile_suggestion_actions` group:
+  - `profile_suggestion_actions_example_validation_failed`
+  - `profile_suggestion_actions_helper_contract_failed`
+- Policy includes explicit description/severity/remediation and is enforced by existing metadata override validator.
+- New tests:
+  - metadata overrides config now must include `profile_suggestion_actions` policy block
+  - catalog key metadata checks now assert `profile_suggestion_actions_helper_contract_failed` severity/remediation profile
+
+### Changed
+
+- `validator-error-code-metadata-overrides.json` now contains concrete default policy entries for `profile_suggestion_actions`.
+- `validator-error-codes.json` regenerated via sync script to reflect new default overrides.
+- README now documents profile suggestion actions default metadata override policy.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.160-m3-profile-suggestion-actions-metadata-overrides-policy`.
+
+## [0.3.159-m3-error-code-catalog-profile-suggestion-actions-group] - 2026-02-19
+
+### Added
+
+- Validator error code catalog now includes dedicated group:
+  - `profile_suggestion_actions`
+- New catalog entries synced from `validate-profile-suggestion-actions-schema.py`:
+  - `profile_suggestion_actions_file_not_found`
+  - `profile_suggestion_actions_json_parse_error`
+  - `profile_suggestion_actions_schema_invalid`
+  - `profile_suggestion_actions_example_validation_failed`
+  - `profile_suggestion_actions_helper_contract_failed`
+  - `profile_suggestion_actions_unexpected_error`
+- New tests:
+  - catalog payload includes `profile_suggestion_actions` group
+  - catalog schema required groups includes `profile_suggestion_actions`
+  - script registry coverage includes `validate-profile-suggestion-actions-schema.py` codes
+
+### Changed
+
+- `sync-validator-error-codes.py` now syncs codes from `validate-profile-suggestion-actions-schema.py`.
+- `validator-error-codes.schema.json` required groups now include `profile_suggestion_actions`.
+- `validator-error-codes.json` profile suggestion actions entries now use concrete non-placeholder descriptions/remediations.
+- README now documents updated catalog group list.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.159-m3-error-code-catalog-profile-suggestion-actions-group`.
+
+## [0.3.158-m3-profile-suggestion-actions-schema-validator] - 2026-02-19
+
+### Added
+
+- New schema and example for unknown-profile UI actions:
+  - `refactor/backend/config/schemas/profile-suggestion-actions.schema.json`
+  - `refactor/backend/config/schemas/profile-suggestion-actions.example.json`
+- New validator script:
+  - `refactor/backend/scripts/validate-profile-suggestion-actions-schema.py`
+  - validates schema structure, example payload, and helper-generated action payloads
+  - supports structured JSON errors (`--json-errors`, `profile_suggestion_actions_*`)
+- New tests:
+  - CI wiring check includes profile suggestion actions schema validator script
+  - validator passes default schema/example/helper files
+  - validator returns structured JSON error for invalid example payload
+
+### Changed
+
+- CI now runs `validate-profile-suggestion-actions-schema.py` as part of default gate.
+- README now documents schema/example file paths and validator usage.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.158-m3-profile-suggestion-actions-schema-validator`.
+
+## [0.3.157-m3-error-code-suggested-actions-contract-validation] - 2026-02-19
+
+### Added
+
+- Strict suggested-actions contract validator in shared helper:
+  - new helper function `validate_suggested_actions_contract(...)`
+  - validates supported action enum:
+    - `copy_command`
+    - `use_profile`
+    - `show_profiles`
+    - `migrate_profile_mode`
+  - validates required fields and basic value types per action
+- New tests:
+  - rejects unsupported action values (`unsupported action`)
+  - rejects missing required action fields (`missing required field`)
+
+### Changed
+
+- `build_suggested_actions_for_profile_not_found(...)` now always enforces contract validation before returning actions.
+- README now documents strict `suggested_actions` contract validation in shared helper module.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.157-m3-error-code-suggested-actions-contract-validation`.
+
+## [0.3.156-m3-error-code-shared-suggestion-helpers] - 2026-02-19
+
+### Added
+
+- Shared helper module for unknown profile suggestions:
+  - `refactor/backend/scripts/profile_suggestion_helpers.py`
+  - includes reusable helpers for:
+    - profile suggestion payload (`fallback_reason`, `suggestion_level`, `suggested_profiles`, command hints)
+    - profile-mode migration snippet generation
+    - structured UI actions (`suggested_actions`)
+    - shell-safe path quoting and ordered available profiles
+- New contract test:
+  - validates shared helper module exists, is imported by both validators, and keeps action payload contract stable
+
+### Changed
+
+- `validate-validator-error-code-metadata-lint.py` now imports shared suggestion helpers instead of local duplicate logic.
+- `validate-validator-error-code-metadata-overrides.py` now imports shared suggestion helpers instead of local duplicate logic.
+- README now documents shared helper module location.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.156-m3-error-code-shared-suggestion-helpers`.
+
+## [0.3.155-m3-error-code-suggested-actions] - 2026-02-19
+
+### Added
+
+- Structured UI action hints for unknown profile JSON context (`suggested_actions`):
+  - close match:
+    - `{"action":"copy_command","command":"..."}`
+    - `{"action":"use_profile","profile":"..."}`
+  - no close match:
+    - `{"action":"show_profiles","profiles":[...]}`
+  - profile mode not configured:
+    - `{"action":"migrate_profile_mode","config_snippet":{...}}`
+- Applies to both validators:
+  - `validate-validator-error-code-metadata-lint.py`
+  - `validate-validator-error-code-metadata-overrides.py`
+- New tests:
+  - validates `suggested_actions` for close-match/no-close-match/no-profiles-config in lint validator
+  - validates `suggested_actions` for close-match/no-close-match/no-profiles-config in overrides validator
+
+### Changed
+
+- README now documents `suggested_actions` contract for unknown profile errors.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.155-m3-error-code-suggested-actions`.
+
+## [0.3.154-m3-error-code-suggestion-level] - 2026-02-19
+
+### Added
+
+- Machine-readable suggestion severity for unknown profile JSON context:
+  - `suggestion_level=hint` when `fallback_reason=close_match`
+  - `suggestion_level=warning` when `fallback_reason=no_close_match`
+  - `suggestion_level=error` when `fallback_reason=no_profiles_config`
+- Applies to both validators:
+  - `validate-validator-error-code-metadata-lint.py`
+  - `validate-validator-error-code-metadata-overrides.py`
+- New tests:
+  - validates `suggestion_level` for close-match/no-close-match/no-profiles-config in lint validator
+  - validates `suggestion_level` for close-match/no-close-match/no-profiles-config in overrides validator
+
+### Changed
+
+- README now documents `suggestion_level` semantics for unknown profile errors.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.154-m3-error-code-suggestion-level`.
+
+## [0.3.153-m3-error-code-shell-safe-suggested-command] - 2026-02-19
+
+### Added
+
+- Shell-safe command template generation for unknown profile suggestions:
+  - lint validator `context.suggested_command` now uses shell-safe quoting for `--lint-config-file`
+  - overrides validator `context.suggested_command` now uses shell-safe quoting for `--lint-config-file`
+- New tests:
+  - validates lint validator nearby-profile suggestion command uses shell-safe lint-config path argument
+  - validates overrides validator nearby-profile suggestion command uses shell-safe lint-config path argument
+
+### Changed
+
+- README now documents shell-safe quoting for `suggested_command` lint config path.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.153-m3-error-code-shell-safe-suggested-command`.
+
+## [0.3.152-m3-error-code-no-profiles-config-snippet] - 2026-02-19
+
+### Added
+
+- Auto-fix snippet for `fallback_reason=no_profiles_config` in unknown-profile JSON errors:
+  - lint validator now returns `context.suggested_config_snippet`
+  - overrides validator now returns `context.suggested_config_snippet`
+  - snippet shape:
+    - `default_profile=<requested_profile>`
+    - `profiles.<requested_profile>` seeded from flat lint config fields
+- New tests:
+  - validates lint validator no-profile-config path includes `suggested_config_snippet`
+  - validates overrides validator no-profile-config path includes `suggested_config_snippet`
+
+### Changed
+
+- README now documents `suggested_config_snippet` for `fallback_reason=no_profiles_config`.
+- Summary schema version: `1`
+- Backend app version bumped to `0.3.152-m3-error-code-no-profiles-config-snippet`.
+
 ## [0.3.151-m3-error-code-profile-mode-not-configured-hint] - 2026-02-19
 
 ### Added

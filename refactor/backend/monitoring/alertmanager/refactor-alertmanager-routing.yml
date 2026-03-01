@@ -1,0 +1,26 @@
+route:
+  receiver: refactor-default-receiver
+  routes:
+    - matchers:
+        - scope="notification"
+        - domain="retry-governance"
+      receiver: refactor-notification-retry-governance-receiver
+    - matchers:
+        - scope="backtest"
+        - domain="threshold-governance"
+      receiver: refactor-threshold-governance-receiver
+    - matchers:
+        - scope="strategy"
+        - domain="publish-gate"
+      receiver: refactor-publish-gate-receiver
+    - matchers:
+        - scope="promtool"
+        - domain="soft-audit"
+      receiver: refactor-soft-audit-receiver
+
+receivers:
+  - name: refactor-default-receiver
+  - name: refactor-notification-retry-governance-receiver
+  - name: refactor-threshold-governance-receiver
+  - name: refactor-publish-gate-receiver
+  - name: refactor-soft-audit-receiver

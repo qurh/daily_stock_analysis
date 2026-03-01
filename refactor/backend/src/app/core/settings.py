@@ -43,6 +43,13 @@ def _read_int_env(name: str, default: int) -> int:
         raise ValueError(f"Invalid int value for {name}: {raw}") from exc
 
 
+def _read_csv_env(name: str) -> list[str]:
+    raw = os.getenv(name)
+    if raw is None:
+        return []
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
 def _read_prompt_lock_mode_env(name: str, default: str) -> str:
     raw = os.getenv(name)
     if raw is None:
@@ -87,6 +94,10 @@ class AppSettings:
     feedback_event_optimization_min_records: int
     feedback_event_optimization_cooldown_seconds: int
     strategy_publish_require_proposal_id: bool
+    analysis_auto_notify_enabled: bool
+    analysis_auto_notify_channels: list[str]
+    notification_send_max_retries: int
+    notification_retry_backoff_ms: int
     backtest_return_sample_min_size: int
     backtest_return_sample_medium_coverage_pct: float
     backtest_multi_window_alert_warn_low_windows: int
@@ -149,6 +160,10 @@ def load_settings() -> AppSettings:
         0,
     )
     strategy_publish_require_proposal_id = _read_bool_env("STRATEGY_PUBLISH_REQUIRE_PROPOSAL_ID", False)
+    analysis_auto_notify_enabled = _read_bool_env("ANALYSIS_AUTO_NOTIFY_ENABLED", False)
+    analysis_auto_notify_channels = _read_csv_env("ANALYSIS_AUTO_NOTIFY_CHANNELS")
+    notification_send_max_retries = max(_read_int_env("NOTIFICATION_SEND_MAX_RETRIES", 0), 0)
+    notification_retry_backoff_ms = max(_read_int_env("NOTIFICATION_RETRY_BACKOFF_MS", 0), 0)
     backtest_return_sample_min_size = _read_int_env("BACKTEST_RETURN_SAMPLE_MIN_SIZE", 20)
     backtest_return_sample_medium_coverage_pct = _read_float_env("BACKTEST_RETURN_SAMPLE_MEDIUM_COVERAGE_PCT", 50.0)
     backtest_multi_window_alert_warn_low_windows_raw = _read_int_env("BACKTEST_MULTI_WINDOW_ALERT_WARN_LOW_WINDOWS", 1)
@@ -258,6 +273,10 @@ def load_settings() -> AppSettings:
         feedback_event_optimization_min_records=feedback_event_optimization_min_records,
         feedback_event_optimization_cooldown_seconds=feedback_event_optimization_cooldown_seconds,
         strategy_publish_require_proposal_id=strategy_publish_require_proposal_id,
+        analysis_auto_notify_enabled=analysis_auto_notify_enabled,
+        analysis_auto_notify_channels=analysis_auto_notify_channels,
+        notification_send_max_retries=notification_send_max_retries,
+        notification_retry_backoff_ms=notification_retry_backoff_ms,
         backtest_return_sample_min_size=backtest_return_sample_min_size,
         backtest_return_sample_medium_coverage_pct=backtest_return_sample_medium_coverage_pct,
         backtest_multi_window_alert_warn_low_windows=backtest_multi_window_alert_warn_low_windows,
