@@ -1,0 +1,10 @@
+[
+  {
+    "action": "copy_command",
+    "command": "python3 scripts/validate-validator-error-code-metadata-lint.py --lint-config-file /tmp/metadata-lint.json --lint-profile prod"
+  },
+  {
+    "action": "use_profile",
+    "profile": "prod"
+  }
+]

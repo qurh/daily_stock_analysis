@@ -2,9 +2,8 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Validator Error Code Metadata Overrides",
   "type": "object",
-  "additionalProperties": {
-    "type": "object",
-    "additionalProperties": {
+  "$defs": {
+    "overrideEntry": {
       "type": "object",
       "minProperties": 1,
       "properties": {
@@ -27,6 +26,47 @@
         }
       },
       "additionalProperties": false
+    },
+    "overrideGroup": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/overrideEntry"
+      }
+    },
+    "flatOverrides": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/overrideGroup"
+      }
+    },
+    "profiledOverrides": {
+      "type": "object",
+      "required": [
+        "default_profile",
+        "profiles"
+      ],
+      "properties": {
+        "default_profile": {
+          "type": "string",
+          "minLength": 1
+        },
+        "profiles": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "$ref": "#/$defs/flatOverrides"
+          }
+        }
+      },
+      "additionalProperties": false
     }
-  }
+  },
+  "anyOf": [
+    {
+      "$ref": "#/$defs/flatOverrides"
+    },
+    {
+      "$ref": "#/$defs/profiledOverrides"
+    }
+  ]
 }

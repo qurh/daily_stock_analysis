@@ -1516,6 +1516,79 @@ def test_global_metrics_endpoint_includes_backtest_and_optimization_status_count
     assert 'refactor_optimization_jobs_total{status="completed"} 1' in body
 
 
+def test_global_metrics_endpoint_includes_notification_retry_metrics() -> None:
+    client = TestClient(create_app())
+    now = datetime.now(timezone.utc).isoformat()
+    retry_source_id = str(uuid4())
+
+    with client.app.state.database.connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO notification_deliveries (
+                delivery_id, message_id, source_type, source_id, channel, status,
+                error_code, error_message, provider_message_id, payload_preview, created_at,
+                attempt_count, retry_of_delivery_id
+            ) VALUES (?, ?, 'api', NULL, 'feishu', 'failed', 'NTF-SEND-003', 'boom', NULL, 't1', ?, 2, NULL)
+            """,
+            (str(uuid4()), str(uuid4()), now),
+        )
+        conn.execute(
+            """
+            INSERT INTO notification_deliveries (
+                delivery_id, message_id, source_type, source_id, channel, status,
+                error_code, error_message, provider_message_id, payload_preview, created_at,
+                attempt_count, retry_of_delivery_id
+            ) VALUES (?, ?, 'api', NULL, 'wechat', 'delivered', NULL, NULL, 'm1', 't2', ?, 1, NULL)
+            """,
+            (str(uuid4()), str(uuid4()), now),
+        )
+        conn.execute(
+            """
+            INSERT INTO notification_deliveries (
+                delivery_id, message_id, source_type, source_id, channel, status,
+                error_code, error_message, provider_message_id, payload_preview, created_at,
+                attempt_count, retry_of_delivery_id
+            ) VALUES (?, ?, 'api', NULL, 'feishu', 'delivered', NULL, NULL, 'm2', 't3', ?, 3, NULL)
+            """,
+            (str(uuid4()), str(uuid4()), now),
+        )
+        conn.execute(
+            """
+            INSERT INTO notification_deliveries (
+                delivery_id, message_id, source_type, source_id, channel, status,
+                error_code, error_message, provider_message_id, payload_preview, created_at,
+                attempt_count, retry_of_delivery_id
+            ) VALUES (?, ?, 'delivery_retry', ?, 'feishu', 'delivered', NULL, NULL, 'm3', 't4', ?, 1, ?)
+            """,
+            (str(uuid4()), str(uuid4()), retry_source_id, now, retry_source_id),
+        )
+        conn.execute(
+            """
+            INSERT INTO notification_deliveries (
+                delivery_id, message_id, source_type, source_id, channel, status,
+                error_code, error_message, provider_message_id, payload_preview, created_at,
+                attempt_count, retry_of_delivery_id
+            ) VALUES (?, ?, 'delivery_retry', ?, 'feishu', 'failed', 'NTF-SEND-003', 'retry boom', NULL, 't5', ?, 1, ?)
+            """,
+            (str(uuid4()), str(uuid4()), retry_source_id, now, retry_source_id),
+        )
+
+    response = client.get("/api/v2/metrics")
+    assert response.status_code == 200
+    body = response.text
+    assert 'refactor_notification_deliveries_total{status="delivered"} 3' in body
+    assert 'refactor_notification_deliveries_total{status="failed"} 2' in body
+    assert 'refactor_notification_deliveries_by_channel_total{channel="feishu"} 4' in body
+    assert 'refactor_notification_deliveries_by_channel_total{channel="wechat"} 1' in body
+    assert "refactor_notification_retry_attempts_total 2" in body
+    assert "refactor_notification_retry_success_total 1" in body
+    assert "refactor_notification_retry_failed_total 1" in body
+    assert "refactor_notification_retry_success_ratio 0.5" in body
+    assert "refactor_notification_auto_retry_deliveries_total 2" in body
+    assert "refactor_notification_auto_retry_final_failed_total 1" in body
+    assert "refactor_notification_auto_retry_final_failure_ratio 0.5" in body
+
+
 def test_global_metrics_endpoint_includes_strategy_publish_strict_gate_metrics() -> None:
     client = TestClient(create_app())
     now = datetime.now(timezone.utc).isoformat()

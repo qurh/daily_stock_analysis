@@ -1,0 +1,226 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Validator Error Context High Frequency Contract",
+  "description": "Context shape contract for selected high-frequency validator business-failure error codes.",
+  "type": "object",
+  "required": [
+    "validator",
+    "code",
+    "message",
+    "context"
+  ],
+  "properties": {
+    "validator": {
+      "type": "string",
+      "minLength": 1
+    },
+    "code": {
+      "type": "string",
+      "minLength": 1
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1
+    },
+    "context": {
+      "type": "object"
+    }
+  },
+  "$defs": {
+    "pathContext": {
+      "type": "object",
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "pathRoleContext": {
+      "type": "object",
+      "required": [
+        "path",
+        "role"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "validationPathContext": {
+      "type": "object",
+      "required": [
+        "validation_path"
+      ],
+      "properties": {
+        "validation_path": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "integer"
+            ]
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "groupContext": {
+      "type": "object",
+      "required": [
+        "group"
+      ],
+      "properties": {
+        "group": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "sourceKeyContext": {
+      "type": "object",
+      "required": [
+        "source",
+        "key"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "key": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "code": {
+            "enum": [
+              "summary_contract_required_file_not_found",
+              "summary_contract_app_version_not_found",
+              "summary_schema_json_parse_error",
+              "error_code_metadata_lint_schema_file_not_found",
+              "error_code_metadata_overrides_placeholder_markers_file_not_found",
+              "alertmanager_route_consistency_rules_dir_invalid",
+              "alertmanager_route_consistency_yaml_parse_error",
+              "notification_retry_runbook_file_not_found",
+              "placeholder_markers_markers_file_not_found",
+              "error_code_catalog_catalog_file_not_found"
+            ]
+          }
+        },
+        "required": [
+          "code"
+        ]
+      },
+      "then": {
+        "properties": {
+          "context": {
+            "$ref": "#/$defs/pathContext"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "code": {
+            "enum": [
+              "error_code_metadata_lint_json_parse_error",
+              "profile_suggestion_actions_file_not_found",
+              "profile_suggestion_actions_json_parse_error",
+              "placeholder_markers_json_parse_error",
+              "error_code_catalog_json_parse_error"
+            ]
+          }
+        },
+        "required": [
+          "code"
+        ]
+      },
+      "then": {
+        "properties": {
+          "context": {
+            "$ref": "#/$defs/pathRoleContext"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "code": {
+            "const": "summary_schema_example_payload_schema_validation_failed"
+          }
+        },
+        "required": [
+          "code"
+        ]
+      },
+      "then": {
+        "properties": {
+          "context": {
+            "$ref": "#/$defs/validationPathContext"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "code": {
+            "const": "error_code_metadata_overrides_unknown_override_group"
+          }
+        },
+        "required": [
+          "code"
+        ]
+      },
+      "then": {
+        "properties": {
+          "context": {
+            "$ref": "#/$defs/groupContext"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "code": {
+            "const": "notification_retry_runbook_baseline_parse_failed"
+          }
+        },
+        "required": [
+          "code"
+        ]
+      },
+      "then": {
+        "properties": {
+          "context": {
+            "$ref": "#/$defs/sourceKeyContext"
+          }
+        }
+      }
+    }
+  ],
+  "additionalProperties": true
+}

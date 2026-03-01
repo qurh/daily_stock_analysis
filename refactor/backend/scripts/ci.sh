@@ -35,11 +35,26 @@ $PYTHON_BIN ./scripts/validate-validator-error-code-metadata-lint.py
 # Validator error code metadata overrides check
 $PYTHON_BIN ./scripts/validate-validator-error-code-metadata-overrides.py
 
+# Profile suggestion actions schema check
+$PYTHON_BIN ./scripts/validate-profile-suggestion-actions-schema.py
+
 # Strict gate summary schema check
 $PYTHON_BIN ./scripts/validate-strict-gate-summary-schema.py
 
 # Strict gate summary contract changelog check
 $PYTHON_BIN ./scripts/validate-summary-contract-changelog.py
+
+# High-frequency validator error context schema check
+$PYTHON_BIN ./scripts/validate-validator-error-context-high-frequency-schema.py
+
+# Notification retry alert threshold sync check
+$PYTHON_BIN ./scripts/sync-notification-retry-alert-thresholds.py --check
+
+# Notification retry alert runbook consistency check
+$PYTHON_BIN ./scripts/validate-notification-retry-runbook.py
+
+# Alertmanager route consistency check
+$PYTHON_BIN ./scripts/validate-alertmanager-route-consistency.py
 
 # Prometheus rule validation
 if [[ -n "${CI:-}" ]]; then

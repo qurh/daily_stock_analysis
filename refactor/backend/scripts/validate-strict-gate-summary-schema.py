@@ -19,6 +19,7 @@ DEFAULT_SYNC_SCRIPT_FILE = BACKEND_ROOT / "scripts" / "sync-strict-gate-alert-th
 EXPECTED_SCHEMA_DRAFT = "https://json-schema.org/draft/2020-12/schema"
 SUMMARY_SCHEMA_VERSION_PATTERN = re.compile(r'^SUMMARY_SCHEMA_VERSION\s*=\s*"([^"]+)"\s*$')
 VALIDATOR_ERROR_CODES = {
+    "CLI_ARGS_INVALID": "summary_schema_cli_args_invalid",
     "JSON_PARSE_ERROR": "summary_schema_json_parse_error",
     "EXAMPLE_PAYLOAD_SCHEMA_VALIDATION_FAILED": "summary_schema_example_payload_schema_validation_failed",
     "EXAMPLE_SCHEMA_VERSION_MISMATCH": "summary_schema_example_schema_version_mismatch",
@@ -44,6 +45,65 @@ class SummarySchemaValidationError(ValueError):
         super().__init__(message)
         self.code = code
         self.context = context or {}
+
+
+class _SummarySchemaArgumentParser(argparse.ArgumentParser):
+    def error(self, message: str) -> None:
+        raise SummarySchemaValidationError(
+            code=VALIDATOR_ERROR_CODES["CLI_ARGS_INVALID"],
+            message=f"invalid cli arguments: {message}",
+            context={"failure_mode": "argparse_error", "argparse_message": message},
+        )
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = _SummarySchemaArgumentParser(description="Validate strict gate summary JSON schema.")
+    parser.add_argument(
+        "--schema-file",
+        type=Path,
+        default=DEFAULT_SCHEMA_FILE,
+        help="Path to strict gate summary schema JSON file.",
+    )
+    parser.add_argument(
+        "--sync-script-file",
+        type=Path,
+        default=DEFAULT_SYNC_SCRIPT_FILE,
+        help="Path to sync-strict-gate-alert-thresholds.py for SUMMARY_SCHEMA_VERSION check.",
+    )
+    parser.add_argument(
+        "--example-file",
+        type=Path,
+        default=DEFAULT_EXAMPLE_FILE,
+        help="Path to strict gate summary example payload JSON file.",
+    )
+    parser.add_argument(
+        "--json-errors",
+        action="store_true",
+        help="Emit structured JSON errors to stderr.",
+    )
+    parser.add_argument(
+        "--json-output",
+        action="store_true",
+        help="Emit structured JSON success payload to stdout.",
+    )
+    return parser
+
+
+def _parse_args(argv: list[str]) -> argparse.Namespace:
+    parser = _build_parser()
+    try:
+        args, unknown_args = parser.parse_known_args(argv)
+    except SummarySchemaValidationError as exc:
+        context = dict(exc.context)
+        context.setdefault("argv", list(argv))
+        raise SummarySchemaValidationError(code=exc.code, message=str(exc), context=context) from exc
+    if unknown_args:
+        raise SummarySchemaValidationError(
+            code=VALIDATOR_ERROR_CODES["CLI_ARGS_INVALID"],
+            message=f"invalid cli arguments: unrecognized arguments: {' '.join(unknown_args)}",
+            context={"failure_mode": "unknown_args", "unknown_args": unknown_args, "argv": list(argv)},
+        )
+    return args
 
 
 def _load_json(path: Path) -> dict:
@@ -105,6 +165,7 @@ def _validate_example_payload(example_payload: dict, schema: dict, expected_vers
         raise SummarySchemaValidationError(
             code=VALIDATOR_ERROR_CODES["EXAMPLE_PAYLOAD_SCHEMA_VALIDATION_FAILED"],
             message="example payload validation failed",
+            context={"validation_path": list(exc.path)},
         ) from exc
     if example_payload.get("schema_version") != expected_version:
         raise SummarySchemaValidationError(
@@ -189,32 +250,13 @@ def _validate_example_payload(example_payload: dict, schema: dict, expected_vers
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Validate strict gate summary JSON schema.")
-    parser.add_argument(
-        "--schema-file",
-        type=Path,
-        default=DEFAULT_SCHEMA_FILE,
-        help="Path to strict gate summary schema JSON file.",
-    )
-    parser.add_argument(
-        "--sync-script-file",
-        type=Path,
-        default=DEFAULT_SYNC_SCRIPT_FILE,
-        help="Path to sync-strict-gate-alert-thresholds.py for SUMMARY_SCHEMA_VERSION check.",
-    )
-    parser.add_argument(
-        "--example-file",
-        type=Path,
-        default=DEFAULT_EXAMPLE_FILE,
-        help="Path to strict gate summary example payload JSON file.",
-    )
-    parser.add_argument(
-        "--json-errors",
-        action="store_true",
-        help="Emit structured JSON errors to stderr.",
-    )
-    args = parser.parse_args()
+    argv = sys.argv[1:]
+    json_errors_requested = "--json-errors" in argv
+    json_output_requested = "--json-output" in argv
     try:
+        args = _parse_args(argv=argv)
+        json_errors_requested = bool(args.json_errors)
+        json_output_requested = bool(args.json_output)
         if not args.schema_file.exists():
             raise FileNotFoundError(f"schema file not found: {args.schema_file}")
         if not args.sync_script_file.exists():
@@ -237,11 +279,22 @@ def main() -> int:
                 f"schema_version mismatch: schema={schema_version}, sync_script={sync_summary_schema_version}"
             )
         _validate_example_payload(example_payload=example_payload, schema=schema, expected_version=schema_version)
-        print(f"[validate-strict-gate-summary-schema] schema is valid: {args.schema_file}")
-        print(f"[validate-strict-gate-summary-schema] example payload is valid: {args.example_file}")
+        if json_output_requested:
+            payload = {
+                "validator": "validate-strict-gate-summary-schema",
+                "status": "ok",
+                "schema_file": str(args.schema_file),
+                "sync_script_file": str(args.sync_script_file),
+                "example_file": str(args.example_file),
+                "schema_version": schema_version,
+            }
+            print(json.dumps(payload, ensure_ascii=False))
+        else:
+            print(f"[validate-strict-gate-summary-schema] schema is valid: {args.schema_file}")
+            print(f"[validate-strict-gate-summary-schema] example payload is valid: {args.example_file}")
         return 0
     except Exception as exc:
-        if args.json_errors:
+        if json_errors_requested:
             if isinstance(exc, SummarySchemaValidationError):
                 payload = {
                     "validator": "validate-strict-gate-summary-schema",

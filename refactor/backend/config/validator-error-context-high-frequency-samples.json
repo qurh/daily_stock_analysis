@@ -1,0 +1,154 @@
+[
+  {
+    "validator": "validate-summary-contract-changelog",
+    "code": "summary_contract_required_file_not_found",
+    "message": "required file not found: /tmp/missing-main.py",
+    "context": {
+      "path": "/tmp/missing-main.py"
+    }
+  },
+  {
+    "validator": "validate-summary-contract-changelog",
+    "code": "summary_contract_app_version_not_found",
+    "message": "unable to locate app version in file: /tmp/no-version-main.py",
+    "context": {
+      "path": "/tmp/no-version-main.py"
+    }
+  },
+  {
+    "validator": "validate-strict-gate-summary-schema",
+    "code": "summary_schema_json_parse_error",
+    "message": "failed to parse json: /tmp/malformed-summary-schema.json",
+    "context": {
+      "path": "/tmp/malformed-summary-schema.json"
+    }
+  },
+  {
+    "validator": "validate-strict-gate-summary-schema",
+    "code": "summary_schema_example_payload_schema_validation_failed",
+    "message": "example payload validation failed",
+    "context": {
+      "validation_path": [
+        "schema_version"
+      ]
+    }
+  },
+  {
+    "validator": "validate-validator-error-code-metadata-lint",
+    "code": "error_code_metadata_lint_schema_file_not_found",
+    "message": "schema file not found: /tmp/missing-lint-schema.json",
+    "context": {
+      "path": "/tmp/missing-lint-schema.json"
+    }
+  },
+  {
+    "validator": "validate-validator-error-code-metadata-lint",
+    "code": "error_code_metadata_lint_json_parse_error",
+    "message": "failed to parse json: /tmp/malformed-lint-config.json",
+    "context": {
+      "path": "/tmp/malformed-lint-config.json",
+      "role": "lint_config"
+    }
+  },
+  {
+    "validator": "validate-validator-error-code-metadata-overrides",
+    "code": "error_code_metadata_overrides_placeholder_markers_file_not_found",
+    "message": "placeholder markers file not found: /tmp/missing-placeholder-markers.json",
+    "context": {
+      "path": "/tmp/missing-placeholder-markers.json"
+    }
+  },
+  {
+    "validator": "validate-validator-error-code-metadata-overrides",
+    "code": "error_code_metadata_overrides_unknown_override_group",
+    "message": "unknown override group: unknown_group",
+    "context": {
+      "group": "unknown_group"
+    }
+  },
+  {
+    "validator": "validate-alertmanager-route-consistency",
+    "code": "alertmanager_route_consistency_rules_dir_invalid",
+    "message": "rules directory not found: /tmp/missing-rules-dir",
+    "context": {
+      "path": "/tmp/missing-rules-dir"
+    }
+  },
+  {
+    "validator": "validate-alertmanager-route-consistency",
+    "code": "alertmanager_route_consistency_yaml_parse_error",
+    "message": "yaml parse failed: /tmp/malformed-alertmanager.yml",
+    "context": {
+      "path": "/tmp/malformed-alertmanager.yml"
+    }
+  },
+  {
+    "validator": "validate-notification-retry-runbook",
+    "code": "notification_retry_runbook_file_not_found",
+    "message": "required file not found: /tmp/missing-runbook.md",
+    "context": {
+      "path": "/tmp/missing-runbook.md"
+    }
+  },
+  {
+    "validator": "validate-notification-retry-runbook",
+    "code": "notification_retry_runbook_baseline_parse_failed",
+    "message": "rule:dev parse failed: missing baseline for retry_success_warn",
+    "context": {
+      "source": "rule:dev",
+      "key": "retry_success_warn"
+    }
+  },
+  {
+    "validator": "validate-profile-suggestion-actions-schema",
+    "code": "profile_suggestion_actions_file_not_found",
+    "message": "schema file not found: /tmp/missing-profile-schema.json",
+    "context": {
+      "path": "/tmp/missing-profile-schema.json",
+      "role": "schema"
+    }
+  },
+  {
+    "validator": "validate-profile-suggestion-actions-schema",
+    "code": "profile_suggestion_actions_json_parse_error",
+    "message": "failed to parse json: /tmp/malformed-profile-example.json",
+    "context": {
+      "path": "/tmp/malformed-profile-example.json",
+      "role": "example"
+    }
+  },
+  {
+    "validator": "validate-validator-placeholder-markers",
+    "code": "placeholder_markers_markers_file_not_found",
+    "message": "markers file not found: /tmp/missing-markers.json",
+    "context": {
+      "path": "/tmp/missing-markers.json"
+    }
+  },
+  {
+    "validator": "validate-validator-placeholder-markers",
+    "code": "placeholder_markers_json_parse_error",
+    "message": "failed to parse json: /tmp/malformed-markers.json",
+    "context": {
+      "path": "/tmp/malformed-markers.json",
+      "role": "markers"
+    }
+  },
+  {
+    "validator": "validate-validator-error-code-catalog",
+    "code": "error_code_catalog_catalog_file_not_found",
+    "message": "catalog file not found: /tmp/missing-catalog.json",
+    "context": {
+      "path": "/tmp/missing-catalog.json"
+    }
+  },
+  {
+    "validator": "validate-validator-error-code-catalog",
+    "code": "error_code_catalog_json_parse_error",
+    "message": "failed to parse json: /tmp/malformed-catalog.json",
+    "context": {
+      "path": "/tmp/malformed-catalog.json",
+      "role": "catalog"
+    }
+  }
+]

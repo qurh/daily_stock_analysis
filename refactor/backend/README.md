@@ -1,4 +1,4 @@
-# Refactor Backend (M2 Phase 2)
+# Refactor Backend (M4 Notification Hub Phase 2)
 
 ## Quick Start
 
@@ -46,6 +46,11 @@ uvicorn app.main:app --app-dir src --reload --port 18000
 - Threshold governance warn ratio: `BACKTEST_MULTI_WINDOW_ALERT_THRESHOLD_GOVERNANCE_WARN_RATIO` (default `0.25`)
 - Threshold governance critical ratio: `BACKTEST_MULTI_WINDOW_ALERT_THRESHOLD_GOVERNANCE_CRITICAL_RATIO` (default `0.5`, auto-raised to warn ratio when configured lower)
 - Threshold normalization rule: `critical` thresholds are auto-adjusted to be no smaller than corresponding `warn` thresholds.
+- Notification HTTP timeout seconds: `NOTIFICATION_HTTP_TIMEOUT_SEC` (default `10`)
+- Notification send max retries per channel: `NOTIFICATION_SEND_MAX_RETRIES` (default `0`)
+- Notification retry backoff ms (linear): `NOTIFICATION_RETRY_BACKOFF_MS` (default `0`)
+- Analysis auto notify switch: `ANALYSIS_AUTO_NOTIFY_ENABLED` (default `false`)
+- Analysis auto notify channels CSV: `ANALYSIS_AUTO_NOTIFY_CHANNELS` (default empty -> all enabled channels)
 - Real smoke switch: `ENABLE_REAL_LLM_SMOKE` (`1` to run integration smoke)
 
 Example:
@@ -120,6 +125,12 @@ uvicorn app.main:app --app-dir src --reload --port 18000
 - `POST /api/v2/optimization/proposals`
 - `POST /api/v2/optimization/proposals/{proposal_id}/approve`
 - `POST /api/v2/optimization/proposals/{proposal_id}/reject`
+- `GET /api/v2/notifications/channels`
+- `GET /api/v2/notifications/deliveries`
+- `POST /api/v2/notifications/deliveries/{delivery_id}/retry`
+- `POST /api/v2/notifications/preview`
+- `POST /api/v2/notifications/send`
+- `POST /api/v2/notifications/channels/test`
 - `POST /api/v2/strategy/cognition/distill`
 - `POST /api/v2/strategy/cognition/{memo_id}/review`
 - `POST /api/v2/strategy/extract`
@@ -136,6 +147,63 @@ uvicorn app.main:app --app-dir src --reload --port 18000
 - `GET /api/v2/prompt-lock/overview/metrics`
 - `GET /api/v2/prompt-lock/overview/metrics/prometheus`
 - `GET /api/v2/metrics`
+
+## Notification Hub
+
+- Notification hub provides channel list, preview, send, and per-channel connectivity test.
+- Delivery records are persisted and queryable via `GET /api/v2/notifications/deliveries`.
+- Failed delivery can be retried via `POST /api/v2/notifications/deliveries/{delivery_id}/retry`.
+- Per-channel send supports configurable retries (`NOTIFICATION_SEND_MAX_RETRIES`) with optional backoff.
+- Global metrics (`GET /api/v2/metrics`) include notification retry observability:
+  - `refactor_notification_retry_success_ratio`
+  - `refactor_notification_auto_retry_final_failure_ratio`
+  - plus status/channel/retry volume series for delivery tracking
+- Prometheus alert rules for retry governance:
+  - default: `monitoring/prometheus/rules/refactor-notification-retry-alerts.yml`
+  - profiles: `*.dev.yml`, `*.staging.yml`, `*.prod.yml`
+  - source config: `config/notification-retry-alert-thresholds.json`
+  - sync/update: `python3 scripts/sync-notification-retry-alert-thresholds.py`
+  - sync/check: `python3 scripts/sync-notification-retry-alert-thresholds.py --check`
+- Alertmanager routing consistency:
+  - route config: `monitoring/alertmanager/refactor-alertmanager-routing.yml`
+  - validate: `python3 scripts/validate-alertmanager-route-consistency.py`
+  - structured errors: `python3 scripts/validate-alertmanager-route-consistency.py --json-errors`
+  - structured success output: `python3 scripts/validate-alertmanager-route-consistency.py --json-output`
+    - success payload fields: `validator`, `status`, `rules_dir`, `alertmanager_file`, `alert_count`, `explicit_route_count`
+  - json error code namespace: `alertmanager_route_consistency_*` (includes `cli_args_invalid`)
+  - matcher operators supported in route check: `=`, `!=`, `=~`, `!~`
+  - guardrails:
+    - each alert must match at least one explicit route
+    - each alert must not match multiple explicit routes (avoid ambiguous routing)
+    - a later sibling route must not be shadowed by an earlier non-`continue` route
+- Runbook:
+  - `refactor/docs/runbooks/2026-02-20-notification-retry-alert-runbook.md`
+  - threshold section between `<!-- notification-retry-thresholds:start -->` and
+    `<!-- notification-retry-thresholds:end -->` is auto-rendered from threshold config
+- Runbook/rule consistency guard:
+  - `python3 scripts/validate-notification-retry-runbook.py`
+  - validates `default/dev/staging/prod` rule files and checks `default == prod`
+  - structured errors: `python3 scripts/validate-notification-retry-runbook.py --json-errors`
+  - structured success output: `python3 scripts/validate-notification-retry-runbook.py --json-output`
+    - success payload fields:
+      - `validator`, `status`, `default_rule_file`, `dev_rule_file`, `staging_rule_file`
+      - `prod_rule_file`, `runbook_file`, `profile_count`
+  - json error code namespace: `notification_retry_runbook_*` (includes `cli_args_invalid`)
+  - included in `scripts/ci.sh`
+- Channel plugin architecture is extensible by implementing `ChannelPlugin` in
+  `refactor/backend/src/app/services/notification_service.py`.
+- Current built-in channels:
+  - `wechat`, `feishu`, `telegram`, `email`, `pushover`, `pushplus`, `serverchan3`, `custom`, `discord`, `astrbot`
+- Existing env keys are reused for channel enablement:
+  - Webhook channels: `WECHAT_WEBHOOK_URL`, `FEISHU_WEBHOOK_URL`, `DISCORD_WEBHOOK_URL`, `CUSTOM_WEBHOOK_URLS`
+  - Telegram: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TELEGRAM_MESSAGE_THREAD_ID`
+  - Email: `EMAIL_SENDER`, `EMAIL_PASSWORD`, `EMAIL_RECEIVERS`
+  - Other push channels: `PUSHOVER_USER_KEY`, `PUSHOVER_API_TOKEN`, `PUSHPLUS_TOKEN`, `SERVERCHAN3_SENDKEY`
+  - AstrBot: `ASTRBOT_URL` (or `ASTRBOT_WEBHOOK_URL`), optional `ASTRBOT_TOKEN`
+- Analysis auto notify:
+  - set `ANALYSIS_AUTO_NOTIFY_ENABLED=true` to auto-send on analysis success
+  - optional `ANALYSIS_AUTO_NOTIFY_CHANNELS=wechat,feishu` to limit channels
+  - delivery source is tracked as `source_type=analysis_job` with `source_id=<job_id>`
 
 ## Feedback Event Trigger
 
@@ -416,33 +484,97 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
   - validates example payload internal consistency (file counts / line sums / module sums)
   - emits field-level mismatch details for consistency failures
   - supports `--json-errors` for structured stderr payloads (`code/message/context`)
-  - json error `code` namespace: `summary_schema_*`
+    - `summary_schema_example_payload_schema_validation_failed` includes `context.validation_path`
+  - supports `--json-output` for structured stdout payloads
+    - success payload fields: `validator`, `status`, `schema_file`, `sync_script_file`, `example_file`, `schema_version`
+  - json error `code` namespace: `summary_schema_*` (includes `cli_args_invalid`)
 - Validate changelog linkage:
   - `python3 scripts/validate-summary-contract-changelog.py`
   - validates latest changelog version and summary schema version note
   - supports `--json-errors` for structured stderr payloads (`code/message/context`)
-  - json error `code` namespace: `summary_contract_*`
+  - supports `--json-output` for structured stdout payloads
+    - success payload fields: `validator`, `status`, `schema_file`, `changelog_file`, `app_file`, `app_version`, `schema_version`, `changelog_version`
+  - json error `code` namespace: `summary_contract_*` (includes `cli_args_invalid`)
+- Validator success output base contract:
+  - schema file: `refactor/backend/config/schemas/validator-success-output.schema.json`
+  - all validator `--json-output` payloads must include:
+    - `validator` (non-empty string)
+    - `status` (const: `ok`)
+  - when `--json-output` and `--json-errors` are both provided:
+    - success: structured JSON is printed to stdout
+    - failure: structured JSON error is printed to stderr
+    - this routing contract applies to both:
+      - CLI argument failures
+      - business validation failures (for example: missing required files)
+- Validator error output base contract:
+  - schema file: `refactor/backend/config/schemas/validator-error-output.schema.json`
+  - all validator `--json-errors` payloads must include:
+    - `validator` (non-empty string)
+    - `code` (non-empty string)
+    - `message` (non-empty string)
+    - `context` (object)
+  - contract tests cover both:
+    - CLI argument failures
+    - business validation failures
+  - business-failure matrix tests cover all 9 validator scripts with exact `code` and required `context` keys
+  - high-frequency context sub-schema:
+    - `refactor/backend/config/schemas/validator-error-context-high-frequency.schema.json`
+    - enforces `context` shape for selected high-frequency business-failure error codes
+  - validate high-frequency context contract samples:
+    - `python3 scripts/validate-validator-error-context-high-frequency-schema.py`
+    - default samples file:
+      - `refactor/backend/config/validator-error-context-high-frequency-samples.json`
+    - supports `--json-errors` for structured stderr payloads (`code/message/context`)
+    - supports `--json-output` for structured stdout payloads
+      - success payload fields: `validator`, `status`, `schema_file`, `samples_file`, `sample_count`
+    - json error `code` namespace: `error_context_high_frequency_*` (includes `cli_args_invalid`)
 - Validator error code catalog:
   - `refactor/backend/config/validator-error-codes.json`
   - catalog schema: `refactor/backend/config/schemas/validator-error-codes.schema.json`
   - catalog entry shape: `{description, severity, remediation}`
-  - catalog groups: `summary_schema`, `summary_contract`, `placeholder_markers`
+  - catalog groups: `summary_schema`, `summary_contract`, `placeholder_markers`, `profile_suggestion_actions`, `alertmanager_route_consistency`, `notification_retry_runbook`, `error_context_high_frequency`
   - validate catalog schema and naming: `python3 scripts/validate-validator-error-code-catalog.py`
   - custom catalog/schema: `python3 scripts/validate-validator-error-code-catalog.py --catalog-file <path> --schema-file <path>`
   - structured error output: `python3 scripts/validate-validator-error-code-catalog.py --json-errors`
-  - json error `code` namespace: `error_code_catalog_*`
+  - structured success output: `python3 scripts/validate-validator-error-code-catalog.py --json-output`
+    - success payload fields: `validator`, `status`, `catalog_file`, `schema_file`, `groups`, `total_codes`
+  - json error `code` namespace: `error_code_catalog_*` (includes `cli_args_invalid`)
   - placeholder marker config: `refactor/backend/config/validator-placeholder-markers.json`
   - placeholder marker schema: `refactor/backend/config/schemas/validator-placeholder-markers.schema.json`
   - validate marker config: `python3 scripts/validate-validator-placeholder-markers.py`
   - custom marker schema: `python3 scripts/validate-validator-placeholder-markers.py --schema-file <path>`
   - structured error output: `python3 scripts/validate-validator-placeholder-markers.py --json-errors`
+  - structured success output: `python3 scripts/validate-validator-placeholder-markers.py --json-output`
+    - success payload fields: `validator`, `status`, `markers_file`, `schema_file`, `markers_count`
+  - placeholder markers validator supports `--json-errors`
+    (`placeholder_markers_*`, includes `cli_args_invalid`)
   - validator scripts must expose `VALIDATOR_ERROR_CODES` registry for coverage checks
   - sync/check command: `python3 scripts/sync-validator-error-codes.py --check --strict-descriptions`
   - custom marker config: `python3 scripts/sync-validator-error-codes.py --check --strict-descriptions --placeholder-markers-file <path>`
   - metadata override config: `refactor/backend/config/validator-error-code-metadata-overrides.json`
+    - includes default policy overrides for `profile_suggestion_actions` group
+    - `profile_suggestion_actions_helper_contract_failed` defaults to `severity=critical`
+    - includes full default policy coverage for all `profile_suggestion_actions_*` codes
+    - includes `placeholder_markers_cli_args_invalid` for placeholder markers CLI JSON errors
+    - includes full default policy coverage for all `alertmanager_route_consistency_*` codes
+    - includes full default policy coverage for all `notification_retry_runbook_*` codes
+    - includes full default policy coverage for all `error_context_high_frequency_*` codes
+    - `error_context_high_frequency` override policy requires actionable remediation with rerun guidance for all 8 codes; `unexpected_error` stays `severity=critical`
   - metadata override schema: `refactor/backend/config/schemas/validator-error-code-metadata-overrides.schema.json`
   - metadata lint config: `refactor/backend/config/validator-error-code-metadata-lint.json`
   - metadata lint schema: `refactor/backend/config/schemas/validator-error-code-metadata-lint.schema.json`
+  - shared unknown-profile suggestion helpers: `refactor/backend/scripts/profile_suggestion_helpers.py`
+    - includes strict `suggested_actions` contract validation (supported action enum + required fields)
+  - profile suggestion actions schema: `refactor/backend/config/schemas/profile-suggestion-actions.schema.json`
+  - profile suggestion actions example: `refactor/backend/config/schemas/profile-suggestion-actions.example.json`
+  - validate profile suggestion actions schema/example/helper:
+    - `python3 scripts/validate-profile-suggestion-actions-schema.py`
+  - custom schema/example/helper:
+    - `python3 scripts/validate-profile-suggestion-actions-schema.py --schema-file <path> --example-file <path> --helper-file <path>`
+  - profile suggestion actions validator supports `--json-errors`
+    (`profile_suggestion_actions_*`, includes `cli_args_invalid`)
+  - profile suggestion actions validator supports `--json-output`
+    - success payload fields: `validator`, `status`, `schema_file`, `example_file`, `helper_file`, `example_action_count`
   - metadata lint config supports profile mode:
     - `{"default_profile": "...", "profiles": {"dev": {...}, "prod": {...}}}`
   - validate metadata lint config: `python3 scripts/validate-validator-error-code-metadata-lint.py`
@@ -452,23 +584,55 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
     - `python3 scripts/validate-validator-error-code-metadata-lint.py --lint-config-file <path> --lint-profile <profile>`
   - lint profile env default:
     - `LINT_PROFILE=<profile> python3 scripts/validate-validator-error-code-metadata-lint.py --lint-config-file <path>`
-  - metadata lint validator supports `--json-errors` (`error_code_metadata_lint_*`)
+  - metadata lint validator supports `--json-errors`
+    (`error_code_metadata_lint_*`, includes `cli_args_invalid`)
+  - metadata lint validator supports `--json-output`
+    - success payload fields:
+      - `validator`, `status`, `lint_config_file`, `schema_file`, `selected_profile`
+      - `min_remediation_length`, `action_verbs_count`
   - unknown lint profile errors include:
     - `available_profiles` and `suggested_profiles` in JSON `context`
       - `available_profiles` prioritizes `default_profile` first (then alphabetical)
     - `fallback_reason` in JSON `context`:
       - `close_match` / `no_close_match` / `no_profiles_config`
+    - `suggestion_level` in JSON `context`:
+      - `hint` when `fallback_reason=close_match`
+      - `warning` when `fallback_reason=no_close_match`
+      - `error` when `fallback_reason=no_profiles_config`
     - `suggested_cli_args` in JSON `context`
     - `suggested_command` in JSON `context`
-      - now includes current `--lint-config-file` path in template
+      - now uses shell-safe quoting for current `--lint-config-file` path in template
+    - `suggested_actions` in JSON `context`:
+      - close match:
+        - `{"action":"copy_command","command":"..."}`
+        - `{"action":"use_profile","profile":"..."}`
+      - no close match:
+        - `{"action":"show_profiles","profiles":[...]}`
+      - profile mode not configured:
+        - `{"action":"migrate_profile_mode","config_snippet":{...}}`
     - plain stderr now includes "Did you mean: <profile>" when suggestion exists
     - plain stderr now includes quick fix args: `Try: --lint-profile <profile>`
     - if no close suggestion exists, error message includes `Available profiles: ...`
+    - if `fallback_reason=no_profiles_config`, JSON `context` now includes:
+      - `suggested_config_snippet` for migrating flat lint config to profile mode
     - if `fallback_reason=no_profiles_config`, message includes:
       - `profile mode is not configured for this lint config`
   - validate metadata overrides: `python3 scripts/validate-validator-error-code-metadata-overrides.py`
   - custom overrides/schema/catalog:
     - `python3 scripts/validate-validator-error-code-metadata-overrides.py --overrides-file <path> --schema-file <path> --catalog-file <path>`
+  - overrides config supports profile mode:
+    - `{"default_profile":"...", "profiles":{"dev": {...}, "prod": {...}}}`
+  - overrides profile selection:
+    - `python3 scripts/validate-validator-error-code-metadata-overrides.py --overrides-file <path> --overrides-profile <profile>`
+  - overrides profile env default:
+    - `OVERRIDES_PROFILE=<profile> python3 scripts/validate-validator-error-code-metadata-overrides.py --overrides-file <path>`
+  - overrides profile precedence:
+    - `--overrides-profile` > `OVERRIDES_PROFILE` > overrides config `default_profile`
+  - unknown overrides profile errors include:
+    - `fallback_reason` / `suggestion_level`
+    - `suggested_profiles` / `suggested_cli_args`
+    - `suggested_command` (includes shell-safe quoted `--overrides-file` path)
+    - `suggested_actions` (`copy_command` / `use_profile` / `show_profiles`)
   - custom lint config:
     - `python3 scripts/validate-validator-error-code-metadata-overrides.py --lint-config-file <path>`
   - overrides lint profile selection:
@@ -477,26 +641,138 @@ python3 scripts/sync-strict-gate-alert-thresholds.py --dry-run --summary-only --
     - `LINT_PROFILE=<profile> python3 scripts/validate-validator-error-code-metadata-overrides.py --lint-config-file <path>`
   - lint profile precedence:
     - `--lint-profile` > `LINT_PROFILE` > lint config `default_profile`
-  - metadata override validator supports `--json-errors` (`error_code_metadata_overrides_*`)
+  - metadata override validator supports `--json-errors`
+    (`error_code_metadata_overrides_*`, includes `cli_args_invalid`)
+  - metadata override validator supports `--json-output`
+    - success payload fields:
+      - `validator`, `status`, `overrides_file`, `schema_file`, `catalog_file`
+      - `lint_config_file`, `placeholder_markers_file`
+      - `requested_overrides_profile`, `requested_lint_profile`
+      - `total_override_groups`, `total_override_codes`
   - unknown overrides lint profile errors include:
     - `available_profiles` and `suggested_profiles` in JSON `context`
       - `available_profiles` prioritizes `default_profile` first (then alphabetical)
     - `fallback_reason` in JSON `context`:
       - `close_match` / `no_close_match` / `no_profiles_config`
+    - `suggestion_level` in JSON `context`:
+      - `hint` when `fallback_reason=close_match`
+      - `warning` when `fallback_reason=no_close_match`
+      - `error` when `fallback_reason=no_profiles_config`
     - `suggested_cli_args` in JSON `context`
     - `suggested_command` in JSON `context`
-      - now includes current `--lint-config-file` path in template
+      - now uses shell-safe quoting for current `--lint-config-file` path in template
+    - `suggested_actions` in JSON `context`:
+      - close match:
+        - `{"action":"copy_command","command":"..."}`
+        - `{"action":"use_profile","profile":"..."}`
+      - no close match:
+        - `{"action":"show_profiles","profiles":[...]}`
+      - profile mode not configured:
+        - `{"action":"migrate_profile_mode","config_snippet":{...}}`
     - plain stderr now includes "Did you mean: <profile>" when suggestion exists
     - plain stderr now includes quick fix args: `Try: --lint-profile <profile>`
     - if no close suggestion exists, error message includes `Available profiles: ...`
+    - if `fallback_reason=no_profiles_config`, JSON `context` now includes:
+      - `suggested_config_snippet` for migrating flat lint config to profile mode
     - if `fallback_reason=no_profiles_config`, message includes:
       - `profile mode is not configured for this lint config`
   - metadata override semantic lint:
     - rejects placeholder text in `description/remediation` using marker config
     - requires remediation text to be actionable (contains action verbs and minimum text length)
   - custom metadata overrides: `python3 scripts/sync-validator-error-codes.py --metadata-overrides-file <path>`
+  - sync metadata overrides profile selection:
+    - `python3 scripts/sync-validator-error-codes.py --metadata-overrides-file <path> --metadata-overrides-profile <profile>`
+  - sync metadata overrides profile env default:
+    - `METADATA_OVERRIDES_PROFILE=<profile> python3 scripts/sync-validator-error-codes.py --metadata-overrides-file <path>`
+  - sync metadata overrides profile precedence:
+    - `--metadata-overrides-profile` > `METADATA_OVERRIDES_PROFILE` > overrides config `default_profile`
+  - sync structured JSON errors:
+    - `python3 scripts/sync-validator-error-codes.py --json-errors`
+    - unexpected runtime failures return:
+      - `error_code_sync_validator_error_codes_unexpected_error`
+      - includes `context.stage=runtime`
+      - includes `context.exception_type`
+      - includes `context.exit_code=1`
+      - includes `context.argv`
+      - includes `context.unknown_args=[]`
+    - argument parsing failures return:
+      - `error_code_sync_validator_error_codes_unexpected_error`
+      - includes `context.stage=argument_parsing`
+      - includes `context.argv`
+      - unknown argument cases include `context.unknown_args` and `context.argv`
+    - catalog file read failed returns:
+      - `error_code_sync_validator_error_codes_catalog_file_read_failed`
+      - includes `failure_mode=catalog_file_read_failed` in JSON `context`
+    - invalid UTF-8 (or invalid JSON text) in existing catalog returns:
+      - `error_code_sync_validator_error_codes_json_parse_error`
+      - includes `exception_type` in JSON `context` for decode/parse failures
+    - output parent create failed returns:
+      - `error_code_sync_validator_error_codes_output_parent_create_failed`
+    - output write failed returns:
+      - `error_code_sync_validator_error_codes_output_write_failed`
+    - validator script file missing returns:
+      - `error_code_sync_validator_error_codes_validator_script_file_not_found`
+    - validator registry load failed returns:
+      - `error_code_sync_validator_error_codes_validator_registry_load_failed`
+      - includes syntax/runtime/SystemExit loader failures
+      - includes `stage=validator_registry_loading` in JSON `context`
+      - includes `exception_type` in JSON `context`
+      - includes `failure_mode` in JSON `context`:
+        - `exception` for generic loader exceptions
+        - `system_exit` for `SystemExit` loader failures
+      - SystemExit cases include `exit_code` in JSON `context`
+    - validator registry missing returns:
+      - `error_code_sync_validator_error_codes_validator_registry_missing`
+      - includes `stage=validator_registry_validation` in JSON `context`
+      - includes `failure_mode=missing_registry` in JSON `context`
+    - validator registry invalid returns:
+      - `error_code_sync_validator_error_codes_validator_registry_invalid`
+      - includes `stage=validator_registry_validation` in JSON `context`
+      - includes `failure_mode=invalid_registry_item` in JSON `context`
+    - metadata overrides file missing returns:
+      - `error_code_sync_validator_error_codes_metadata_overrides_file_not_found`
+      - includes `failure_mode=metadata_overrides_file_not_found` in JSON `context`
+    - metadata overrides file read failed returns:
+      - `error_code_sync_validator_error_codes_metadata_overrides_file_read_failed`
+      - includes `failure_mode=metadata_overrides_file_read_failed` in JSON `context`
+    - invalid UTF-8 (or invalid JSON text) in metadata overrides returns:
+      - `error_code_sync_validator_error_codes_json_parse_error`
+      - includes `exception_type` in JSON `context` for decode/parse failures
+    - placeholder marker file missing returns:
+      - `error_code_sync_validator_error_codes_placeholder_markers_file_not_found`
+      - includes `failure_mode=placeholder_markers_file_not_found` in JSON `context`
+    - placeholder marker file read failed returns:
+      - `error_code_sync_validator_error_codes_placeholder_markers_read_failed`
+      - includes `failure_mode=placeholder_markers_file_read_failed` in JSON `context`
+    - placeholder marker payload invalid returns:
+      - `error_code_sync_validator_error_codes_placeholder_markers_invalid`
+      - includes non-object JSON payload cases (for example: array payload)
+      - includes invalid UTF-8 marker payload cases
+      - includes `exception_type` in JSON `context` for UTF-8 decode and JSON parse failures
+    - check drift returns:
+      - `error_code_sync_validator_error_codes_catalog_not_in_sync`
+    - strict placeholder text returns:
+      - `error_code_sync_validator_error_codes_placeholder_text_detected`
+    - unknown metadata overrides profile returns:
+      - `error_code_sync_validator_error_codes_metadata_overrides_profile_not_found`
+    - unknown override code returns:
+      - `error_code_sync_validator_error_codes_unknown_override_code`
+  - unknown sync metadata overrides profile errors:
+    - close match includes `Did you mean: <profile>` and `Try: --metadata-overrides-profile <profile>`
+    - no close match includes `Available profiles: ...` (default profile listed first)
+    - JSON `context` now includes `suggested_actions`:
+      - close match:
+        - `{"action":"copy_command","command":"..."}`
+        - `{"action":"use_profile","profile":"..."}`
+      - no close match:
+        - `{"action":"show_profiles","profiles":[...]}`
+      - profile mode not configured:
+        - `{"action":"migrate_profile_mode","config_snippet":{...}}`
+    - when profile mode is not configured (`fallback_reason=no_profiles_config`), JSON `context` includes:
+      - `suggested_config_snippet` for migrating flat overrides config to profile mode
   - override rules:
     - payload format: `group -> code -> {description|severity|remediation}`
+    - profile payload format: `default_profile + profiles.<name>.(group -> code -> fields)`
     - unknown group/code is rejected to prevent silent typo drift
   - `--strict-descriptions` rejects placeholder text in `description/remediation` (`TODO:`, `TBD:`, `FIXME:`; case-insensitive)
   - strict error output includes marker list, `group.code.field` entries, and remediation hint
