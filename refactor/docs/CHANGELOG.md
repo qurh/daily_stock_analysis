@@ -2,6 +2,363 @@
 
 All notable changes for the refactor project are documented in this file.
 
+## [0.4.57-m4-ci-optional-positive-rehearsal-stage] - 2026-03-04
+
+### Added
+
+- Added optional CI stage flag for one-click M4 positive rehearsal:
+  - `CI_RUN_M4_POSITIVE_REHEARSAL=1`
+  - when enabled, `scripts/ci.sh` runs `./scripts/rehearse-m4-positive-flow.sh` after unit tests
+
+### Changed
+
+- Backend README updated with optional CI stage usage.
+- Backend app version bumped to `0.4.57-m4-ci-optional-positive-rehearsal-stage`.
+
+## [0.4.56-m4-one-click-positive-smoke-rehearsal] - 2026-03-04
+
+### Added
+
+- Added one-click rehearsal script for positive strategy flow:
+  - `refactor/backend/scripts/rehearse-m4-positive-flow.sh`
+  - workflow: start backend -> health check -> run positive smoke -> cleanup
+- Added M4 plan/record docs for one-click rehearsal flow.
+
+### Changed
+
+- Backend README now documents one-click positive rehearsal usage and runtime overrides.
+- Backend app version bumped to `0.4.56-m4-one-click-positive-smoke-rehearsal`.
+
+## [0.4.55-m4-strategy-gate-precheck-and-positive-smoke] - 2026-03-04
+
+### Added
+
+- Added frontend Strategy publish gate hint for common backend gate errors:
+  - `STR-GATE-005`
+  - `STR-GATE-009`
+  - `STR-GATE-007/008`
+- Added frontend unit test coverage for publish gate hint:
+  - `refactor/frontend/src/pages/StrategyPage.test.tsx`
+- Added backend positive integration smoke script:
+  - `refactor/backend/scripts/smoke-positive-strategy-flow.py`
+  - auto-runs `publish -> bind -> rollback` after finding a passable backtest sample
+
+### Changed
+
+- Strategy page now surfaces actionable guidance when publish is blocked by gate checks.
+- Backend README and frontend README updated with new smoke/precheck guidance.
+- Backend app version bumped to `0.4.55-m4-strategy-gate-precheck-and-positive-smoke`.
+
+## [0.4.54-m4-agent-metrics-observability] - 2026-03-04
+
+### Added
+
+- Added Agent Toolkit observability metrics on global endpoint `GET /api/v2/metrics`:
+  - total/succeeded/degraded/failed/retry call gauges
+  - average latency and failed-ratio gauges
+  - 24h/7d/30d window gauges
+  - labeled gauges by `tool_name`, `status`, `error_code`
+- Added metrics route unit test coverage for agent trace aggregation:
+  - `refactor/backend/tests/unit/test_metrics_route.py`
+
+### Changed
+
+- Global metrics route now aggregates persisted assistant `tool_trace.agent_trace.trace` records from
+  `conversation_messages`.
+- Backend README updated with agent observability metric contracts.
+- Backend app version bumped to `0.4.54-m4-agent-metrics-observability`.
+
+## [0.4.53-m4-agent-toolkit-core] - 2026-03-04
+
+### Added
+
+- Added Agent Toolkit core service:
+  - unified `ToolSpec` protocol
+  - tool registry and static tool registration
+  - intent planning + forced-tool invocation
+  - runtime retry/degrade trace bundle
+- Added Agent API routes:
+  - `POST /api/v2/agent/tools/register`
+  - `GET /api/v2/agent/tools`
+  - `POST /api/v2/agent/invoke`
+- Added built-in agent tools:
+  - `knowledge.search`
+  - `memory.search`
+  - `backtest.performance`
+  - `workflow.execution.get`
+- Added unit test coverage:
+  - `test_agent_service.py`
+  - `test_agent_routes.py`
+  - chat agent trace assertion in `test_chat_service.py`
+
+### Changed
+
+- `ChatService` now invokes Agent runtime by intent and appends `agent_trace` to assistant `tool_trace`.
+- App bootstrap now wires `AgentService` and exposes it via app state/dependency injection.
+- Added runtime env settings:
+  - `AGENT_TOOL_MAX_RETRIES`
+  - `AGENT_TOOL_RETRY_BACKOFF_MS`
+- Backend `.env.example` and README updated with Agent Toolkit configuration and endpoints.
+- Backend app version bumped to `0.4.53-m4-agent-toolkit-core`.
+
+## [0.4.52-m4-frontend-five-pages] - 2026-03-04
+
+### Added
+
+- Added M4 frontend route shell with five pages:
+  - `Chat`
+  - `Knowledge`
+  - `Workflow`
+  - `Strategy`
+  - `Backtest`
+- Added typed frontend API client and service modules:
+  - `src/lib/api.ts`
+  - `src/lib/services/*.ts`
+  - `src/lib/types.ts`
+- Added page interaction tests:
+  - app shell routing/navigation
+  - chat page validation + create session
+  - knowledge page validation + upload
+
+### Changed
+
+- Replaced M0 frontend scaffold with M4 console layout and responsive style system.
+- Frontend README updated with M4 functional scope and run/test/build commands.
+- Frontend test stack now uses Vitest + React Testing Library.
+
+## [0.4.51-m4-analysis-trace-failure-context-window-metrics] - 2026-03-04
+
+### Added
+
+- Added trace node failure context field:
+  - `failure_context`
+- Added SQLite workflow trace compatibility column:
+  - `failure_context`
+- Added workflow trace time-window metrics in `/api/v2/metrics`:
+  - totals: `24h/7d/30d`
+  - failed ratios: `24h/7d/30d`
+  - average duration: `24h/7d/30d`
+
+### Changed
+
+- `AnalysisService` now writes sanitized failure context for failed nodes.
+- `WorkflowService` now persists and returns `failure_context` in trace node payload.
+- Workflow trace metrics snapshot now computes windowed observability from `ended_at`.
+- Backend README updated with `failure_context` and window metrics contracts.
+- Backend app version bumped to `0.4.51-m4-analysis-trace-failure-context-window-metrics`.
+- Summary schema version: `1`
+
+## [0.4.50-m4-analysis-trace-failure-metrics] - 2026-03-04
+
+### Added
+
+- Added structured trace reason fields for analysis/workflow nodes:
+  - `failure_code`
+  - `degrade_reason`
+- Added SQLite workflow trace compatibility columns:
+  - `failure_code`
+  - `degrade_reason`
+- Added workflow trace observability metrics in `/api/v2/metrics`:
+  - total/degraded/failed/retry node gauges
+  - degraded/failed/retry ratio gauges
+  - average node duration gauge
+  - labeled gauges by `failure_code` and `degrade_reason`
+- Added metrics route contract test:
+  - `refactor/backend/tests/unit/test_metrics_route.py`
+
+### Changed
+
+- `AnalysisService` now emits normalized reason fields:
+  - retry recovered -> `degrade_reason=retry_recovered`
+  - quality degraded -> `degrade_reason=factor_quality_degraded`
+  - node failure -> normalized `failure_code`
+- `WorkflowService` now persists and returns `failure_code/degrade_reason` in trace nodes.
+- Backend README updated with trace reason and metrics contracts.
+- Backend app version bumped to `0.4.50-m4-analysis-trace-failure-metrics`.
+- Summary schema version: `1`
+
+## [0.4.49-m4-analysis-trace-observability] - 2026-03-04
+
+### Added
+
+- Added analysis/workflow trace node observability fields:
+  - `attempts`
+  - `duration_ms`
+  - `degraded`
+- Added SQLite schema compatibility columns for `workflow_trace_nodes`:
+  - `attempts`
+  - `duration_ms`
+  - `degraded`
+- Added unit-test coverage for retry observability and workflow trace field presence:
+  - `refactor/backend/tests/unit/test_analysis_jobs.py`
+  - `refactor/backend/tests/unit/test_workflow_executions.py`
+
+### Changed
+
+- `AnalysisService` now records per-node retry/latency/degradation metadata for:
+  - sequential node execution
+  - parallel factor collection stages
+- `WorkflowService` now persists and returns the observability fields in execution trace queries.
+- Backend README updated with trace observability contract.
+- Backend app version bumped to `0.4.49-m4-analysis-trace-observability`.
+- Summary schema version: `1`
+
+## [0.4.48-m4-analysis-langgraph-adapter-fallback] - 2026-03-04
+
+### Added
+
+- Added analysis orchestrator engine selection:
+  - `ANALYSIS_ORCHESTRATOR_ENGINE=local|langgraph`
+- Added LangGraph adapter entrypoint in analysis orchestration:
+  - `_execute_flow_with_langgraph(...)`
+  - staged graph node runner builder for flow-template stages
+- Added fallback contract when langgraph import is unavailable:
+  - `meta.orchestrator.requested`
+  - `meta.orchestrator.effective`
+  - `meta.orchestrator.warning_code`
+  - `meta.orchestrator.warning_message`
+- Added unit test coverage for langgraph import-error fallback.
+
+### Changed
+
+- `AnalysisService` now routes execution via orchestrator engine selector:
+  - local engine
+  - langgraph engine (with import-error fallback to local)
+- `AppSettings` now includes `analysis_orchestrator_engine`.
+- Backend `.env.example` and README updated with orchestrator engine config.
+- Backend app version bumped to `0.4.48-m4-analysis-langgraph-adapter-fallback`.
+- Summary schema version: `1`
+
+## [0.4.47-m4-analysis-parallel-retry-orchestration] - 2026-03-04
+
+### Added
+
+- Added analysis flow parallel factor-stage support:
+  - `ANALYSIS_FLOW_TEMPLATE` now supports `+` grouped stage syntax
+  - parallel stages are validated to run factor collection nodes only
+  - new node ids:
+    - `collect_technical_factor`
+    - `collect_macro_factor`
+    - `collect_credit_factor`
+    - `collect_sentiment_factor`
+- Added analysis node retry settings:
+  - `ANALYSIS_NODE_MAX_RETRIES`
+  - `ANALYSIS_NODE_RETRY_BACKOFF_MS`
+- Added factor-level collection API for modular orchestration:
+  - `FactorService.collect_factor(...)`
+  - `FactorService.empty_factor_pack()`
+- Expanded analysis unit tests:
+  - custom `+` grouped template stage execution
+  - transient node failure retry success path
+  - retry budget exhausted failure path with failed trace node
+
+### Changed
+
+- `AnalysisService` now executes template as staged nodes and supports:
+  - parallel factor collection stage execution
+  - per-node retry with exponential backoff
+  - failure persistence (`result_json` + `execution_id`) for non-prompt exceptions
+- `AppSettings` now includes analysis node retry config fields.
+- Backend `.env.example` and README updated with parallel template and retry config.
+- Backend app version bumped to `0.4.47-m4-analysis-parallel-retry-orchestration`.
+- Summary schema version: `1`
+
+## [0.4.46-m4-analysis-flow-template-orchestration] - 2026-03-04
+
+### Added
+
+- Added analysis flow-template orchestration for analysis jobs:
+  - configurable node order via `ANALYSIS_FLOW_TEMPLATE`
+  - supported node ids:
+    - `resolve_strategy_context`
+    - `resolve_prompt`
+    - `collect_factors`
+    - `build_dashboard`
+    - `finalize_report`
+- Added workflow execution completion/failure APIs for deferred runs:
+  - `WorkflowService.complete_execution(...)`
+  - `WorkflowService.fail_execution(...)`
+- Added analysis trace contract tests:
+  - `refactor/backend/tests/unit/test_analysis_jobs.py`
+  - validates default flow nodes include factor/dashboard nodes
+  - validates custom template order is reflected in trace
+
+### Changed
+
+- `AnalysisService` now executes modular analysis nodes by template and writes executed node trace to workflow storage:
+  - `refactor/backend/src/app/services/analysis_service.py`
+- `WorkflowService.start_execution(...)` now supports deferred run mode (`defer_run=True`) for external orchestration.
+- `AppSettings` now includes `analysis_flow_template` from env config:
+  - `refactor/backend/src/app/core/settings.py`
+- App bootstrap passes flow-template config into analysis service:
+  - `refactor/backend/src/app/main.py`
+- Backend `.env.example` and README updated with `ANALYSIS_FLOW_TEMPLATE`.
+- Backend app version bumped to `0.4.46-m4-analysis-flow-template-orchestration`.
+- Summary schema version: `1`
+
+## [0.4.45-m4-analysis-real-factor-adapters] - 2026-03-04
+
+### Added
+
+- Added configurable external factor adapters with deterministic fallback:
+  - `refactor/backend/src/app/services/factor_service.py`
+  - adapter support for:
+    - `macro`
+    - `credit`
+    - `sentiment`
+- Added new analysis factor source settings:
+  - `ANALYSIS_FACTOR_SOURCE_TIMEOUT_SEC`
+  - `ANALYSIS_FACTOR_SOURCE_AUTH_TOKEN`
+  - `ANALYSIS_MACRO_SOURCE_URL`
+  - `ANALYSIS_CREDIT_SOURCE_URL`
+  - `ANALYSIS_SENTIMENT_SOURCE_URL`
+- Added focused unit tests for external-source success and degrade fallback:
+  - `refactor/backend/tests/unit/test_factor_service.py`
+  - `refactor/backend/tests/unit/test_settings_env_names.py`
+
+### Changed
+
+- App bootstrap now wires factor providers from settings:
+  - `refactor/backend/src/app/main.py`
+- `AppSettings` now exposes analysis factor adapter config fields:
+  - `refactor/backend/src/app/core/settings.py`
+- Backend `.env.example` includes analysis factor adapter config templates.
+- Backend README now documents external factor adapter mode and fallback behavior.
+- Backend app version bumped to `0.4.45-m4-analysis-real-factor-adapters`.
+- Summary schema version: `1`
+
+## [0.4.44-m4-analysis-multisource-factors] - 2026-03-04
+
+### Added
+
+- Added extensible multi-source factor pipeline:
+  - `refactor/backend/src/app/services/factor_service.py`
+  - factor providers included:
+    - `technical`
+    - `macro`
+    - `credit`
+    - `sentiment`
+- Analysis dashboard now includes:
+  - `dashboard.factors.{technical,macro,credit,sentiment}`
+  - `dashboard.decision.{direction,confidence,rationale}`
+  - `dashboard.signals`
+  - `dashboard.risk_flags`
+- Analysis report meta now includes factor quality/degradation hints:
+  - `report.meta.factor_quality_flags`
+- Expanded analysis job contract test:
+  - `refactor/backend/tests/unit/test_analysis_jobs.py`
+  - validates multi-source factors + decision structure in result payload
+
+### Changed
+
+- `AnalysisService` now composes dashboard output using factor pipeline:
+  - `refactor/backend/src/app/services/analysis_service.py`
+- App bootstrap wires `FactorService` into analysis service:
+  - `refactor/backend/src/app/main.py`
+- Backend README now documents multi-source analysis dashboard contract.
+- Backend app version bumped to `0.4.44-m4-analysis-multisource-factors`.
+- Summary schema version: `1`
+
 ## [0.4.43-m4-overrides-quality-policy-alertmanager] - 2026-03-01
 
 ### Added
