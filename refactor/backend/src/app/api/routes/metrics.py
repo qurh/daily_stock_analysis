@@ -744,6 +744,210 @@ def _load_notification_delivery_snapshot(request: Request) -> dict[str, Any]:
     }
 
 
+def _parse_workflow_trace_time(raw: str | None) -> datetime | None:
+    if raw is None:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(raw))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _load_workflow_trace_observability_snapshot(request: Request) -> dict[str, Any]:
+    with request.app.state.database.connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT ended_at, status, degraded, attempts, duration_ms, failure_code, degrade_reason
+            FROM workflow_trace_nodes
+            """
+        ).fetchall()
+
+    entries: list[dict[str, Any]] = []
+    failure_code_counts: dict[str, int] = {}
+    degrade_reason_counts: dict[str, int] = {}
+    for row in rows:
+        failure_code = str(row["failure_code"]).strip() if row["failure_code"] is not None else ""
+        degrade_reason = str(row["degrade_reason"]).strip() if row["degrade_reason"] is not None else ""
+        if failure_code:
+            failure_code_counts[failure_code] = failure_code_counts.get(failure_code, 0) + 1
+        if degrade_reason:
+            degrade_reason_counts[degrade_reason] = degrade_reason_counts.get(degrade_reason, 0) + 1
+        entries.append(
+            {
+                "ended_at": _parse_workflow_trace_time(row["ended_at"]),
+                "status": str(row["status"] or ""),
+                "degraded": bool(row["degraded"]),
+                "retry": int(row["attempts"] or 0) > 1,
+                "duration_ms": float(row["duration_ms"] or 0.0),
+            }
+        )
+
+    def _window_summary(cutoff: datetime | None) -> dict[str, float]:
+        scoped = [
+            item
+            for item in entries
+            if cutoff is None or (item["ended_at"] is not None and item["ended_at"] >= cutoff)
+        ]
+        total_nodes = len(scoped)
+        degraded_nodes = sum(1 for item in scoped if item["degraded"])
+        failed_nodes = sum(1 for item in scoped if item["status"] == "failed")
+        retry_nodes = sum(1 for item in scoped if item["retry"])
+        avg_duration_ms = (
+            round(sum(float(item["duration_ms"]) for item in scoped) / total_nodes, 2) if total_nodes > 0 else 0.0
+        )
+        degraded_ratio = round((degraded_nodes / total_nodes), 4) if total_nodes > 0 else 0.0
+        failed_ratio = round((failed_nodes / total_nodes), 4) if total_nodes > 0 else 0.0
+        retry_ratio = round((retry_nodes / total_nodes), 4) if total_nodes > 0 else 0.0
+        return {
+            "total_nodes": float(total_nodes),
+            "degraded_nodes": float(degraded_nodes),
+            "failed_nodes": float(failed_nodes),
+            "retry_nodes": float(retry_nodes),
+            "avg_duration_ms": avg_duration_ms,
+            "degraded_ratio": degraded_ratio,
+            "failed_ratio": failed_ratio,
+            "retry_ratio": retry_ratio,
+        }
+
+    now_utc = datetime.now(timezone.utc)
+    summary_all = _window_summary(cutoff=None)
+    summary_24h = _window_summary(cutoff=now_utc - timedelta(hours=24))
+    summary_7d = _window_summary(cutoff=now_utc - timedelta(days=7))
+    summary_30d = _window_summary(cutoff=now_utc - timedelta(days=30))
+    return {
+        "total_nodes": int(summary_all["total_nodes"]),
+        "degraded_nodes": int(summary_all["degraded_nodes"]),
+        "failed_nodes": int(summary_all["failed_nodes"]),
+        "retry_nodes": int(summary_all["retry_nodes"]),
+        "avg_duration_ms": float(summary_all["avg_duration_ms"]),
+        "degraded_ratio": float(summary_all["degraded_ratio"]),
+        "failed_ratio": float(summary_all["failed_ratio"]),
+        "retry_ratio": float(summary_all["retry_ratio"]),
+        "failure_code_counts": failure_code_counts,
+        "degrade_reason_counts": degrade_reason_counts,
+        "window_24h": summary_24h,
+        "window_7d": summary_7d,
+        "window_30d": summary_30d,
+    }
+
+
+def _load_agent_tool_trace_observability_snapshot(request: Request) -> dict[str, Any]:
+    with request.app.state.database.connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT created_at, tool_trace_json
+            FROM conversation_messages
+            WHERE role = 'assistant'
+            """
+        ).fetchall()
+
+    entries: list[dict[str, Any]] = []
+    status_counts: dict[str, int] = {}
+    tool_counts: dict[str, int] = {}
+    error_code_counts: dict[str, int] = {}
+
+    for row in rows:
+        created_at = _parse_workflow_trace_time(row["created_at"])
+        raw_tool_trace = str(row["tool_trace_json"] or "").strip()
+        if not raw_tool_trace:
+            continue
+        try:
+            tool_trace = json.loads(raw_tool_trace)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(tool_trace, dict):
+            continue
+        agent_trace = tool_trace.get("agent_trace")
+        if not isinstance(agent_trace, dict):
+            continue
+        raw_calls = agent_trace.get("trace")
+        if not isinstance(raw_calls, list):
+            continue
+
+        for raw_call in raw_calls:
+            if not isinstance(raw_call, dict):
+                continue
+            tool_name = str(raw_call.get("tool_name") or "").strip() or "unknown"
+            status = str(raw_call.get("status") or "").strip().lower() or "unknown"
+
+            latency_ms_raw = raw_call.get("latency_ms")
+            try:
+                latency_ms = max(float(latency_ms_raw), 0.0)
+            except (TypeError, ValueError):
+                latency_ms = 0.0
+
+            attempts_raw = raw_call.get("attempts")
+            try:
+                attempts = max(int(attempts_raw), 1)
+            except (TypeError, ValueError):
+                attempts = 1
+
+            error_code = str(raw_call.get("error_code") or "").strip()
+
+            status_counts[status] = status_counts.get(status, 0) + 1
+            tool_counts[tool_name] = tool_counts.get(tool_name, 0) + 1
+            if error_code:
+                error_code_counts[error_code] = error_code_counts.get(error_code, 0) + 1
+
+            entries.append(
+                {
+                    "created_at": created_at,
+                    "status": status,
+                    "latency_ms": latency_ms,
+                    "retry": attempts > 1,
+                }
+            )
+
+    def _window_summary(cutoff: datetime | None) -> dict[str, float]:
+        scoped = [
+            item
+            for item in entries
+            if cutoff is None or (item["created_at"] is not None and item["created_at"] >= cutoff)
+        ]
+        total_calls = len(scoped)
+        succeeded_calls = sum(1 for item in scoped if item["status"] == "succeeded")
+        degraded_calls = sum(1 for item in scoped if item["status"] == "degraded")
+        failed_calls = sum(1 for item in scoped if item["status"] == "failed")
+        retry_calls = sum(1 for item in scoped if item["retry"])
+        avg_latency_ms = (
+            round(sum(float(item["latency_ms"]) for item in scoped) / total_calls, 2) if total_calls > 0 else 0.0
+        )
+        failed_ratio = round((failed_calls / total_calls), 4) if total_calls > 0 else 0.0
+        return {
+            "total_calls": float(total_calls),
+            "succeeded_calls": float(succeeded_calls),
+            "degraded_calls": float(degraded_calls),
+            "failed_calls": float(failed_calls),
+            "retry_calls": float(retry_calls),
+            "avg_latency_ms": avg_latency_ms,
+            "failed_ratio": failed_ratio,
+        }
+
+    now_utc = datetime.now(timezone.utc)
+    summary_all = _window_summary(cutoff=None)
+    summary_24h = _window_summary(cutoff=now_utc - timedelta(hours=24))
+    summary_7d = _window_summary(cutoff=now_utc - timedelta(days=7))
+    summary_30d = _window_summary(cutoff=now_utc - timedelta(days=30))
+    return {
+        "total_calls": int(summary_all["total_calls"]),
+        "succeeded_calls": int(summary_all["succeeded_calls"]),
+        "degraded_calls": int(summary_all["degraded_calls"]),
+        "failed_calls": int(summary_all["failed_calls"]),
+        "retry_calls": int(summary_all["retry_calls"]),
+        "avg_latency_ms": float(summary_all["avg_latency_ms"]),
+        "failed_ratio": float(summary_all["failed_ratio"]),
+        "status_counts": status_counts,
+        "tool_counts": tool_counts,
+        "error_code_counts": error_code_counts,
+        "window_24h": summary_24h,
+        "window_7d": summary_7d,
+        "window_30d": summary_30d,
+    }
+
+
 @router.get("/metrics")
 def get_global_metrics(
     request: Request,
@@ -769,6 +973,8 @@ def get_global_metrics(
     backtest_quality = _load_backtest_quality_snapshot(request=request)
     optimization_quality = _load_optimization_quality_snapshot(request=request)
     notification_delivery = _load_notification_delivery_snapshot(request=request)
+    workflow_trace_observability = _load_workflow_trace_observability_snapshot(request=request)
+    agent_tool_trace_observability = _load_agent_tool_trace_observability_snapshot(request=request)
     settings = request.app.state.settings
     strategy_publish_strict_gate = _load_strategy_publish_strict_gate_stats(request=request)
     promtool_soft_audit_stats = _load_promtool_soft_fallback_audit_stats(
@@ -805,6 +1011,221 @@ def get_global_metrics(
         metric_name="refactor_workflow_executions_total",
         help_text="Current workflow execution count grouped by status.",
         counts=workflow_status_counts,
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_workflow_trace_nodes_total",
+        help_text="Current workflow trace node count.",
+        total=workflow_trace_observability["total_nodes"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_workflow_trace_nodes_degraded_total",
+        help_text="Current workflow trace node count marked as degraded.",
+        total=workflow_trace_observability["degraded_nodes"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_workflow_trace_nodes_failed_total",
+        help_text="Current workflow trace node count with failed status.",
+        total=workflow_trace_observability["failed_nodes"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_workflow_trace_nodes_retry_total",
+        help_text="Current workflow trace node count with attempts greater than one.",
+        total=workflow_trace_observability["retry_nodes"],
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_workflow_trace_nodes_degraded_ratio",
+        help_text="Current workflow trace node degraded ratio.",
+        value=workflow_trace_observability["degraded_ratio"],
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_workflow_trace_nodes_failed_ratio",
+        help_text="Current workflow trace node failed ratio.",
+        value=workflow_trace_observability["failed_ratio"],
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_workflow_trace_nodes_retry_ratio",
+        help_text="Current workflow trace node retry ratio.",
+        value=workflow_trace_observability["retry_ratio"],
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_workflow_trace_nodes_duration_ms_avg",
+        help_text="Current workflow trace node average duration in milliseconds.",
+        value=workflow_trace_observability["avg_duration_ms"],
+    )
+    _append_labeled_gauge_lines(
+        lines=lines,
+        metric_name="refactor_workflow_trace_nodes_failure_code_total",
+        help_text="Current workflow trace node count grouped by failure code.",
+        label_name="failure_code",
+        counts=workflow_trace_observability["failure_code_counts"],
+    )
+    _append_labeled_gauge_lines(
+        lines=lines,
+        metric_name="refactor_workflow_trace_nodes_degrade_reason_total",
+        help_text="Current workflow trace node count grouped by degrade reason.",
+        label_name="degrade_reason",
+        counts=workflow_trace_observability["degrade_reason_counts"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_workflow_trace_nodes_total_24h",
+        help_text="Workflow trace node count in last 24 hours.",
+        total=int(workflow_trace_observability["window_24h"]["total_nodes"]),
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_workflow_trace_nodes_total_7d",
+        help_text="Workflow trace node count in last 7 days.",
+        total=int(workflow_trace_observability["window_7d"]["total_nodes"]),
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_workflow_trace_nodes_total_30d",
+        help_text="Workflow trace node count in last 30 days.",
+        total=int(workflow_trace_observability["window_30d"]["total_nodes"]),
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_workflow_trace_nodes_failed_ratio_24h",
+        help_text="Workflow trace node failed ratio in last 24 hours.",
+        value=float(workflow_trace_observability["window_24h"]["failed_ratio"]),
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_workflow_trace_nodes_failed_ratio_7d",
+        help_text="Workflow trace node failed ratio in last 7 days.",
+        value=float(workflow_trace_observability["window_7d"]["failed_ratio"]),
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_workflow_trace_nodes_failed_ratio_30d",
+        help_text="Workflow trace node failed ratio in last 30 days.",
+        value=float(workflow_trace_observability["window_30d"]["failed_ratio"]),
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_workflow_trace_nodes_duration_ms_avg_24h",
+        help_text="Workflow trace node average duration in milliseconds in last 24 hours.",
+        value=float(workflow_trace_observability["window_24h"]["avg_duration_ms"]),
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_workflow_trace_nodes_duration_ms_avg_7d",
+        help_text="Workflow trace node average duration in milliseconds in last 7 days.",
+        value=float(workflow_trace_observability["window_7d"]["avg_duration_ms"]),
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_workflow_trace_nodes_duration_ms_avg_30d",
+        help_text="Workflow trace node average duration in milliseconds in last 30 days.",
+        value=float(workflow_trace_observability["window_30d"]["avg_duration_ms"]),
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_agent_tool_calls_total",
+        help_text="Current total agent tool calls.",
+        total=agent_tool_trace_observability["total_calls"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_agent_tool_calls_succeeded_total",
+        help_text="Current total succeeded agent tool calls.",
+        total=agent_tool_trace_observability["succeeded_calls"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_agent_tool_calls_degraded_total",
+        help_text="Current total degraded agent tool calls.",
+        total=agent_tool_trace_observability["degraded_calls"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_agent_tool_calls_failed_total",
+        help_text="Current total failed agent tool calls.",
+        total=agent_tool_trace_observability["failed_calls"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_agent_tool_calls_retry_total",
+        help_text="Current total agent tool calls with attempts greater than one.",
+        total=agent_tool_trace_observability["retry_calls"],
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_agent_tool_calls_latency_ms_avg",
+        help_text="Current average latency in milliseconds for agent tool calls.",
+        value=agent_tool_trace_observability["avg_latency_ms"],
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_agent_tool_calls_failed_ratio",
+        help_text="Current failed ratio for agent tool calls.",
+        value=agent_tool_trace_observability["failed_ratio"],
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_agent_tool_calls_total_24h",
+        help_text="Agent tool call total in last 24 hours.",
+        total=int(agent_tool_trace_observability["window_24h"]["total_calls"]),
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_agent_tool_calls_total_7d",
+        help_text="Agent tool call total in last 7 days.",
+        total=int(agent_tool_trace_observability["window_7d"]["total_calls"]),
+    )
+    _append_total_gauge_line(
+        lines=lines,
+        metric_name="refactor_agent_tool_calls_total_30d",
+        help_text="Agent tool call total in last 30 days.",
+        total=int(agent_tool_trace_observability["window_30d"]["total_calls"]),
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_agent_tool_calls_failed_ratio_24h",
+        help_text="Agent tool call failed ratio in last 24 hours.",
+        value=float(agent_tool_trace_observability["window_24h"]["failed_ratio"]),
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_agent_tool_calls_failed_ratio_7d",
+        help_text="Agent tool call failed ratio in last 7 days.",
+        value=float(agent_tool_trace_observability["window_7d"]["failed_ratio"]),
+    )
+    _append_float_gauge_line(
+        lines=lines,
+        metric_name="refactor_agent_tool_calls_failed_ratio_30d",
+        help_text="Agent tool call failed ratio in last 30 days.",
+        value=float(agent_tool_trace_observability["window_30d"]["failed_ratio"]),
+    )
+    _append_labeled_gauge_lines(
+        lines=lines,
+        metric_name="refactor_agent_tool_calls_by_tool_total",
+        help_text="Current agent tool call count grouped by tool name.",
+        label_name="tool_name",
+        counts=agent_tool_trace_observability["tool_counts"],
+    )
+    _append_labeled_gauge_lines(
+        lines=lines,
+        metric_name="refactor_agent_tool_calls_by_status_total",
+        help_text="Current agent tool call count grouped by call status.",
+        label_name="status",
+        counts=agent_tool_trace_observability["status_counts"],
+    )
+    _append_labeled_gauge_lines(
+        lines=lines,
+        metric_name="refactor_agent_tool_calls_error_code_total",
+        help_text="Current agent tool call count grouped by non-empty error code.",
+        label_name="error_code",
+        counts=agent_tool_trace_observability["error_code_counts"],
     )
     _append_status_gauge_lines(
         lines=lines,

@@ -36,6 +36,20 @@ def test_settings_reads_non_prefixed_env_vars(monkeypatch) -> None:
     monkeypatch.setenv("STRATEGY_PUBLISH_REQUIRE_PROPOSAL_ID", "true")
     monkeypatch.setenv("ANALYSIS_AUTO_NOTIFY_ENABLED", "true")
     monkeypatch.setenv("ANALYSIS_AUTO_NOTIFY_CHANNELS", "wechat,feishu")
+    monkeypatch.setenv("ANALYSIS_FACTOR_SOURCE_TIMEOUT_SEC", "9.5")
+    monkeypatch.setenv("ANALYSIS_FACTOR_SOURCE_AUTH_TOKEN", "factor-token")
+    monkeypatch.setenv("ANALYSIS_MACRO_SOURCE_URL", "https://example.test/macro?symbol={symbol}")
+    monkeypatch.setenv("ANALYSIS_CREDIT_SOURCE_URL", "https://example.test/credit?symbol={symbol}")
+    monkeypatch.setenv("ANALYSIS_SENTIMENT_SOURCE_URL", "https://example.test/sentiment?symbol={symbol}")
+    monkeypatch.setenv(
+        "ANALYSIS_FLOW_TEMPLATE",
+        "resolve_strategy_context,resolve_prompt,collect_macro_factor+collect_credit_factor,build_dashboard,finalize_report",
+    )
+    monkeypatch.setenv("ANALYSIS_NODE_MAX_RETRIES", "2")
+    monkeypatch.setenv("ANALYSIS_NODE_RETRY_BACKOFF_MS", "120")
+    monkeypatch.setenv("ANALYSIS_ORCHESTRATOR_ENGINE", "langgraph")
+    monkeypatch.setenv("AGENT_TOOL_MAX_RETRIES", "2")
+    monkeypatch.setenv("AGENT_TOOL_RETRY_BACKOFF_MS", "120")
     monkeypatch.setenv("NOTIFICATION_SEND_MAX_RETRIES", "2")
     monkeypatch.setenv("NOTIFICATION_RETRY_BACKOFF_MS", "150")
     monkeypatch.setenv("BACKTEST_RETURN_SAMPLE_MIN_SIZE", "12")
@@ -83,6 +97,23 @@ def test_settings_reads_non_prefixed_env_vars(monkeypatch) -> None:
     assert settings.strategy_publish_require_proposal_id is True
     assert settings.analysis_auto_notify_enabled is True
     assert settings.analysis_auto_notify_channels == ["wechat", "feishu"]
+    assert settings.analysis_factor_source_timeout_sec == 9.5
+    assert settings.analysis_factor_source_auth_token == "factor-token"
+    assert settings.analysis_macro_source_url == "https://example.test/macro?symbol={symbol}"
+    assert settings.analysis_credit_source_url == "https://example.test/credit?symbol={symbol}"
+    assert settings.analysis_sentiment_source_url == "https://example.test/sentiment?symbol={symbol}"
+    assert settings.analysis_flow_template == [
+        "resolve_strategy_context",
+        "resolve_prompt",
+        "collect_macro_factor+collect_credit_factor",
+        "build_dashboard",
+        "finalize_report",
+    ]
+    assert settings.analysis_node_max_retries == 2
+    assert settings.analysis_node_retry_backoff_ms == 120
+    assert settings.analysis_orchestrator_engine == "langgraph"
+    assert settings.agent_tool_max_retries == 2
+    assert settings.agent_tool_retry_backoff_ms == 120
     assert settings.notification_send_max_retries == 2
     assert settings.notification_retry_backoff_ms == 150
     assert settings.backtest_return_sample_min_size == 12

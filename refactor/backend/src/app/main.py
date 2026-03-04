@@ -6,9 +6,17 @@ from app.knowledge.vector_store import ChromaVectorStore
 from app.llm.provider import create_llm_provider
 from app.memory.vector_store import MemoryVectorStore
 from app.persistence.sqlite_db import SQLiteDatabase
+from app.services.agent_service import AgentService
 from app.services.analysis_service import AnalysisService
 from app.services.backtest_service import BacktestService
 from app.services.chat_service import ChatService
+from app.services.factor_service import (
+    CreditFactorProvider,
+    FactorService,
+    MacroFactorProvider,
+    SentimentFactorProvider,
+    TechnicalFactorProvider,
+)
 from app.services.feedback_service import FeedbackService
 from app.services.knowledge_service import KnowledgeService
 from app.services.memory_service import MemoryService
@@ -59,6 +67,26 @@ def create_app() -> FastAPI:
     prompt_service = PromptService(database=database)
     knowledge_service = KnowledgeService(database=database, vector_store=knowledge_vector_store)
     strategy_service = StrategyService(database=database, knowledge_service=knowledge_service)
+    factor_service = FactorService(
+        providers=[
+            TechnicalFactorProvider(),
+            MacroFactorProvider(
+                source_url=settings.analysis_macro_source_url,
+                auth_token=settings.analysis_factor_source_auth_token,
+                timeout_sec=settings.analysis_factor_source_timeout_sec,
+            ),
+            CreditFactorProvider(
+                source_url=settings.analysis_credit_source_url,
+                auth_token=settings.analysis_factor_source_auth_token,
+                timeout_sec=settings.analysis_factor_source_timeout_sec,
+            ),
+            SentimentFactorProvider(
+                source_url=settings.analysis_sentiment_source_url,
+                auth_token=settings.analysis_factor_source_auth_token,
+                timeout_sec=settings.analysis_factor_source_timeout_sec,
+            ),
+        ]
+    )
     notification_service = NotificationHub(
         database=database,
         max_retries=settings.notification_send_max_retries,
@@ -83,6 +111,11 @@ def create_app() -> FastAPI:
         prompt_service=prompt_service,
         prompt_lock_audit_service=prompt_lock_audit_service,
         notification_service=notification_service,
+        factor_service=factor_service,
+        analysis_flow_template=settings.analysis_flow_template,
+        analysis_node_max_retries=settings.analysis_node_max_retries,
+        analysis_node_retry_backoff_ms=settings.analysis_node_retry_backoff_ms,
+        analysis_orchestrator_engine=settings.analysis_orchestrator_engine,
         default_prompt_lock_mode=settings.prompt_ref_lock_mode,
         queue_auto_process=settings.queue_auto_process,
         auto_notify_enabled=settings.analysis_auto_notify_enabled,
@@ -93,6 +126,15 @@ def create_app() -> FastAPI:
         task_queue=task_queue,
         queue_auto_process=settings.queue_auto_process,
     )
+    memory_service = MemoryService(database=database, vector_store=memory_vector_store)
+    agent_service = AgentService(
+        knowledge_service=knowledge_service,
+        memory_service=memory_service,
+        backtest_service=backtest_service,
+        workflow_service=workflow_service,
+        default_max_retries=settings.agent_tool_max_retries,
+        retry_backoff_ms=settings.agent_tool_retry_backoff_ms,
+    )
     feedback_service = FeedbackService(database=database)
     optimization_service = OptimizationService(
         database=database,
@@ -100,7 +142,6 @@ def create_app() -> FastAPI:
         feedback_service=feedback_service,
         queue_auto_process=settings.queue_auto_process,
     )
-    memory_service = MemoryService(database=database, vector_store=memory_vector_store)
     chat_service = ChatService(
         memory_service=memory_service,
         knowledge_service=knowledge_service,
@@ -109,12 +150,14 @@ def create_app() -> FastAPI:
         strategy_service=strategy_service,
         prompt_lock_audit_service=prompt_lock_audit_service,
         default_prompt_lock_mode=settings.prompt_ref_lock_mode,
+        agent_service=agent_service,
     )
 
     app = FastAPI(
         title="Daily Stock Analysis Refactor API",
-        version="0.4.43-m4-overrides-quality-policy-alertmanager",
+        version="0.4.57-m4-ci-optional-positive-rehearsal-stage",
     )
+    app.state.agent_service = agent_service
     app.state.workflow_service = workflow_service
     app.state.analysis_service = analysis_service
     app.state.backtest_service = backtest_service

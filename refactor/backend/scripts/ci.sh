@@ -64,3 +64,8 @@ fi
 
 # Unit tests
 PYTHONPATH=src $PYTHON_BIN -m pytest tests/unit -q
+
+# Optional M4 positive integration rehearsal
+if [[ "${CI_RUN_M4_POSITIVE_REHEARSAL:-0}" == "1" ]]; then
+  ./scripts/rehearse-m4-positive-flow.sh
+fi
