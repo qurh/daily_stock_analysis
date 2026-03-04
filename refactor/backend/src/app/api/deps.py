@@ -1,5 +1,6 @@
 from fastapi import Request
 
+from app.services.agent_service import AgentService
 from app.services.analysis_service import AnalysisService
 from app.services.backtest_service import BacktestService
 from app.services.chat_service import ChatService
@@ -16,6 +17,10 @@ from app.services.workflow_service import WorkflowService
 
 def get_analysis_service(request: Request) -> AnalysisService:
     return request.app.state.analysis_service
+
+
+def get_agent_service(request: Request) -> AgentService:
+    return request.app.state.agent_service
 
 
 def get_backtest_service(request: Request) -> BacktestService:

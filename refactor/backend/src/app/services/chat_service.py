@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from app.llm.provider import LLMProvider
+from app.services.agent_service import AgentService
 from app.services.knowledge_service import KnowledgeService
 from app.services.memory_service import MemoryService
 from app.services.prompt_lock_audit_service import PromptLockAuditService
@@ -28,6 +30,7 @@ class ChatService:
         strategy_service: StrategyService | None = None,
         prompt_lock_audit_service: PromptLockAuditService | None = None,
         default_prompt_lock_mode: str = "lenient",
+        agent_service: AgentService | None = None,
     ) -> None:
         self._memory_service = memory_service
         self._knowledge_service = knowledge_service
@@ -36,6 +39,7 @@ class ChatService:
         self._strategy_service = strategy_service
         self._prompt_lock_audit_service = prompt_lock_audit_service
         self._default_prompt_lock_mode = normalize_lock_mode(default_prompt_lock_mode)
+        self._agent_service = agent_service
 
     def create_session(self, user_id: str, memory_policy: str = "summary_v1") -> dict[str, Any]:
         return self._memory_service.create_session(user_id=user_id, memory_policy=memory_policy)
@@ -55,12 +59,15 @@ class ChatService:
 
         knowledge_hint = knowledge_hits[0].get("summary", "") if knowledge_hits else ""
         memory_hint = memory_hits[0].get("content", "") if memory_hits else ""
+        agent_trace = self._invoke_agent(session_id=session_id, content=content)
+        agent_hint = self._build_agent_hint(agent_trace=agent_trace)
         strategy_context = self._resolve_strategy_context()
         try:
             prompt_resolution = self._resolve_prompt(
                 question=content,
                 knowledge_hint=knowledge_hint,
                 memory_hint=memory_hint,
+                agent_hint=agent_hint,
                 strategy_context=strategy_context,
             )
         except PromptLockError as exc:
@@ -82,6 +89,8 @@ class ChatService:
             "llm_provider": self._llm_provider.provider_name,
             "llm_model": self._llm_provider.model_name,
         }
+        if agent_trace is not None:
+            tool_trace["agent_trace"] = agent_trace
         if strategy_context is not None:
             tool_trace["strategy_id"] = strategy_context["strategy_id"]
             tool_trace["strategy_binding_id"] = strategy_context["binding_id"]
@@ -103,12 +112,14 @@ class ChatService:
         question: str,
         knowledge_hint: str,
         memory_hint: str,
+        agent_hint: str = "",
         strategy_context: dict[str, Any] | None = None,
     ) -> dict[str, str]:
         variables = {
             "question": question,
             "knowledge_hint": knowledge_hint,
             "memory_hint": memory_hint,
+            "agent_hint": agent_hint,
         }
         lock_mode = self._resolve_prompt_lock_mode(strategy_context=strategy_context)
         binding_prompt_refs = normalize_prompt_refs(strategy_context=strategy_context)
@@ -145,6 +156,7 @@ class ChatService:
             f"Q={question}\n"
             f"K={knowledge_hint}\n"
             f"M={memory_hint}\n"
+            f"A={agent_hint}\n"
             "Return concise answer with actionable next step."
         )
         return {
@@ -161,6 +173,48 @@ class ChatService:
         if strategy_context is None:
             return self._default_prompt_lock_mode
         return normalize_lock_mode(strategy_context.get("prompt_lock_mode"), self._default_prompt_lock_mode)
+
+    def _invoke_agent(self, session_id: str, content: str) -> dict[str, Any] | None:
+        if self._agent_service is None:
+            return None
+
+        try:
+            return self._agent_service.invoke_with_intent(
+                intent=content,
+                payload={"query": content, "top_k": 3},
+                context={"session_id": session_id},
+            )
+        except Exception as exc:  # noqa: BLE001
+            return {
+                "intent": content,
+                "planned_tools": [],
+                "results": {},
+                "degraded": True,
+                "failed_tools": ["agent.runtime"],
+                "trace": [
+                    {
+                        "call_id": "agent-runtime",
+                        "tool_name": "agent.runtime",
+                        "status": "failed",
+                        "latency_ms": 0,
+                        "attempts": 1,
+                        "error_code": "AGT-ROUTE-001",
+                        "error_message": str(exc),
+                    }
+                ],
+            }
+
+    @staticmethod
+    def _build_agent_hint(agent_trace: dict[str, Any] | None) -> str:
+        if agent_trace is None:
+            return ""
+        payload = {
+            "planned_tools": agent_trace.get("planned_tools", []),
+            "degraded": bool(agent_trace.get("degraded", False)),
+            "results": agent_trace.get("results", {}),
+        }
+        serialized = json.dumps(payload, ensure_ascii=False)
+        return serialized if len(serialized) <= 320 else f"{serialized[:317]}..."
 
 
 def _build_citations(knowledge_hits: list[dict[str, Any]], memory_hits: list[dict[str, Any]]) -> list[dict[str, Any]]:

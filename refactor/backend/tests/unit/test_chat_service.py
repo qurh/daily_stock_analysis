@@ -48,6 +48,27 @@ def test_chat_multi_turn_with_rag_citations() -> None:
     assert message_payload["messages"][-1]["role"] == "assistant"
 
 
+def test_chat_includes_agent_trace() -> None:
+    client = TestClient(create_app())
+
+    created_session = client.post(
+        "/api/v2/chat/sessions",
+        json={"user_id": "u-agent", "memory_policy": "summary_v1"},
+    )
+    assert created_session.status_code == 201
+    session_id = created_session.json()["session_id"]
+
+    replied = client.post(
+        f"/api/v2/chat/sessions/{session_id}/messages",
+        json={"content": "回测收益和胜率怎么样？"},
+    )
+    assert replied.status_code == 200
+    assistant = replied.json()["assistant"]
+    assert "agent_trace" in assistant["tool_trace"]
+    assert len(assistant["tool_trace"]["agent_trace"]["trace"]) >= 1
+    assert "planned_tools" in assistant["tool_trace"]["agent_trace"]
+
+
 def test_chat_maps_llm_provider_error(monkeypatch) -> None:
     def fake_generate(self, prompt: str) -> str:  # noqa: ARG001
         raise LLMProviderError(
