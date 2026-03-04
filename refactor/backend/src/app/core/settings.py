@@ -60,6 +60,16 @@ def _read_prompt_lock_mode_env(name: str, default: str) -> str:
     return normalized
 
 
+def _read_analysis_orchestrator_engine_env(name: str, default: str) -> str:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    normalized = raw.strip().lower()
+    if normalized not in {"local", "langgraph"}:
+        raise ValueError(f"Invalid analysis orchestrator engine for {name}: {raw}")
+    return normalized
+
+
 @dataclass(frozen=True)
 class AppSettings:
     database_url: str
@@ -96,6 +106,17 @@ class AppSettings:
     strategy_publish_require_proposal_id: bool
     analysis_auto_notify_enabled: bool
     analysis_auto_notify_channels: list[str]
+    analysis_factor_source_timeout_sec: float
+    analysis_factor_source_auth_token: str | None
+    analysis_macro_source_url: str | None
+    analysis_credit_source_url: str | None
+    analysis_sentiment_source_url: str | None
+    analysis_flow_template: list[str]
+    analysis_node_max_retries: int
+    analysis_node_retry_backoff_ms: int
+    analysis_orchestrator_engine: str
+    agent_tool_max_retries: int
+    agent_tool_retry_backoff_ms: int
     notification_send_max_retries: int
     notification_retry_backoff_ms: int
     backtest_return_sample_min_size: int
@@ -162,6 +183,25 @@ def load_settings() -> AppSettings:
     strategy_publish_require_proposal_id = _read_bool_env("STRATEGY_PUBLISH_REQUIRE_PROPOSAL_ID", False)
     analysis_auto_notify_enabled = _read_bool_env("ANALYSIS_AUTO_NOTIFY_ENABLED", False)
     analysis_auto_notify_channels = _read_csv_env("ANALYSIS_AUTO_NOTIFY_CHANNELS")
+    analysis_factor_source_timeout_sec = max(_read_float_env("ANALYSIS_FACTOR_SOURCE_TIMEOUT_SEC", 5.0), 0.1)
+    analysis_factor_source_auth_token = os.getenv("ANALYSIS_FACTOR_SOURCE_AUTH_TOKEN")
+    if analysis_factor_source_auth_token is not None:
+        analysis_factor_source_auth_token = analysis_factor_source_auth_token.strip() or None
+    analysis_macro_source_url = os.getenv("ANALYSIS_MACRO_SOURCE_URL")
+    if analysis_macro_source_url is not None:
+        analysis_macro_source_url = analysis_macro_source_url.strip() or None
+    analysis_credit_source_url = os.getenv("ANALYSIS_CREDIT_SOURCE_URL")
+    if analysis_credit_source_url is not None:
+        analysis_credit_source_url = analysis_credit_source_url.strip() or None
+    analysis_sentiment_source_url = os.getenv("ANALYSIS_SENTIMENT_SOURCE_URL")
+    if analysis_sentiment_source_url is not None:
+        analysis_sentiment_source_url = analysis_sentiment_source_url.strip() or None
+    analysis_flow_template = _read_csv_env("ANALYSIS_FLOW_TEMPLATE")
+    analysis_node_max_retries = max(_read_int_env("ANALYSIS_NODE_MAX_RETRIES", 0), 0)
+    analysis_node_retry_backoff_ms = max(_read_int_env("ANALYSIS_NODE_RETRY_BACKOFF_MS", 0), 0)
+    analysis_orchestrator_engine = _read_analysis_orchestrator_engine_env("ANALYSIS_ORCHESTRATOR_ENGINE", "local")
+    agent_tool_max_retries = max(_read_int_env("AGENT_TOOL_MAX_RETRIES", 0), 0)
+    agent_tool_retry_backoff_ms = max(_read_int_env("AGENT_TOOL_RETRY_BACKOFF_MS", 0), 0)
     notification_send_max_retries = max(_read_int_env("NOTIFICATION_SEND_MAX_RETRIES", 0), 0)
     notification_retry_backoff_ms = max(_read_int_env("NOTIFICATION_RETRY_BACKOFF_MS", 0), 0)
     backtest_return_sample_min_size = _read_int_env("BACKTEST_RETURN_SAMPLE_MIN_SIZE", 20)
@@ -275,6 +315,17 @@ def load_settings() -> AppSettings:
         strategy_publish_require_proposal_id=strategy_publish_require_proposal_id,
         analysis_auto_notify_enabled=analysis_auto_notify_enabled,
         analysis_auto_notify_channels=analysis_auto_notify_channels,
+        analysis_factor_source_timeout_sec=analysis_factor_source_timeout_sec,
+        analysis_factor_source_auth_token=analysis_factor_source_auth_token,
+        analysis_macro_source_url=analysis_macro_source_url,
+        analysis_credit_source_url=analysis_credit_source_url,
+        analysis_sentiment_source_url=analysis_sentiment_source_url,
+        analysis_flow_template=analysis_flow_template,
+        analysis_node_max_retries=analysis_node_max_retries,
+        analysis_node_retry_backoff_ms=analysis_node_retry_backoff_ms,
+        analysis_orchestrator_engine=analysis_orchestrator_engine,
+        agent_tool_max_retries=agent_tool_max_retries,
+        agent_tool_retry_backoff_ms=agent_tool_retry_backoff_ms,
         notification_send_max_retries=notification_send_max_retries,
         notification_retry_backoff_ms=notification_retry_backoff_ms,
         backtest_return_sample_min_size=backtest_return_sample_min_size,

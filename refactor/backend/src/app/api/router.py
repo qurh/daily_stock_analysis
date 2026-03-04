@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.api.routes.agent import router as agent_router
 from app.api.routes.analysis import router as analysis_router
 from app.api.routes.backtest import router as backtest_router
 from app.api.routes.chat import router as chat_router
@@ -17,6 +18,7 @@ from app.api.routes.workflows import router as workflows_router
 
 api_router = APIRouter(prefix="/api/v2")
 api_router.include_router(health_router)
+api_router.include_router(agent_router)
 api_router.include_router(analysis_router)
 api_router.include_router(backtest_router)
 api_router.include_router(workflows_router)

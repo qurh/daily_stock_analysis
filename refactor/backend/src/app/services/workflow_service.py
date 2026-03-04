@@ -31,6 +31,7 @@ class WorkflowService:
         flow_id: str,
         flow_input: dict[str, Any],
         enqueue: bool = True,
+        defer_run: bool = False,
     ) -> dict[str, str]:
         execution_id = str(uuid4())
         now = _utc_now()
@@ -45,7 +46,9 @@ class WorkflowService:
                 (execution_id, flow_id, self._database.json_dump(flow_input), now, now),
             )
 
-        if enqueue:
+        if defer_run:
+            pass
+        elif enqueue:
             self._task_queue.enqueue("workflow.run", {"execution_id": execution_id})
             if self._queue_auto_process:
                 self._task_queue.process_all()
@@ -54,6 +57,58 @@ class WorkflowService:
 
         execution = self.get_execution(execution_id)
         return {"execution_id": execution_id, "status": execution["status"]}
+
+    def complete_execution(
+        self,
+        execution_id: str,
+        trace_nodes: list[dict[str, Any]],
+        output: dict[str, Any] | None = None,
+    ) -> None:
+        now = _utc_now()
+        with self._database.connection() as conn:
+            row = conn.execute(
+                "SELECT status FROM workflow_executions WHERE execution_id = ?",
+                (execution_id,),
+            ).fetchone()
+            if row is None or row["status"] == "cancelled":
+                return
+            conn.execute(
+                "UPDATE workflow_executions SET status = 'running', updated_at = ? WHERE execution_id = ?",
+                (now, execution_id),
+            )
+            self._persist_trace_nodes(conn=conn, execution_id=execution_id, trace_nodes=trace_nodes)
+            conn.execute(
+                """
+                UPDATE workflow_executions
+                SET status = 'succeeded', output_json = ?, updated_at = ?
+                WHERE execution_id = ?
+                """,
+                (self._database.json_dump(output or {}), now, execution_id),
+            )
+
+    def fail_execution(
+        self,
+        execution_id: str,
+        trace_nodes: list[dict[str, Any]],
+        output: dict[str, Any] | None = None,
+    ) -> None:
+        now = _utc_now()
+        with self._database.connection() as conn:
+            row = conn.execute(
+                "SELECT status FROM workflow_executions WHERE execution_id = ?",
+                (execution_id,),
+            ).fetchone()
+            if row is None or row["status"] == "cancelled":
+                return
+            self._persist_trace_nodes(conn=conn, execution_id=execution_id, trace_nodes=trace_nodes)
+            conn.execute(
+                """
+                UPDATE workflow_executions
+                SET status = 'failed', output_json = ?, updated_at = ?
+                WHERE execution_id = ?
+                """,
+                (self._database.json_dump(output or {}), now, execution_id),
+            )
 
     def get_execution(self, execution_id: str) -> dict[str, Any] | None:
         with self._database.connection() as conn:
@@ -70,7 +125,17 @@ class WorkflowService:
 
             node_rows = conn.execute(
                 """
-                SELECT node_id, status, started_at, ended_at
+                SELECT
+                    node_id,
+                    status,
+                    started_at,
+                    ended_at,
+                    attempts,
+                    duration_ms,
+                    degraded,
+                    failure_code,
+                    degrade_reason,
+                    failure_context
                 FROM workflow_trace_nodes
                 WHERE execution_id = ?
                 ORDER BY id ASC
@@ -92,6 +157,12 @@ class WorkflowService:
                         "status": item["status"],
                         "started_at": item["started_at"],
                         "ended_at": item["ended_at"],
+                        "attempts": int(item["attempts"]),
+                        "duration_ms": int(item["duration_ms"]),
+                        "degraded": bool(item["degraded"]),
+                        "failure_code": item["failure_code"],
+                        "degrade_reason": item["degrade_reason"],
+                        "failure_context": item["failure_context"],
                     }
                     for item in node_rows
                 ],
@@ -155,12 +226,27 @@ class WorkflowService:
             conn.execute("DELETE FROM workflow_trace_nodes WHERE execution_id = ?", (execution_id,))
             conn.executemany(
                 """
-                INSERT INTO workflow_trace_nodes (execution_id, node_id, status, started_at, ended_at)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO workflow_trace_nodes (
+                    execution_id, node_id, status, started_at, ended_at, attempts, duration_ms, degraded,
+                    failure_code, degrade_reason, failure_context
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 [
-                    (execution_id, "collect_data", "succeeded", node_start, node_end),
-                    (execution_id, "generate_report", "succeeded", node_start, node_end),
+                    (execution_id, "collect_data", "succeeded", node_start, node_end, 1, 0, 0, None, None, None),
+                    (
+                        execution_id,
+                        "generate_report",
+                        "succeeded",
+                        node_start,
+                        node_end,
+                        1,
+                        0,
+                        0,
+                        None,
+                        None,
+                        None,
+                    ),
                 ],
             )
             output = {"summary": f"Flow {flow_id} completed"}
@@ -171,4 +257,40 @@ class WorkflowService:
                 WHERE execution_id = ?
                 """,
                 (self._database.json_dump(output), _utc_now(), execution_id),
+            )
+
+    def _persist_trace_nodes(
+        self,
+        conn: Any,
+        execution_id: str,
+        trace_nodes: list[dict[str, Any]],
+    ) -> None:
+        now = _utc_now()
+        conn.execute("DELETE FROM workflow_trace_nodes WHERE execution_id = ?", (execution_id,))
+        rows = [
+            (
+                execution_id,
+                item["node_id"],
+                item.get("status", "succeeded"),
+                now,
+                now,
+                int(item.get("attempts", 1)),
+                int(item.get("duration_ms", 0)),
+                1 if bool(item.get("degraded", False)) else 0,
+                item.get("failure_code"),
+                item.get("degrade_reason"),
+                item.get("failure_context"),
+            )
+            for item in trace_nodes
+        ]
+        if rows:
+            conn.executemany(
+                """
+                INSERT INTO workflow_trace_nodes (
+                    execution_id, node_id, status, started_at, ended_at, attempts, duration_ms, degraded,
+                    failure_code, degrade_reason, failure_context
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                rows,
             )

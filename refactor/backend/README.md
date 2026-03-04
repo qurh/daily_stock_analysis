@@ -51,6 +51,17 @@ uvicorn app.main:app --app-dir src --reload --port 18000
 - Notification retry backoff ms (linear): `NOTIFICATION_RETRY_BACKOFF_MS` (default `0`)
 - Analysis auto notify switch: `ANALYSIS_AUTO_NOTIFY_ENABLED` (default `false`)
 - Analysis auto notify channels CSV: `ANALYSIS_AUTO_NOTIFY_CHANNELS` (default empty -> all enabled channels)
+- Analysis factor external source timeout seconds: `ANALYSIS_FACTOR_SOURCE_TIMEOUT_SEC` (default `5`)
+- Analysis factor external source auth token: `ANALYSIS_FACTOR_SOURCE_AUTH_TOKEN` (default empty)
+- Analysis macro source URL template: `ANALYSIS_MACRO_SOURCE_URL` (default empty -> fallback provider)
+- Analysis credit source URL template: `ANALYSIS_CREDIT_SOURCE_URL` (default empty -> fallback provider)
+- Analysis sentiment source URL template: `ANALYSIS_SENTIMENT_SOURCE_URL` (default empty -> fallback provider)
+- Analysis flow template CSV: `ANALYSIS_FLOW_TEMPLATE` (default built-in node order)
+- Analysis flow node max retries: `ANALYSIS_NODE_MAX_RETRIES` (default `0`)
+- Analysis flow node retry backoff ms: `ANALYSIS_NODE_RETRY_BACKOFF_MS` (default `0`, exponential backoff)
+- Analysis orchestrator engine: `ANALYSIS_ORCHESTRATOR_ENGINE` (`local` by default, `langgraph` optional)
+- Agent tool max retries: `AGENT_TOOL_MAX_RETRIES` (default `0`)
+- Agent tool retry backoff ms: `AGENT_TOOL_RETRY_BACKOFF_MS` (default `0`, exponential backoff)
 - Real smoke switch: `ENABLE_REAL_LLM_SMOKE` (`1` to run integration smoke)
 
 Example:
@@ -115,6 +126,9 @@ uvicorn app.main:app --app-dir src --reload --port 18000
 - `POST /api/v2/chat/sessions`
 - `POST /api/v2/chat/sessions/{session_id}/messages`
 - `GET /api/v2/chat/sessions/{session_id}/messages`
+- `POST /api/v2/agent/tools/register`
+- `GET /api/v2/agent/tools`
+- `POST /api/v2/agent/invoke`
 - `GET /api/v2/memory/sessions/{session_id}`
 - `POST /api/v2/memory/sessions/{session_id}/summarize`
 - `POST /api/v2/memory/search`
@@ -147,6 +161,79 @@ uvicorn app.main:app --app-dir src --reload --port 18000
 - `GET /api/v2/prompt-lock/overview/metrics`
 - `GET /api/v2/prompt-lock/overview/metrics/prometheus`
 - `GET /api/v2/metrics`
+
+## Analysis Dashboard (Multi-Source Factors)
+
+- Analysis job report now includes a structured factor pack:
+  - `dashboard.factors.technical`
+  - `dashboard.factors.macro`
+  - `dashboard.factors.credit`
+  - `dashboard.factors.sentiment`
+- Decision payload is now included in analysis dashboard:
+  - `dashboard.decision.direction` (`long/hold/short`)
+  - `dashboard.decision.confidence`
+  - `dashboard.decision.rationale`
+- Risk and signal fields remain stable:
+  - `dashboard.signals`
+  - `dashboard.risk_flags`
+- Factor quality/degradation hints are persisted in report meta:
+  - `report.meta.factor_quality_flags`
+- Factor pipeline is extensible via provider interface:
+  - `refactor/backend/src/app/services/factor_service.py` (`FactorProvider`)
+- Real-source adapter mode:
+  - configure `ANALYSIS_MACRO_SOURCE_URL`, `ANALYSIS_CREDIT_SOURCE_URL`, `ANALYSIS_SENTIMENT_SOURCE_URL`
+- optional `ANALYSIS_FACTOR_SOURCE_AUTH_TOKEN` and `ANALYSIS_FACTOR_SOURCE_TIMEOUT_SEC`
+  - external fetch failure auto-falls back to deterministic provider and records quality flag
+- Flow-template orchestration mode:
+  - configure orchestrator engine:
+    - `ANALYSIS_ORCHESTRATOR_ENGINE=local` (always available)
+    - `ANALYSIS_ORCHESTRATOR_ENGINE=langgraph` (auto-fallback to local on import error)
+  - configure `ANALYSIS_FLOW_TEMPLATE` with comma-separated node ids
+  - default node sequence:
+    - `resolve_strategy_context`
+    - `resolve_prompt`
+    - `collect_factors`
+    - `build_dashboard`
+    - `finalize_report`
+  - additional factor collection nodes:
+    - `collect_technical_factor`
+    - `collect_macro_factor`
+    - `collect_credit_factor`
+    - `collect_sentiment_factor`
+  - `+` in one stage enables parallel factor collection execution
+    - example stage:
+      `collect_macro_factor+collect_credit_factor+collect_sentiment_factor+collect_technical_factor`
+  - node execution retry policy:
+    - `ANALYSIS_NODE_MAX_RETRIES`
+    - `ANALYSIS_NODE_RETRY_BACKOFF_MS`
+  - workflow trace (`GET /api/v2/jobs/{job_id}`) now reflects executed template node order and node observability:
+    - `trace.nodes[].attempts`
+    - `trace.nodes[].duration_ms`
+    - `trace.nodes[].degraded`
+    - `trace.nodes[].failure_code`
+    - `trace.nodes[].degrade_reason`
+    - `trace.nodes[].failure_context`
+
+## Agent Toolkit
+
+- Agent toolkit provides tool protocol + registry + invoke runtime:
+  - `POST /api/v2/agent/tools/register`
+  - `GET /api/v2/agent/tools`
+  - `POST /api/v2/agent/invoke`
+- Built-in tools:
+  - `knowledge.search`
+  - `memory.search`
+  - `backtest.performance`
+  - `workflow.execution.get`
+- Invoke response includes execution trace bundle:
+  - `planned_tools`
+  - `results`
+  - `degraded`
+  - `failed_tools`
+  - `trace[]`
+- Chat integration:
+  - chat message pipeline auto-runs agent intent invoke
+  - assistant `tool_trace` now includes `agent_trace`
 
 ## Notification Hub
 
@@ -204,6 +291,46 @@ uvicorn app.main:app --app-dir src --reload --port 18000
   - set `ANALYSIS_AUTO_NOTIFY_ENABLED=true` to auto-send on analysis success
   - optional `ANALYSIS_AUTO_NOTIFY_CHANNELS=wechat,feishu` to limit channels
   - delivery source is tracked as `source_type=analysis_job` with `source_id=<job_id>`
+
+## Global Metrics Workflow Trace Observability
+
+- `GET /api/v2/metrics` now includes workflow trace node observability metrics:
+  - `refactor_workflow_trace_nodes_total`
+  - `refactor_workflow_trace_nodes_degraded_total`
+  - `refactor_workflow_trace_nodes_failed_total`
+  - `refactor_workflow_trace_nodes_retry_total`
+  - `refactor_workflow_trace_nodes_degraded_ratio`
+  - `refactor_workflow_trace_nodes_failed_ratio`
+  - `refactor_workflow_trace_nodes_retry_ratio`
+  - `refactor_workflow_trace_nodes_duration_ms_avg`
+  - `refactor_workflow_trace_nodes_total_24h`
+  - `refactor_workflow_trace_nodes_total_7d`
+  - `refactor_workflow_trace_nodes_total_30d`
+  - `refactor_workflow_trace_nodes_failed_ratio_24h`
+  - `refactor_workflow_trace_nodes_failed_ratio_7d`
+  - `refactor_workflow_trace_nodes_failed_ratio_30d`
+  - `refactor_workflow_trace_nodes_duration_ms_avg_24h`
+  - `refactor_workflow_trace_nodes_duration_ms_avg_7d`
+  - `refactor_workflow_trace_nodes_duration_ms_avg_30d`
+  - `refactor_workflow_trace_nodes_failure_code_total{failure_code=\"...\"}`
+  - `refactor_workflow_trace_nodes_degrade_reason_total{degrade_reason=\"...\"}`
+- `GET /api/v2/metrics` now also includes agent tool-call observability metrics:
+  - `refactor_agent_tool_calls_total`
+  - `refactor_agent_tool_calls_succeeded_total`
+  - `refactor_agent_tool_calls_degraded_total`
+  - `refactor_agent_tool_calls_failed_total`
+  - `refactor_agent_tool_calls_retry_total`
+  - `refactor_agent_tool_calls_latency_ms_avg`
+  - `refactor_agent_tool_calls_failed_ratio`
+  - `refactor_agent_tool_calls_total_24h`
+  - `refactor_agent_tool_calls_total_7d`
+  - `refactor_agent_tool_calls_total_30d`
+  - `refactor_agent_tool_calls_failed_ratio_24h`
+  - `refactor_agent_tool_calls_failed_ratio_7d`
+  - `refactor_agent_tool_calls_failed_ratio_30d`
+  - `refactor_agent_tool_calls_by_tool_total{tool_name=\"...\"}`
+  - `refactor_agent_tool_calls_by_status_total{status=\"...\"}`
+  - `refactor_agent_tool_calls_error_code_total{error_code=\"...\"}`
 
 ## Feedback Event Trigger
 
@@ -404,6 +531,8 @@ cd refactor/backend
 - Override binary path with `PROMTOOL_BIN` when needed.
 - Set `PROMTOOL_REQUIRED=1` to fail immediately when `promtool` is missing.
 - In CI (`CI` env is set), `ci.sh` defaults `PROMTOOL_REQUIRED=1` unless explicitly overridden.
+- Set `CI_RUN_M4_POSITIVE_REHEARSAL=1` to append optional M4 one-click positive smoke stage
+  (`./scripts/rehearse-m4-positive-flow.sh`) after unit tests.
 - On success, the checker prints a validated rule-file count summary.
 - GitHub Actions workflow:
   - active workflow: `.github/workflows/refactor-backend-ci.yml`
@@ -797,6 +926,40 @@ cd refactor/backend
 cd refactor/backend
 ./scripts/rehearse-m3-loop.sh
 ```
+
+## Run Positive Strategy Publish Smoke
+
+```bash
+cd refactor/backend
+./scripts/smoke-positive-strategy-flow.py --base-url http://127.0.0.1:18000/api/v2
+```
+
+Notes:
+
+- Run this script against a running backend instance.
+- The script auto-generates analysis/backtest samples until publish gate is satisfied,
+  then executes: `publish -> bind -> rollback`.
+- Tuning options:
+  - `--max-symbol-attempts` (default `40`)
+  - `--samples-per-symbol` (default `5`)
+  - `--report-type` (default `detailed`)
+
+## Run One-Click Positive Rehearsal
+
+```bash
+cd refactor/backend
+./scripts/rehearse-m4-positive-flow.sh
+```
+
+Notes:
+
+- The script starts backend server on `http://127.0.0.1:18080` by default.
+- It runs positive smoke flow end-to-end and auto-cleans runtime artifacts by default.
+- Useful overrides:
+  - `API_PORT=18000` to run on a custom port
+  - `MAX_SYMBOL_ATTEMPTS=80` when gate pass is hard to hit
+  - `KEEP_RUNTIME_ARTIFACTS=1` to preserve backend/smoke logs
+  - `ISOLATE_RUNTIME=0` to reuse current env database/vector paths
 
 Notes:
 

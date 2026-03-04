@@ -37,6 +37,12 @@ CREATE TABLE IF NOT EXISTS workflow_trace_nodes (
     status TEXT NOT NULL,
     started_at TEXT NOT NULL,
     ended_at TEXT NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 1,
+    duration_ms INTEGER NOT NULL DEFAULT 0,
+    degraded INTEGER NOT NULL DEFAULT 0,
+    failure_code TEXT,
+    degrade_reason TEXT,
+    failure_context TEXT,
     FOREIGN KEY (execution_id) REFERENCES workflow_executions(execution_id)
 );
 
@@ -364,6 +370,42 @@ class SQLiteDatabase:
     def init_schema(self) -> None:
         with self.connection() as conn:
             conn.executescript(SCHEMA_SQL)
+            self._ensure_column(
+                conn=conn,
+                table_name="workflow_trace_nodes",
+                column_name="attempts",
+                column_ddl="INTEGER NOT NULL DEFAULT 1",
+            )
+            self._ensure_column(
+                conn=conn,
+                table_name="workflow_trace_nodes",
+                column_name="duration_ms",
+                column_ddl="INTEGER NOT NULL DEFAULT 0",
+            )
+            self._ensure_column(
+                conn=conn,
+                table_name="workflow_trace_nodes",
+                column_name="degraded",
+                column_ddl="INTEGER NOT NULL DEFAULT 0",
+            )
+            self._ensure_column(
+                conn=conn,
+                table_name="workflow_trace_nodes",
+                column_name="failure_code",
+                column_ddl="TEXT",
+            )
+            self._ensure_column(
+                conn=conn,
+                table_name="workflow_trace_nodes",
+                column_name="degrade_reason",
+                column_ddl="TEXT",
+            )
+            self._ensure_column(
+                conn=conn,
+                table_name="workflow_trace_nodes",
+                column_name="failure_context",
+                column_ddl="TEXT",
+            )
             self._ensure_column(
                 conn=conn,
                 table_name="notification_deliveries",
