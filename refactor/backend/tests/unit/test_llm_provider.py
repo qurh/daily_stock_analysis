@@ -327,3 +327,124 @@ def test_circuit_breaker_recovers_after_timeout(monkeypatch: pytest.MonkeyPatch)
 
     now["value"] = 1.1
     assert guarded.generate("p4") == "recovered"
+
+
+def test_openai_provider_failover_switches_key_on_retryable_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    used_auth_headers: list[str] = []
+
+    class _FakeResponse:
+        def __init__(self, status_code: int, payload: dict[str, object]) -> None:
+            self.status_code = status_code
+            self._payload = payload
+
+        def raise_for_status(self) -> None:
+            if self.status_code >= 400:
+                raise RuntimeError(f"http_status={self.status_code}")
+
+        def json(self) -> dict[str, object]:
+            return self._payload
+
+    def _fake_post(url: str, *, headers: dict[str, str], json: dict[str, object], timeout: float) -> _FakeResponse:
+        del url, json, timeout
+        used_auth_headers.append(headers.get("Authorization", ""))
+        if headers.get("Authorization") == "Bearer key-1":
+            return _FakeResponse(
+                429,
+                {"error": {"code": "rate_limit_exceeded", "message": "rate limited"}},
+            )
+        return _FakeResponse(
+            200,
+            {"choices": [{"message": {"content": "ok-from-key-2"}}]},
+        )
+
+    monkeypatch.setattr("app.llm.provider.httpx.post", _fake_post)
+
+    provider = create_llm_provider(
+        provider_name="openai-compatible",
+        model_name="gpt-4o-mini",
+        api_keys=["key-1", "key-2"],
+        base_url="https://api.openai.com/v1",
+        timeout_sec=10,
+    )
+    result = provider.generate("hello")
+
+    assert result == "ok-from-key-2"
+    assert used_auth_headers == ["Bearer key-1", "Bearer key-2"]
+
+
+def test_openai_provider_failover_does_not_switch_on_non_retryable_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    used_auth_headers: list[str] = []
+
+    class _FakeResponse:
+        def __init__(self, status_code: int, payload: dict[str, object]) -> None:
+            self.status_code = status_code
+            self._payload = payload
+
+        def raise_for_status(self) -> None:
+            if self.status_code >= 400:
+                raise RuntimeError(f"http_status={self.status_code}")
+
+        def json(self) -> dict[str, object]:
+            return self._payload
+
+    def _fake_post(url: str, *, headers: dict[str, str], json: dict[str, object], timeout: float) -> _FakeResponse:
+        del url, json, timeout
+        used_auth_headers.append(headers.get("Authorization", ""))
+        return _FakeResponse(
+            401,
+            {"error": {"code": "invalid_api_key", "message": "invalid key"}},
+        )
+
+    monkeypatch.setattr("app.llm.provider.httpx.post", _fake_post)
+
+    provider = create_llm_provider(
+        provider_name="openai-compatible",
+        model_name="gpt-4o-mini",
+        api_keys=["key-1", "key-2"],
+        base_url="https://api.openai.com/v1",
+        timeout_sec=10,
+    )
+
+    with pytest.raises(LLMProviderError) as exc_info:
+        provider.generate("hello")
+    error = exc_info.value
+    assert error.category == "auth"
+    assert error.retryable is False
+    assert used_auth_headers == ["Bearer key-1"]
+
+
+def test_dashscope_provider_failover_switches_key_on_retryable_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    used_keys: list[str] = []
+
+    class _Resp:
+        def __init__(self, api_key: str) -> None:
+            self.status_code = 429 if api_key == "dash-key-1" else 200
+            self.code = "Throttling" if self.status_code == 429 else None
+            self.message = "rate limit exceeded" if self.status_code == 429 else None
+            self.output = types.SimpleNamespace(
+                choices=[types.SimpleNamespace(message=types.SimpleNamespace(content="dash-key-2-ok"))]
+            )
+
+    class _Generation:
+        @staticmethod
+        def call(**kwargs: object) -> _Resp:
+            api_key = str(kwargs["api_key"])
+            used_keys.append(api_key)
+            return _Resp(api_key=api_key)
+
+    fake_dashscope = types.SimpleNamespace(
+        base_http_api_url="",
+        Generation=_Generation,
+    )
+    monkeypatch.setitem(sys.modules, "dashscope", fake_dashscope)
+
+    provider = create_llm_provider(
+        provider_name="dashscope",
+        model_name="qwen-plus",
+        dashscope_api_keys=["dash-key-1", "dash-key-2"],
+        dashscope_base_http_api_url="https://dashscope.aliyuncs.com/api/v1",
+    )
+    result = provider.generate("hello")
+
+    assert result == "dash-key-2-ok"
+    assert used_keys == ["dash-key-1", "dash-key-2"]

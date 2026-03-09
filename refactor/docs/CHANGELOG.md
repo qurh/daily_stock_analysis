@@ -9,11 +9,41 @@ All notable changes for the refactor project are documented in this file.
 - Added optional CI stage flag for one-click M4 positive rehearsal:
   - `CI_RUN_M4_POSITIVE_REHEARSAL=1`
   - when enabled, `scripts/ci.sh` runs `./scripts/rehearse-m4-positive-flow.sh` after unit tests
+- Added PushPlus topic routing support in Notification Hub:
+  - `PUSHPLUS_TOPIC` optional env support in PushPlus payload
+  - unit coverage in `test_notification_hub.py`
+- Added LLM multi-key failover support:
+  - `LLM_API_KEYS` and `DASHSCOPE_API_KEYS` key pool support
+  - retryable error triggers key-level failover for OpenAI-compatible and DashScope providers
+  - unit coverage in `test_llm_provider.py` and settings coverage in `test_settings_env_names.py`
+- Added Agent built-in factor/news tools:
+  - `market.quote`, `macro.snapshot`, `credit.snapshot`, `sentiment.snapshot`, `news.search`
+  - `news.search` provides symbol-scoped headlines + sentiment summary
+- Added Agent routes contract test coverage for new built-in tools:
+  - `GET /api/v2/agent/tools` includes factor/news tools
+  - `POST /api/v2/agent/invoke` contract for `news.search`
+- Added dedicated `NewsService` with external source adapter and deterministic fallback:
+  - source template env: `ANALYSIS_NEWS_SOURCE_URL`
+  - unit coverage in `test_news_service.py`
+- Added frontend Chat structured insight panels:
+  - `news.search` tags (`sentiment/risk/quality`) with headline insights
+  - `credit.snapshot` risk summary (`risk_level/cds/bond_spread`)
+  - `market.quote` / `macro.snapshot` / `sentiment.snapshot` factor summaries in dedicated panels
+  - insight filter chips and grouped collapsible insight bundle with visible-count summary
 
 ### Changed
 
 - Backend README updated with optional CI stage usage.
 - Backend app version bumped to `0.4.57-m4-ci-optional-positive-rehearsal-stage`.
+- `AgentService` now wires factor-based snapshot tools and keeps compatibility with existing toolkit behavior.
+- `SentimentFactorProvider` now includes normalized `headlines` in both external and fallback payload paths.
+- `AgentService.news.search` now prefers `NewsService` when configured, and falls back to sentiment headlines path.
+- Backend README updated for:
+  - PushPlus topic config
+  - LLM key pool config
+  - news source config
+  - expanded Agent built-in tool list
+- Summary schema version: `1`
 
 ## [0.4.56-m4-one-click-positive-smoke-rehearsal] - 2026-03-04
 

@@ -69,6 +69,31 @@ def test_chat_includes_agent_trace() -> None:
     assert "planned_tools" in assistant["tool_trace"]["agent_trace"]
 
 
+def test_chat_preserves_symbol_context_in_tool_trace_and_agent_trace() -> None:
+    client = TestClient(create_app())
+
+    created_session = client.post(
+        "/api/v2/chat/sessions",
+        json={"user_id": "u-symbol", "memory_policy": "summary_v1"},
+    )
+    assert created_session.status_code == 201
+    session_id = created_session.json()["session_id"]
+
+    replied = client.post(
+        f"/api/v2/chat/sessions/{session_id}/messages",
+        json={"content": "请分析贵州茅台600519的回测收益和胜率"},
+    )
+    assert replied.status_code == 200
+    assistant = replied.json()["assistant"]
+    assert assistant["tool_trace"]["symbol_context"]["symbol"] == "600519"
+    assert assistant["tool_trace"]["symbol_context"]["resolved_name"] == "贵州茅台"
+    assert "600519" in assistant["tool_trace"]["symbol_context"]["aliases"]
+
+    agent_trace = assistant["tool_trace"]["agent_trace"]
+    assert agent_trace["entity_context"]["symbol"] == "600519"
+    assert agent_trace["entity_context"]["resolved_name"] == "贵州茅台"
+
+
 def test_chat_maps_llm_provider_error(monkeypatch) -> None:
     def fake_generate(self, prompt: str) -> str:  # noqa: ARG001
         raise LLMProviderError(

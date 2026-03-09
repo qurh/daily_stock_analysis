@@ -234,3 +234,61 @@ def test_notifications_retry_delivery_endpoint_retries_failed_record() -> None:
     assert len(items) == 1
     assert items[0]["status"] == "delivered"
     assert items[0]["retry_of_delivery_id"] == failed_delivery_id
+
+
+def test_pushplus_send_includes_topic_when_configured(monkeypatch) -> None:
+    monkeypatch.setenv("PUSHPLUS_TOKEN", "token-123")
+    monkeypatch.setenv("PUSHPLUS_TOPIC", "topic-alpha")
+    captured: dict[str, Any] = {}
+
+    class _Resp:
+        status_code = 200
+
+    def _fake_post(url: str, json: dict[str, Any], timeout: float):
+        captured["url"] = url
+        captured["json"] = json
+        captured["timeout"] = timeout
+        return _Resp()
+
+    monkeypatch.setattr("app.services.notification_service.httpx.post", _fake_post)
+    hub = NotificationHub()
+
+    report = hub.send(
+        message=NotificationMessage(title="PushPlus", content="with topic"),
+        channels=["pushplus"],
+    )
+
+    assert report["summary"]["attempted"] == 1
+    assert report["summary"]["succeeded"] == 1
+    assert captured["url"] == "http://www.pushplus.plus/send"
+    assert captured["json"]["token"] == "token-123"
+    assert captured["json"]["topic"] == "topic-alpha"
+
+
+def test_pushplus_send_works_without_topic(monkeypatch) -> None:
+    monkeypatch.setenv("PUSHPLUS_TOKEN", "token-123")
+    monkeypatch.delenv("PUSHPLUS_TOPIC", raising=False)
+    captured: dict[str, Any] = {}
+
+    class _Resp:
+        status_code = 200
+
+    def _fake_post(url: str, json: dict[str, Any], timeout: float):
+        captured["url"] = url
+        captured["json"] = json
+        captured["timeout"] = timeout
+        return _Resp()
+
+    monkeypatch.setattr("app.services.notification_service.httpx.post", _fake_post)
+    hub = NotificationHub()
+
+    report = hub.send(
+        message=NotificationMessage(title="PushPlus", content="without topic"),
+        channels=["pushplus"],
+    )
+
+    assert report["summary"]["attempted"] == 1
+    assert report["summary"]["succeeded"] == 1
+    assert captured["url"] == "http://www.pushplus.plus/send"
+    assert captured["json"]["token"] == "token-123"
+    assert "topic" not in captured["json"]

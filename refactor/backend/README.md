@@ -21,6 +21,7 @@ uvicorn app.main:app --app-dir src --reload --port 18000
 - LLM provider: `LLM_PROVIDER` (default `mock-llm`)
 - LLM model: `LLM_MODEL` (default `mock-v1`)
 - LLM API key: `LLM_API_KEY` (required when provider is `openai-compatible` or `openai`)
+- LLM API keys pool: `LLM_API_KEYS` (optional, comma-separated; retryable failure triggers key failover)
 - LLM base URL: `LLM_BASE_URL` (default `https://api.openai.com/v1`)
 - LLM timeout seconds: `LLM_TIMEOUT_SEC` (default `30`)
 - LLM max retries: `LLM_MAX_RETRIES` (default `0`, retries only when provider marks error as retryable)
@@ -28,6 +29,7 @@ uvicorn app.main:app --app-dir src --reload --port 18000
 - LLM circuit failure threshold: `LLM_CIRCUIT_FAILURE_THRESHOLD` (default `0`, disabled when `0`)
 - LLM circuit reset timeout ms: `LLM_CIRCUIT_RESET_TIMEOUT_MS` (default `30000`)
 - DashScope API key: `DASHSCOPE_API_KEY` (used when provider is `dashscope`)
+- DashScope API keys pool: `DASHSCOPE_API_KEYS` (optional, comma-separated; retryable failure triggers key failover)
 - DashScope base HTTP API URL: `DASHSCOPE_BASE_HTTP_API_URL` (default `https://dashscope.aliyuncs.com/api/v1`)
 - DashScope thinking mode: `DASHSCOPE_ENABLE_THINKING` (default `false`)
 - Prompt ref lock mode: `PROMPT_REF_LOCK_MODE` (`lenient` by default, `strict` optional)
@@ -56,6 +58,8 @@ uvicorn app.main:app --app-dir src --reload --port 18000
 - Analysis macro source URL template: `ANALYSIS_MACRO_SOURCE_URL` (default empty -> fallback provider)
 - Analysis credit source URL template: `ANALYSIS_CREDIT_SOURCE_URL` (default empty -> fallback provider)
 - Analysis sentiment source URL template: `ANALYSIS_SENTIMENT_SOURCE_URL` (default empty -> fallback provider)
+- Analysis news source URL template: `ANALYSIS_NEWS_SOURCE_URL` (default empty -> fallback provider)
+- Analysis default market region: `ANALYSIS_MARKET_REGION` (`cn` by default, supports `cn` / `us`)
 - Analysis flow template CSV: `ANALYSIS_FLOW_TEMPLATE` (default built-in node order)
 - Analysis flow node max retries: `ANALYSIS_NODE_MAX_RETRIES` (default `0`)
 - Analysis flow node retry backoff ms: `ANALYSIS_NODE_RETRY_BACKOFF_MS` (default `0`, exponential backoff)
@@ -83,6 +87,7 @@ Use OpenAI-compatible endpoint:
 export LLM_PROVIDER="openai-compatible"
 export LLM_MODEL="gpt-4o-mini"
 export LLM_API_KEY="sk-xxx"
+export LLM_API_KEYS="sk-xxx,sk-yyy"
 export LLM_BASE_URL="https://api.openai.com/v1"
 export LLM_TIMEOUT_SEC="30"
 uvicorn app.main:app --app-dir src --reload --port 18000
@@ -94,6 +99,7 @@ Use DashScope SDK endpoint:
 export LLM_PROVIDER="dashscope"
 export LLM_MODEL="qwen-plus"
 export DASHSCOPE_API_KEY="sk-xxx"
+export DASHSCOPE_API_KEYS="sk-xxx,sk-yyy"
 export DASHSCOPE_BASE_HTTP_API_URL="https://dashscope.aliyuncs.com/api/v1"
 export DASHSCOPE_ENABLE_THINKING="true"
 uvicorn app.main:app --app-dir src --reload --port 18000
@@ -181,7 +187,7 @@ uvicorn app.main:app --app-dir src --reload --port 18000
 - Factor pipeline is extensible via provider interface:
   - `refactor/backend/src/app/services/factor_service.py` (`FactorProvider`)
 - Real-source adapter mode:
-  - configure `ANALYSIS_MACRO_SOURCE_URL`, `ANALYSIS_CREDIT_SOURCE_URL`, `ANALYSIS_SENTIMENT_SOURCE_URL`
+  - configure `ANALYSIS_MACRO_SOURCE_URL`, `ANALYSIS_CREDIT_SOURCE_URL`, `ANALYSIS_SENTIMENT_SOURCE_URL`, `ANALYSIS_NEWS_SOURCE_URL`
 - optional `ANALYSIS_FACTOR_SOURCE_AUTH_TOKEN` and `ANALYSIS_FACTOR_SOURCE_TIMEOUT_SEC`
   - external fetch failure auto-falls back to deterministic provider and records quality flag
 - Flow-template orchestration mode:
@@ -225,6 +231,11 @@ uvicorn app.main:app --app-dir src --reload --port 18000
   - `memory.search`
   - `backtest.performance`
   - `workflow.execution.get`
+  - `market.quote`
+  - `macro.snapshot`
+  - `credit.snapshot`
+  - `sentiment.snapshot`
+  - `news.search`
 - Invoke response includes execution trace bundle:
   - `planned_tools`
   - `results`
@@ -285,7 +296,7 @@ uvicorn app.main:app --app-dir src --reload --port 18000
   - Webhook channels: `WECHAT_WEBHOOK_URL`, `FEISHU_WEBHOOK_URL`, `DISCORD_WEBHOOK_URL`, `CUSTOM_WEBHOOK_URLS`
   - Telegram: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TELEGRAM_MESSAGE_THREAD_ID`
   - Email: `EMAIL_SENDER`, `EMAIL_PASSWORD`, `EMAIL_RECEIVERS`
-  - Other push channels: `PUSHOVER_USER_KEY`, `PUSHOVER_API_TOKEN`, `PUSHPLUS_TOKEN`, `SERVERCHAN3_SENDKEY`
+  - Other push channels: `PUSHOVER_USER_KEY`, `PUSHOVER_API_TOKEN`, `PUSHPLUS_TOKEN`, `PUSHPLUS_TOPIC` (optional), `SERVERCHAN3_SENDKEY`
   - AstrBot: `ASTRBOT_URL` (or `ASTRBOT_WEBHOOK_URL`), optional `ASTRBOT_TOKEN`
 - Analysis auto notify:
   - set `ANALYSIS_AUTO_NOTIFY_ENABLED=true` to auto-send on analysis success
@@ -968,6 +979,7 @@ Notes:
   - `LLM_PROVIDER=openai-compatible` (or `openai` / `dashscope`)
   - `LLM_MODEL=<your-model>`
   - `LLM_API_KEY=<your-key>` (or `DASHSCOPE_API_KEY` for `dashscope`)
+  - optional key pool: `LLM_API_KEYS=<k1,k2,...>` or `DASHSCOPE_API_KEYS=<k1,k2,...>`
   - `LLM_BASE_URL=<provider-base-url>` (for OpenAI-compatible providers)
   - `ENABLE_REAL_LLM_SMOKE=1`
 - Optional reliability variables:

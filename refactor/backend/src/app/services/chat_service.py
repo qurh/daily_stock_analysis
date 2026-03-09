@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from app.llm.provider import LLMProvider
@@ -59,7 +60,8 @@ class ChatService:
 
         knowledge_hint = knowledge_hits[0].get("summary", "") if knowledge_hits else ""
         memory_hint = memory_hits[0].get("content", "") if memory_hits else ""
-        agent_trace = self._invoke_agent(session_id=session_id, content=content)
+        symbol_context = self._extract_symbol_context(content=content)
+        agent_trace = self._invoke_agent(session_id=session_id, content=content, symbol_context=symbol_context)
         agent_hint = self._build_agent_hint(agent_trace=agent_trace)
         strategy_context = self._resolve_strategy_context()
         try:
@@ -91,6 +93,9 @@ class ChatService:
         }
         if agent_trace is not None:
             tool_trace["agent_trace"] = agent_trace
+        merged_symbol_context = self._merge_symbol_context(symbol_context=symbol_context, agent_trace=agent_trace)
+        if merged_symbol_context is not None:
+            tool_trace["symbol_context"] = merged_symbol_context
         if strategy_context is not None:
             tool_trace["strategy_id"] = strategy_context["strategy_id"]
             tool_trace["strategy_binding_id"] = strategy_context["binding_id"]
@@ -174,15 +179,31 @@ class ChatService:
             return self._default_prompt_lock_mode
         return normalize_lock_mode(strategy_context.get("prompt_lock_mode"), self._default_prompt_lock_mode)
 
-    def _invoke_agent(self, session_id: str, content: str) -> dict[str, Any] | None:
+    def _invoke_agent(
+        self,
+        session_id: str,
+        content: str,
+        symbol_context: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | None:
         if self._agent_service is None:
             return None
 
+        payload: dict[str, Any] = {"query": content, "top_k": 3}
+        context: dict[str, Any] = {"session_id": session_id}
+        if symbol_context is not None:
+            payload["symbol"] = symbol_context["symbol"]
+            payload["resolved_name"] = symbol_context["resolved_name"]
+            payload["aliases"] = list(symbol_context.get("aliases", []))
+            context["entity_context"] = {
+                "symbol": symbol_context["symbol"],
+                "resolved_name": symbol_context["resolved_name"],
+                "aliases": list(symbol_context.get("aliases", [])),
+            }
         try:
             return self._agent_service.invoke_with_intent(
                 intent=content,
-                payload={"query": content, "top_k": 3},
-                context={"session_id": session_id},
+                payload=payload,
+                context=context,
             )
         except Exception as exc:  # noqa: BLE001
             return {
@@ -191,6 +212,7 @@ class ChatService:
                 "results": {},
                 "degraded": True,
                 "failed_tools": ["agent.runtime"],
+                "entity_context": context.get("entity_context"),
                 "trace": [
                     {
                         "call_id": "agent-runtime",
@@ -212,9 +234,82 @@ class ChatService:
             "planned_tools": agent_trace.get("planned_tools", []),
             "degraded": bool(agent_trace.get("degraded", False)),
             "results": agent_trace.get("results", {}),
+            "entity_context": agent_trace.get("entity_context"),
         }
         serialized = json.dumps(payload, ensure_ascii=False)
         return serialized if len(serialized) <= 320 else f"{serialized[:317]}..."
+
+    @staticmethod
+    def _extract_symbol_context(content: str) -> dict[str, Any] | None:
+        cn_match = re.search(r"(?P<symbol>(?:0|3|6)\d{5})", content or "")
+        if cn_match is not None:
+            symbol = cn_match.group("symbol")
+            prefix_window = (content or "")[max(0, cn_match.start() - 24) : cn_match.start()]
+            name_match = re.search(r"([A-Za-z\u4e00-\u9fff]{2,20})\s*$", prefix_window)
+            resolved_name = symbol
+            if name_match is not None:
+                resolved_name = ChatService._clean_name_token(name_match.group(1), fallback=symbol)
+            aliases = []
+            for alias in [symbol, resolved_name]:
+                if alias not in aliases:
+                    aliases.append(alias)
+            return {
+                "symbol": symbol,
+                "resolved_name": resolved_name,
+                "aliases": aliases,
+                "market": "cn",
+                "parser": "chat_symbol_parser_v1",
+            }
+
+        us_match = re.search(r"\$(?P<symbol>[A-Z]{1,5})\b", content or "")
+        if us_match is not None:
+            symbol = us_match.group("symbol")
+            return {
+                "symbol": symbol,
+                "resolved_name": symbol,
+                "aliases": [symbol],
+                "market": "us",
+                "parser": "chat_symbol_parser_v1",
+            }
+        return None
+
+    @staticmethod
+    def _clean_name_token(raw: str, fallback: str) -> str:
+        value = (raw or "").strip()
+        if not value:
+            return fallback
+        for prefix in ["请分析", "分析", "请问", "请帮我", "帮我", "看看", "看下", "请"]:
+            if value.startswith(prefix) and len(value) > len(prefix):
+                value = value[len(prefix) :].strip()
+        if not value:
+            return fallback
+        return value
+
+    @staticmethod
+    def _merge_symbol_context(
+        symbol_context: dict[str, Any] | None,
+        agent_trace: dict[str, Any] | None,
+    ) -> dict[str, Any] | None:
+        merged: dict[str, Any] = {}
+        if symbol_context is not None:
+            merged.update(symbol_context)
+        if agent_trace is not None and isinstance(agent_trace.get("entity_context"), dict):
+            merged.update(agent_trace["entity_context"])
+        if "symbol" not in merged:
+            return None
+        aliases = merged.get("aliases")
+        if not isinstance(aliases, list):
+            aliases = []
+        deduped_aliases: list[str] = []
+        for alias in aliases + [merged.get("symbol"), merged.get("resolved_name")]:
+            text = str(alias).strip() if alias is not None else ""
+            if not text or text in deduped_aliases:
+                continue
+            deduped_aliases.append(text)
+        merged["aliases"] = deduped_aliases
+        if "resolved_name" not in merged or not str(merged["resolved_name"]).strip():
+            merged["resolved_name"] = merged["symbol"]
+        return merged
 
 
 def _build_citations(knowledge_hits: list[dict[str, Any]], memory_hits: list[dict[str, Any]]) -> list[dict[str, Any]]:

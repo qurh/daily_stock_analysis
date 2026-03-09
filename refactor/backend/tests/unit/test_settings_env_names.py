@@ -10,6 +10,7 @@ def test_settings_reads_non_prefixed_env_vars(monkeypatch) -> None:
     monkeypatch.setenv("LLM_PROVIDER", "dashscope")
     monkeypatch.setenv("LLM_MODEL", "qwen-plus")
     monkeypatch.setenv("LLM_API_KEY", "llm-key")
+    monkeypatch.setenv("LLM_API_KEYS", "llm-key-1,llm-key-2")
     monkeypatch.setenv("LLM_BASE_URL", "https://example.com/v1")
     monkeypatch.setenv("LLM_TIMEOUT_SEC", "45")
     monkeypatch.setenv("LLM_MAX_RETRIES", "3")
@@ -17,6 +18,7 @@ def test_settings_reads_non_prefixed_env_vars(monkeypatch) -> None:
     monkeypatch.setenv("LLM_CIRCUIT_FAILURE_THRESHOLD", "5")
     monkeypatch.setenv("LLM_CIRCUIT_RESET_TIMEOUT_MS", "60000")
     monkeypatch.setenv("DASHSCOPE_API_KEY", "dash-key")
+    monkeypatch.setenv("DASHSCOPE_API_KEYS", "dash-key-1,dash-key-2")
     monkeypatch.setenv("DASHSCOPE_BASE_HTTP_API_URL", "https://dashscope.aliyuncs.com/api/v1")
     monkeypatch.setenv("DASHSCOPE_ENABLE_THINKING", "true")
     monkeypatch.setenv("PROMPT_REF_LOCK_MODE", "strict")
@@ -41,6 +43,8 @@ def test_settings_reads_non_prefixed_env_vars(monkeypatch) -> None:
     monkeypatch.setenv("ANALYSIS_MACRO_SOURCE_URL", "https://example.test/macro?symbol={symbol}")
     monkeypatch.setenv("ANALYSIS_CREDIT_SOURCE_URL", "https://example.test/credit?symbol={symbol}")
     monkeypatch.setenv("ANALYSIS_SENTIMENT_SOURCE_URL", "https://example.test/sentiment?symbol={symbol}")
+    monkeypatch.setenv("ANALYSIS_NEWS_SOURCE_URL", "https://example.test/news?symbol={symbol}")
+    monkeypatch.setenv("ANALYSIS_MARKET_REGION", "us")
     monkeypatch.setenv(
         "ANALYSIS_FLOW_TEMPLATE",
         "resolve_strategy_context,resolve_prompt,collect_macro_factor+collect_credit_factor,build_dashboard,finalize_report",
@@ -71,6 +75,7 @@ def test_settings_reads_non_prefixed_env_vars(monkeypatch) -> None:
     assert settings.llm_provider == "dashscope"
     assert settings.llm_model == "qwen-plus"
     assert settings.llm_api_key == "llm-key"
+    assert settings.llm_api_keys == ["llm-key-1", "llm-key-2", "llm-key"]
     assert settings.llm_base_url == "https://example.com/v1"
     assert settings.llm_timeout_sec == 45.0
     assert settings.llm_max_retries == 3
@@ -78,6 +83,7 @@ def test_settings_reads_non_prefixed_env_vars(monkeypatch) -> None:
     assert settings.llm_circuit_failure_threshold == 5
     assert settings.llm_circuit_reset_timeout_ms == 60000
     assert settings.dashscope_api_key == "dash-key"
+    assert settings.dashscope_api_keys == ["dash-key-1", "dash-key-2", "dash-key"]
     assert settings.dashscope_base_http_api_url == "https://dashscope.aliyuncs.com/api/v1"
     assert settings.dashscope_enable_thinking is True
     assert settings.prompt_ref_lock_mode == "strict"
@@ -102,6 +108,8 @@ def test_settings_reads_non_prefixed_env_vars(monkeypatch) -> None:
     assert settings.analysis_macro_source_url == "https://example.test/macro?symbol={symbol}"
     assert settings.analysis_credit_source_url == "https://example.test/credit?symbol={symbol}"
     assert settings.analysis_sentiment_source_url == "https://example.test/sentiment?symbol={symbol}"
+    assert settings.analysis_news_source_url == "https://example.test/news?symbol={symbol}"
+    assert settings.analysis_market_region == "us"
     assert settings.analysis_flow_template == [
         "resolve_strategy_context",
         "resolve_prompt",

@@ -12,6 +12,7 @@ router = APIRouter()
 class AnalysisJobCreateRequest(BaseModel):
     symbol: str = Field(min_length=1)
     report_type: str = "detailed"
+    market_region: str | None = Field(default=None, pattern="^(cn|us)$")
 
 
 class AnalysisJobAcceptedResponse(BaseModel):
@@ -24,7 +25,11 @@ def create_analysis_job(
     request: AnalysisJobCreateRequest,
     service: AnalysisService = Depends(get_analysis_service),
 ) -> dict[str, str]:
-    return service.submit_job(symbol=request.symbol, report_type=request.report_type)
+    return service.submit_job(
+        symbol=request.symbol,
+        report_type=request.report_type,
+        market_region=request.market_region,
+    )
 
 
 @router.get("/jobs/{job_id}")

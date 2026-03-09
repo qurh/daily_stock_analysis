@@ -43,6 +43,44 @@ def test_agent_routes_register_list_and_invoke() -> None:
     assert payload["trace"][0]["status"] == "succeeded"
 
 
+def test_agent_routes_list_includes_new_builtin_tools() -> None:
+    client = TestClient(create_app())
+    listed = client.get("/api/v2/agent/tools")
+    assert listed.status_code == 200
+    payload = listed.json()
+    names = {item["name"] for item in payload["items"]}
+    assert "market.quote" in names
+    assert "macro.snapshot" in names
+    assert "credit.snapshot" in names
+    assert "sentiment.snapshot" in names
+    assert "news.search" in names
+
+
+def test_agent_routes_invoke_news_search_returns_headlines() -> None:
+    client = TestClient(create_app())
+    invoked = client.post(
+        "/api/v2/agent/invoke",
+        json={
+            "intent": "查询新闻",
+            "payload": {"symbol": "600519", "report_type": "detailed", "query": "market", "top_k": 2},
+            "context": {},
+            "force_tools": ["news.search"],
+        },
+    )
+    assert invoked.status_code == 200
+    payload = invoked.json()
+    assert payload["planned_tools"] == ["news.search"]
+    assert payload["trace"][0]["tool_name"] == "news.search"
+    assert payload["trace"][0]["status"] == "succeeded"
+    result = payload["results"]["news.search"]
+    assert result["symbol"] == "600519"
+    assert result["top_k"] == 2
+    assert isinstance(result["headlines"], list)
+    assert len(result["headlines"]) <= 2
+    assert "sentiment" in result
+    assert "sentiment_level" in result["sentiment"]
+
+
 def test_agent_routes_reject_unknown_tool() -> None:
     client = TestClient(create_app())
     invoked = client.post(

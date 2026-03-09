@@ -20,6 +20,7 @@ from app.services.factor_service import (
 from app.services.feedback_service import FeedbackService
 from app.services.knowledge_service import KnowledgeService
 from app.services.memory_service import MemoryService
+from app.services.news_service import NewsService
 from app.services.notification_service import NotificationHub
 from app.services.optimization_service import OptimizationService
 from app.services.prompt_lock_audit_service import PromptLockAuditService
@@ -47,6 +48,7 @@ def create_app() -> FastAPI:
         provider_name=settings.llm_provider,
         model_name=settings.llm_model,
         api_key=settings.llm_api_key,
+        api_keys=settings.llm_api_keys,
         base_url=settings.llm_base_url,
         timeout_sec=settings.llm_timeout_sec,
         max_retries=settings.llm_max_retries,
@@ -54,6 +56,7 @@ def create_app() -> FastAPI:
         circuit_failure_threshold=settings.llm_circuit_failure_threshold,
         circuit_reset_timeout_ms=settings.llm_circuit_reset_timeout_ms,
         dashscope_api_key=settings.dashscope_api_key,
+        dashscope_api_keys=settings.dashscope_api_keys,
         dashscope_base_http_api_url=settings.dashscope_base_http_api_url,
         dashscope_enable_thinking=settings.dashscope_enable_thinking,
     )
@@ -116,6 +119,7 @@ def create_app() -> FastAPI:
         analysis_node_max_retries=settings.analysis_node_max_retries,
         analysis_node_retry_backoff_ms=settings.analysis_node_retry_backoff_ms,
         analysis_orchestrator_engine=settings.analysis_orchestrator_engine,
+        default_market_region=settings.analysis_market_region,
         default_prompt_lock_mode=settings.prompt_ref_lock_mode,
         queue_auto_process=settings.queue_auto_process,
         auto_notify_enabled=settings.analysis_auto_notify_enabled,
@@ -127,11 +131,18 @@ def create_app() -> FastAPI:
         queue_auto_process=settings.queue_auto_process,
     )
     memory_service = MemoryService(database=database, vector_store=memory_vector_store)
+    news_service = NewsService(
+        source_url=settings.analysis_news_source_url,
+        auth_token=settings.analysis_factor_source_auth_token,
+        timeout_sec=settings.analysis_factor_source_timeout_sec,
+    )
     agent_service = AgentService(
         knowledge_service=knowledge_service,
         memory_service=memory_service,
         backtest_service=backtest_service,
         workflow_service=workflow_service,
+        factor_service=factor_service,
+        news_service=news_service,
         default_max_retries=settings.agent_tool_max_retries,
         retry_backoff_ms=settings.agent_tool_retry_backoff_ms,
     )
@@ -167,6 +178,7 @@ def create_app() -> FastAPI:
     app.state.prompt_service = prompt_service
     app.state.knowledge_service = knowledge_service
     app.state.memory_service = memory_service
+    app.state.news_service = news_service
     app.state.notification_service = notification_service
     app.state.chat_service = chat_service
     app.state.prompt_lock_audit_service = prompt_lock_audit_service

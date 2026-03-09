@@ -88,12 +88,19 @@ def test_submit_analysis_job_retries_transient_node_failure(monkeypatch) -> None
         self: AnalysisService,
         symbol: str,
         report_type: str,
+        market_region: str,
         strategy_context: dict | None = None,
     ) -> dict[str, str]:
         if attempts["count"] == 0:
             attempts["count"] += 1
             raise RuntimeError("transient prompt failure")
-        return original(self, symbol=symbol, report_type=report_type, strategy_context=strategy_context)
+        return original(
+            self,
+            symbol=symbol,
+            report_type=report_type,
+            market_region=market_region,
+            strategy_context=strategy_context,
+        )
 
     monkeypatch.setattr(AnalysisService, "_resolve_prompt", flaky_resolve_prompt)
     client = TestClient(create_app())
@@ -127,6 +134,7 @@ def test_submit_analysis_job_fails_when_retry_budget_exhausted(monkeypatch) -> N
         self: AnalysisService,
         symbol: str,
         report_type: str,
+        market_region: str,
         strategy_context: dict | None = None,
     ) -> dict[str, str]:
         raise RuntimeError("prompt resolver hard failure")
@@ -183,3 +191,94 @@ def test_submit_analysis_job_langgraph_import_error_falls_back_to_local(monkeypa
     assert orchestrator["requested"] == "langgraph"
     assert orchestrator["effective"] == "local"
     assert orchestrator["warning_code"] == "langgraph_import_error"
+
+
+def test_submit_analysis_job_accepts_market_region_and_exposes_blueprint_meta(monkeypatch) -> None:
+    captured: dict[str, str] = {}
+
+    def capture_resolve_prompt(
+        self: AnalysisService,
+        symbol: str,
+        report_type: str,
+        market_region: str,
+        strategy_context: dict | None = None,
+    ) -> dict[str, str]:
+        captured["market_region"] = market_region
+        captured["symbol"] = symbol
+        captured["report_type"] = report_type
+        return {
+            "prompt_ref": "prompt.analysis.reply@capture",
+            "rendered_prompt": f"Analyze {symbol} in {market_region}",
+            "strategy_blueprint_id": f"{market_region}_market_blueprint_v1",
+            "strategy_blueprint_title": f"{market_region.upper()} Market Blueprint",
+        }
+
+    monkeypatch.setattr(AnalysisService, "_resolve_prompt", capture_resolve_prompt)
+    client = TestClient(create_app())
+
+    accepted = client.post(
+        "/api/v2/analysis/jobs",
+        json={"symbol": "AAPL", "report_type": "detailed", "market_region": "us"},
+    )
+    assert accepted.status_code == 202
+    job_id = accepted.json()["job_id"]
+
+    queried = client.get(f"/api/v2/jobs/{job_id}")
+    assert queried.status_code == 200
+    payload = queried.json()
+    assert payload["status"] == "succeeded"
+    assert captured["market_region"] == "us"
+    assert captured["symbol"] == "AAPL"
+    assert captured["report_type"] == "detailed"
+    meta = payload["result"]["report"]["meta"]
+    assert meta["market_region"] == "us"
+    assert meta["strategy_blueprint_id"] == "us_market_blueprint_v1"
+    assert meta["strategy_blueprint_title"] == "US Market Blueprint"
+
+
+def test_submit_analysis_job_uses_default_market_region_when_missing(monkeypatch) -> None:
+    monkeypatch.setenv("ANALYSIS_MARKET_REGION", "us")
+    captured: dict[str, str] = {}
+
+    def capture_resolve_prompt(
+        self: AnalysisService,
+        symbol: str,
+        report_type: str,
+        market_region: str,
+        strategy_context: dict | None = None,
+    ) -> dict[str, str]:
+        captured["market_region"] = market_region
+        return {
+            "prompt_ref": "prompt.analysis.reply@capture",
+            "rendered_prompt": f"Analyze {symbol} in {market_region}",
+            "strategy_blueprint_id": f"{market_region}_market_blueprint_v1",
+            "strategy_blueprint_title": f"{market_region.upper()} Market Blueprint",
+        }
+
+    monkeypatch.setattr(AnalysisService, "_resolve_prompt", capture_resolve_prompt)
+    client = TestClient(create_app())
+
+    accepted = client.post(
+        "/api/v2/analysis/jobs",
+        json={"symbol": "600519", "report_type": "summary"},
+    )
+    assert accepted.status_code == 202
+    job_id = accepted.json()["job_id"]
+
+    queried = client.get(f"/api/v2/jobs/{job_id}")
+    assert queried.status_code == 200
+    payload = queried.json()
+    assert payload["status"] == "succeeded"
+    assert captured["market_region"] == "us"
+    meta = payload["result"]["report"]["meta"]
+    assert meta["market_region"] == "us"
+    assert meta["strategy_blueprint_id"] == "us_market_blueprint_v1"
+
+
+def test_submit_analysis_job_rejects_invalid_market_region() -> None:
+    client = TestClient(create_app())
+    response = client.post(
+        "/api/v2/analysis/jobs",
+        json={"symbol": "600519", "report_type": "summary", "market_region": "jp"},
+    )
+    assert response.status_code == 422

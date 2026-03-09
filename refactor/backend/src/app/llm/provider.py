@@ -6,6 +6,7 @@ import random
 import threading
 import time
 from dataclasses import dataclass, field
+from typing import Any
 
 import httpx
 
@@ -129,6 +130,53 @@ class CircuitBreakerLLMProvider(LLMProvider):
         )
 
 
+@dataclass
+class KeyPoolLLMProvider(LLMProvider):
+    providers: list[LLMProvider]
+    _current_index: int = field(default=0, init=False)
+    _lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
+
+    @property
+    def provider_name(self) -> str:
+        if not self.providers:
+            return "unknown"
+        return self.providers[0].provider_name
+
+    @property
+    def model_name(self) -> str:
+        if not self.providers:
+            return "unknown"
+        return self.providers[0].model_name
+
+    def generate(self, prompt: str) -> str:
+        if not self.providers:
+            raise ValueError("No providers configured for key pool")
+        total = len(self.providers)
+        with self._lock:
+            start_index = self._current_index
+        last_retryable_error: LLMProviderError | None = None
+
+        for offset in range(total):
+            index = (start_index + offset) % total
+            provider = self.providers[index]
+            try:
+                result = provider.generate(prompt)
+            except LLMProviderError as exc:
+                if not exc.retryable:
+                    raise
+                with self._lock:
+                    self._current_index = (index + 1) % total
+                last_retryable_error = exc
+                continue
+            with self._lock:
+                self._current_index = index
+            return result
+
+        if last_retryable_error is not None:
+            raise last_retryable_error
+        raise ValueError("No providers configured for key pool")
+
+
 @dataclass(frozen=True)
 class MockLLMProvider(LLMProvider):
     provider_name: str = "mock-llm"
@@ -150,26 +198,86 @@ class OpenAICompatibleLLMProvider(LLMProvider):
     timeout_sec: float
 
     def generate(self, prompt: str) -> str:
-        response = httpx.post(
-            f"{self.base_url.rstrip('/')}/chat/completions",
-            headers={
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": self.model_name,
-                "messages": [{"role": "user", "content": prompt}],
-            },
-            timeout=self.timeout_sec,
-        )
-        response.raise_for_status()
-        payload = response.json()
+        try:
+            response = httpx.post(
+                f"{self.base_url.rstrip('/')}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": self.model_name,
+                    "messages": [{"role": "user", "content": prompt}],
+                },
+                timeout=self.timeout_sec,
+            )
+        except httpx.TimeoutException as exc:
+            raise LLMProviderError(
+                provider=self.provider_name,
+                status_code=None,
+                error_code="Timeout",
+                error_message=str(exc),
+                category="timeout",
+                retryable=True,
+            ) from exc
+        except httpx.RequestError as exc:
+            raise LLMProviderError(
+                provider=self.provider_name,
+                status_code=None,
+                error_code="RequestError",
+                error_message=str(exc),
+                category="upstream",
+                retryable=True,
+            ) from exc
+
+        payload: dict[str, Any] = {}
+        try:
+            parsed = response.json()
+            if isinstance(parsed, dict):
+                payload = parsed
+        except Exception:
+            payload = {}
+
+        status_code = getattr(response, "status_code", 200)
+        if not isinstance(status_code, int):
+            status_code = 200
+
+        if status_code >= 400:
+            error_code, error_message = _extract_openai_error(payload=payload)
+            category, retryable = _classify_openai_error(
+                status_code=status_code,
+                error_code=error_code,
+                error_message=error_message,
+            )
+            raise LLMProviderError(
+                provider=self.provider_name,
+                status_code=status_code,
+                error_code=error_code,
+                error_message=error_message,
+                category=category,
+                retryable=retryable,
+            )
+
         try:
             content = payload["choices"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError) as exc:
-            raise ValueError("Invalid LLM response payload") from exc
+            raise LLMProviderError(
+                provider=self.provider_name,
+                status_code=status_code,
+                error_code="InvalidPayload",
+                error_message="Invalid LLM response payload",
+                category="provider_payload",
+                retryable=False,
+            ) from exc
         if not isinstance(content, str):
-            raise ValueError("Invalid LLM response payload")
+            raise LLMProviderError(
+                provider=self.provider_name,
+                status_code=status_code,
+                error_code="InvalidPayload",
+                error_message="Invalid LLM response payload",
+                category="provider_payload",
+                retryable=False,
+            )
         return content
 
 
@@ -281,6 +389,33 @@ def _classify_dashscope_error(status_code: int | None, error_code: str, error_me
     return "unknown", False
 
 
+def _extract_openai_error(payload: dict[str, Any]) -> tuple[str, str]:
+    error = payload.get("error")
+    if isinstance(error, dict):
+        code = str(error.get("code") or "unknown")
+        message = str(error.get("message") or "unknown")
+        return code, message
+    return "unknown", "unknown"
+
+
+def _classify_openai_error(status_code: int | None, error_code: str, error_message: str) -> tuple[str, bool]:
+    code = (error_code or "").lower()
+    message = (error_message or "").lower()
+
+    if status_code == 429 or "rate" in code or "quota" in code:
+        return "rate_limit", True
+    if status_code is not None and status_code >= 500:
+        return "upstream", True
+    if status_code in {401, 403} or code in {"invalid_api_key", "unauthorized", "forbidden"}:
+        return "auth", False
+    if status_code == 404 and "model" in message:
+        return "model_config", False
+    if status_code == 400:
+        return "invalid_request", False
+
+    return "unknown", False
+
+
 def _calculate_backoff_delay_sec(base_backoff_ms: int, attempt: int) -> float:
     if base_backoff_ms <= 0:
         return 0.0
@@ -288,13 +423,79 @@ def _calculate_backoff_delay_sec(base_backoff_ms: int, attempt: int) -> float:
     return (base_backoff_ms / 1000.0) * (2**attempt) * jitter_factor
 
 
+def _read_csv_env(name: str) -> list[str]:
+    raw = os.getenv(name)
+    if raw is None:
+        return []
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+def _normalize_key_candidates(primary_key: str | None, key_candidates: list[str] | None = None) -> list[str]:
+    items: list[str] = []
+    for key in key_candidates or []:
+        normalized = str(key).strip()
+        if normalized and normalized not in items:
+            items.append(normalized)
+    normalized_primary = (primary_key or "").strip()
+    if normalized_primary and normalized_primary not in items:
+        items.append(normalized_primary)
+    return items
+
+
+def _wrap_provider_with_resilience(
+    provider: LLMProvider,
+    max_retries: int,
+    retry_backoff_ms: int,
+    circuit_failure_threshold: int,
+    circuit_reset_timeout_ms: int,
+) -> LLMProvider:
+    wrapped: LLMProvider = provider
+    if max_retries > 0:
+        wrapped = RetryingLLMProvider(
+            base_provider=wrapped,
+            max_retries=max_retries,
+            retry_backoff_ms=retry_backoff_ms,
+        )
+    if circuit_failure_threshold > 0:
+        wrapped = CircuitBreakerLLMProvider(
+            base_provider=wrapped,
+            failure_threshold=circuit_failure_threshold,
+            reset_timeout_ms=max(circuit_reset_timeout_ms, 0),
+        )
+    return wrapped
+
+
+def _build_key_pool_provider(
+    providers: list[LLMProvider],
+    max_retries: int,
+    retry_backoff_ms: int,
+    circuit_failure_threshold: int,
+    circuit_reset_timeout_ms: int,
+) -> LLMProvider:
+    wrapped_providers = [
+        _wrap_provider_with_resilience(
+            provider=provider,
+            max_retries=max_retries,
+            retry_backoff_ms=retry_backoff_ms,
+            circuit_failure_threshold=circuit_failure_threshold,
+            circuit_reset_timeout_ms=circuit_reset_timeout_ms,
+        )
+        for provider in providers
+    ]
+    if len(wrapped_providers) == 1:
+        return wrapped_providers[0]
+    return KeyPoolLLMProvider(providers=wrapped_providers)
+
+
 def create_llm_provider(
     provider_name: str,
     model_name: str,
     api_key: str | None = None,
+    api_keys: list[str] | None = None,
     base_url: str = "https://api.openai.com/v1",
     timeout_sec: float = 30.0,
     dashscope_api_key: str | None = None,
+    dashscope_api_keys: list[str] | None = None,
     dashscope_base_http_api_url: str = "https://dashscope.aliyuncs.com/api/v1",
     dashscope_enable_thinking: bool = False,
     max_retries: int = 0,
@@ -304,44 +505,66 @@ def create_llm_provider(
     base_provider_override: LLMProvider | None = None,
 ) -> LLMProvider:
     if base_provider_override is not None:
-        provider: LLMProvider = base_provider_override
+        return _wrap_provider_with_resilience(
+            provider=base_provider_override,
+            max_retries=max_retries,
+            retry_backoff_ms=retry_backoff_ms,
+            circuit_failure_threshold=circuit_failure_threshold,
+            circuit_reset_timeout_ms=circuit_reset_timeout_ms,
+        )
     elif provider_name == "mock-llm":
-        provider = MockLLMProvider(provider_name=provider_name, model_name=model_name)
+        return _wrap_provider_with_resilience(
+            provider=MockLLMProvider(provider_name=provider_name, model_name=model_name),
+            max_retries=max_retries,
+            retry_backoff_ms=retry_backoff_ms,
+            circuit_failure_threshold=circuit_failure_threshold,
+            circuit_reset_timeout_ms=circuit_reset_timeout_ms,
+        )
     elif provider_name in {"openai-compatible", "openai"}:
-        normalized_key = (api_key or "").strip()
-        if not normalized_key:
+        normalized_keys = _normalize_key_candidates(
+            primary_key=api_key,
+            key_candidates=api_keys,
+        )
+        if not normalized_keys:
             raise ValueError(f"LLM API key is required for provider: {provider_name}")
-        provider = OpenAICompatibleLLMProvider(
-            provider_name=provider_name,
-            model_name=model_name,
-            api_key=normalized_key,
-            base_url=base_url,
-            timeout_sec=timeout_sec,
+        return _build_key_pool_provider(
+            providers=[
+                OpenAICompatibleLLMProvider(
+                    provider_name=provider_name,
+                    model_name=model_name,
+                    api_key=key,
+                    base_url=base_url,
+                    timeout_sec=timeout_sec,
+                )
+                for key in normalized_keys
+            ],
+            max_retries=max_retries,
+            retry_backoff_ms=retry_backoff_ms,
+            circuit_failure_threshold=circuit_failure_threshold,
+            circuit_reset_timeout_ms=circuit_reset_timeout_ms,
         )
     elif provider_name in {"dashscope", "dashscope-sdk"}:
-        normalized_key = (dashscope_api_key or api_key or os.getenv("DASHSCOPE_API_KEY") or "").strip()
-        if not normalized_key:
+        normalized_keys = _normalize_key_candidates(
+            primary_key=(dashscope_api_key or api_key or os.getenv("DASHSCOPE_API_KEY")),
+            key_candidates=(dashscope_api_keys or []) + _read_csv_env("DASHSCOPE_API_KEYS"),
+        )
+        if not normalized_keys:
             raise ValueError("DashScope API key is required for provider: dashscope")
-        provider = DashScopeLLMProvider(
-            provider_name=provider_name,
-            model_name=model_name,
-            api_key=normalized_key,
-            base_http_api_url=dashscope_base_http_api_url,
-            enable_thinking=dashscope_enable_thinking,
+        return _build_key_pool_provider(
+            providers=[
+                DashScopeLLMProvider(
+                    provider_name=provider_name,
+                    model_name=model_name,
+                    api_key=key,
+                    base_http_api_url=dashscope_base_http_api_url,
+                    enable_thinking=dashscope_enable_thinking,
+                )
+                for key in normalized_keys
+            ],
+            max_retries=max_retries,
+            retry_backoff_ms=retry_backoff_ms,
+            circuit_failure_threshold=circuit_failure_threshold,
+            circuit_reset_timeout_ms=circuit_reset_timeout_ms,
         )
     else:
         raise ValueError(f"Unsupported llm provider: {provider_name}")
-
-    if max_retries > 0:
-        provider = RetryingLLMProvider(
-            base_provider=provider,
-            max_retries=max_retries,
-            retry_backoff_ms=retry_backoff_ms,
-        )
-    if circuit_failure_threshold > 0:
-        provider = CircuitBreakerLLMProvider(
-            base_provider=provider,
-            failure_threshold=circuit_failure_threshold,
-            reset_timeout_ms=max(circuit_reset_timeout_ms, 0),
-        )
-    return provider

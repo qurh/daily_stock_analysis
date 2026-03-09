@@ -24,6 +24,11 @@ npm run build
 - Chat page:
   - create session
   - send/load messages
+  - optional `news.search` hint composition (`symbol/query/top_k`)
+  - structured news insight panel rendering from tool trace
+  - structured credit risk insight panel rendering from tool trace
+  - structured market/macro/sentiment insight panel rendering from tool trace
+  - insight filter chips (`all/news/credit/market/macro/sentiment`) and grouped collapsible insight section
   - inspect citations/tool trace
 - Knowledge page:
   - upload markdown
@@ -52,4 +57,7 @@ npm run build
 - App shell routing and primary navigation.
 - API helper defaults and error normalization.
 - Chat page validation + create session action.
+- Chat page `news.search` hint composition, news tags rendering, and structured factor insight rendering
+  (`credit/market/macro/sentiment`).
+- Chat page grouped insight filtering interaction and grouped insight count rendering.
 - Knowledge page validation + upload action.

@@ -70,6 +70,16 @@ def _read_analysis_orchestrator_engine_env(name: str, default: str) -> str:
     return normalized
 
 
+def _read_market_region_env(name: str, default: str) -> str:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    normalized = raw.strip().lower()
+    if normalized not in {"cn", "us"}:
+        raise ValueError(f"Invalid market region for {name}: {raw}")
+    return normalized
+
+
 @dataclass(frozen=True)
 class AppSettings:
     database_url: str
@@ -80,6 +90,7 @@ class AppSettings:
     llm_provider: str
     llm_model: str
     llm_api_key: str | None
+    llm_api_keys: list[str]
     llm_base_url: str
     llm_timeout_sec: float
     llm_max_retries: int
@@ -87,6 +98,7 @@ class AppSettings:
     llm_circuit_failure_threshold: int
     llm_circuit_reset_timeout_ms: int
     dashscope_api_key: str | None
+    dashscope_api_keys: list[str]
     dashscope_base_http_api_url: str
     dashscope_enable_thinking: bool
     prompt_ref_lock_mode: str
@@ -111,6 +123,8 @@ class AppSettings:
     analysis_macro_source_url: str | None
     analysis_credit_source_url: str | None
     analysis_sentiment_source_url: str | None
+    analysis_news_source_url: str | None
+    analysis_market_region: str
     analysis_flow_template: list[str]
     analysis_node_max_retries: int
     analysis_node_retry_backoff_ms: int
@@ -150,6 +164,9 @@ def load_settings() -> AppSettings:
     llm_api_key = os.getenv("LLM_API_KEY")
     if llm_api_key is not None:
         llm_api_key = llm_api_key.strip() or None
+    llm_api_keys = _read_csv_env("LLM_API_KEYS")
+    if llm_api_key and llm_api_key not in llm_api_keys:
+        llm_api_keys.append(llm_api_key)
     llm_base_url = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
     llm_timeout_sec = _read_float_env("LLM_TIMEOUT_SEC", 30.0)
     llm_max_retries = _read_int_env("LLM_MAX_RETRIES", 0)
@@ -159,6 +176,9 @@ def load_settings() -> AppSettings:
     dashscope_api_key = os.getenv("DASHSCOPE_API_KEY")
     if dashscope_api_key is not None:
         dashscope_api_key = dashscope_api_key.strip() or None
+    dashscope_api_keys = _read_csv_env("DASHSCOPE_API_KEYS")
+    if dashscope_api_key and dashscope_api_key not in dashscope_api_keys:
+        dashscope_api_keys.append(dashscope_api_key)
     dashscope_base_http_api_url = os.getenv("DASHSCOPE_BASE_HTTP_API_URL", "https://dashscope.aliyuncs.com/api/v1")
     dashscope_enable_thinking = _read_bool_env("DASHSCOPE_ENABLE_THINKING", False)
     prompt_ref_lock_mode = _read_prompt_lock_mode_env("PROMPT_REF_LOCK_MODE", "lenient")
@@ -196,6 +216,10 @@ def load_settings() -> AppSettings:
     analysis_sentiment_source_url = os.getenv("ANALYSIS_SENTIMENT_SOURCE_URL")
     if analysis_sentiment_source_url is not None:
         analysis_sentiment_source_url = analysis_sentiment_source_url.strip() or None
+    analysis_news_source_url = os.getenv("ANALYSIS_NEWS_SOURCE_URL")
+    if analysis_news_source_url is not None:
+        analysis_news_source_url = analysis_news_source_url.strip() or None
+    analysis_market_region = _read_market_region_env("ANALYSIS_MARKET_REGION", "cn")
     analysis_flow_template = _read_csv_env("ANALYSIS_FLOW_TEMPLATE")
     analysis_node_max_retries = max(_read_int_env("ANALYSIS_NODE_MAX_RETRIES", 0), 0)
     analysis_node_retry_backoff_ms = max(_read_int_env("ANALYSIS_NODE_RETRY_BACKOFF_MS", 0), 0)
@@ -289,6 +313,7 @@ def load_settings() -> AppSettings:
         llm_provider=llm_provider,
         llm_model=llm_model,
         llm_api_key=llm_api_key,
+        llm_api_keys=llm_api_keys,
         llm_base_url=llm_base_url,
         llm_timeout_sec=llm_timeout_sec,
         llm_max_retries=llm_max_retries,
@@ -296,6 +321,7 @@ def load_settings() -> AppSettings:
         llm_circuit_failure_threshold=llm_circuit_failure_threshold,
         llm_circuit_reset_timeout_ms=llm_circuit_reset_timeout_ms,
         dashscope_api_key=dashscope_api_key,
+        dashscope_api_keys=dashscope_api_keys,
         dashscope_base_http_api_url=dashscope_base_http_api_url,
         dashscope_enable_thinking=dashscope_enable_thinking,
         prompt_ref_lock_mode=prompt_ref_lock_mode,
@@ -320,6 +346,8 @@ def load_settings() -> AppSettings:
         analysis_macro_source_url=analysis_macro_source_url,
         analysis_credit_source_url=analysis_credit_source_url,
         analysis_sentiment_source_url=analysis_sentiment_source_url,
+        analysis_news_source_url=analysis_news_source_url,
+        analysis_market_region=analysis_market_region,
         analysis_flow_template=analysis_flow_template,
         analysis_node_max_retries=analysis_node_max_retries,
         analysis_node_retry_backoff_ms=analysis_node_retry_backoff_ms,

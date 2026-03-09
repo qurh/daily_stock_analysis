@@ -636,8 +636,9 @@ class _PushPlusPlugin(ChannelPlugin):
     channel = "pushplus"
     display_name = "PushPlus"
 
-    def __init__(self, token: str | None, timeout_sec: float) -> None:
+    def __init__(self, token: str | None, topic: str | None, timeout_sec: float) -> None:
         self._token = token
+        self._topic = topic
         self._timeout_sec = timeout_sec
 
     def is_enabled(self) -> tuple[bool, str | None]:
@@ -648,9 +649,17 @@ class _PushPlusPlugin(ChannelPlugin):
     def send(self, title: str, content: str) -> dict[str, Any]:
         if not self._token:
             raise RuntimeError("channel not configured")
+        payload: dict[str, Any] = {
+            "token": self._token,
+            "title": title,
+            "content": content,
+            "template": "markdown",
+        }
+        if self._topic:
+            payload["topic"] = self._topic
         response = httpx.post(
             "http://www.pushplus.plus/send",
-            json={"token": self._token, "title": title, "content": content, "template": "markdown"},
+            json=payload,
             timeout=self._timeout_sec,
         )
         if response.status_code >= 400:
@@ -782,6 +791,7 @@ def _build_default_plugins() -> list[ChannelPlugin]:
         ),
         _PushPlusPlugin(
             token=_env_str("PUSHPLUS_TOKEN"),
+            topic=_env_str("PUSHPLUS_TOPIC"),
             timeout_sec=timeout_sec,
         ),
         _ServerChan3Plugin(

@@ -44,6 +44,8 @@ class AgentService:
         memory_service: Any,
         backtest_service: Any,
         workflow_service: Any,
+        factor_service: Any | None = None,
+        news_service: Any | None = None,
         default_max_retries: int = 0,
         retry_backoff_ms: int = 0,
     ) -> None:
@@ -51,6 +53,8 @@ class AgentService:
         self._memory_service = memory_service
         self._backtest_service = backtest_service
         self._workflow_service = workflow_service
+        self._factor_service = factor_service
+        self._news_service = news_service
         self._default_max_retries = max(int(default_max_retries), 0)
         self._retry_backoff_ms = max(int(retry_backoff_ms), 0)
         self._registry: dict[str, tuple[ToolSpec, ToolExecutor]] = {}
@@ -135,6 +139,12 @@ class AgentService:
     ) -> dict[str, Any]:
         resolved_payload = dict(payload or {})
         resolved_context = dict(context or {})
+        entity_context = self._normalize_entity_context(payload=resolved_payload, context=resolved_context)
+        if entity_context is not None:
+            resolved_context["entity_context"] = entity_context
+            resolved_payload.setdefault("symbol", entity_context["symbol"])
+            resolved_payload.setdefault("resolved_name", entity_context["resolved_name"])
+            resolved_payload.setdefault("aliases", list(entity_context["aliases"]))
         planned_tools = self.plan(intent=intent, context=resolved_context, force_tools=force_tools)
 
         results: dict[str, Any] = {}
@@ -163,6 +173,7 @@ class AgentService:
             "results": results,
             "degraded": degraded,
             "failed_tools": failed_tools,
+            "entity_context": entity_context,
             "trace": trace,
         }
 
@@ -311,6 +322,84 @@ class AgentService:
             self._run_workflow_lookup,
             overwrite=True,
         )
+        self.register_tool(
+            ToolSpec(
+                name="market.quote",
+                version="v1",
+                description="Get symbol technical snapshot as market quote proxy",
+                timeout_sec=5,
+                max_retries=self._default_max_retries,
+                keywords=("行情", "quote", "价格", "技术面", "market"),
+                degrade_payload={"symbol": None, "technical": {}, "degraded": True, "reason": "market_unavailable"},
+            ),
+            self._run_market_quote,
+            overwrite=True,
+        )
+        self.register_tool(
+            ToolSpec(
+                name="macro.snapshot",
+                version="v1",
+                description="Get macro factors snapshot",
+                timeout_sec=5,
+                max_retries=self._default_max_retries,
+                keywords=("宏观", "macro", "gdp", "就业"),
+                degrade_payload={"symbol": None, "macro": {}, "degraded": True, "reason": "macro_unavailable"},
+            ),
+            self._run_macro_snapshot,
+            overwrite=True,
+        )
+        self.register_tool(
+            ToolSpec(
+                name="credit.snapshot",
+                version="v1",
+                description="Get credit risk factors snapshot",
+                timeout_sec=5,
+                max_retries=self._default_max_retries,
+                keywords=("信用", "cds", "债券利差", "credit"),
+                degrade_payload={"symbol": None, "credit": {}, "degraded": True, "reason": "credit_unavailable"},
+            ),
+            self._run_credit_snapshot,
+            overwrite=True,
+        )
+        self.register_tool(
+            ToolSpec(
+                name="sentiment.snapshot",
+                version="v1",
+                description="Get sentiment factors snapshot",
+                timeout_sec=5,
+                max_retries=self._default_max_retries,
+                keywords=("舆情", "情绪", "news", "sentiment"),
+                degrade_payload={
+                    "symbol": None,
+                    "sentiment": {},
+                    "degraded": True,
+                    "reason": "sentiment_unavailable",
+                },
+            ),
+            self._run_sentiment_snapshot,
+            overwrite=True,
+        )
+        self.register_tool(
+            ToolSpec(
+                name="news.search",
+                version="v1",
+                description="Search sentiment headlines by symbol/query",
+                timeout_sec=5,
+                max_retries=self._default_max_retries,
+                keywords=("新闻", "news", "headline", "舆情", "快讯"),
+                degrade_payload={
+                    "symbol": None,
+                    "query": None,
+                    "top_k": 0,
+                    "headlines": [],
+                    "sentiment": {},
+                    "degraded": True,
+                    "reason": "news_unavailable",
+                },
+            ),
+            self._run_news_search,
+            overwrite=True,
+        )
 
     def _run_knowledge_search(self, payload: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:  # noqa: ARG002
         query = str(payload.get("query") or "").strip()
@@ -344,9 +433,163 @@ class AgentService:
             return {"execution_id": execution_id, "status": "missing"}
         return execution
 
+    def _run_market_quote(self, payload: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+        symbol = self._resolve_symbol(payload=payload, context=context)
+        report_type = self._resolve_report_type(payload=payload)
+        technical, quality_flag = self._collect_factor(symbol=symbol, report_type=report_type, factor_key="technical")
+        response: dict[str, Any] = {"symbol": symbol, "report_type": report_type, "technical": technical}
+        if quality_flag is not None:
+            response["quality_flag"] = quality_flag
+        return response
+
+    def _run_macro_snapshot(self, payload: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+        symbol = self._resolve_symbol(payload=payload, context=context)
+        report_type = self._resolve_report_type(payload=payload)
+        macro, quality_flag = self._collect_factor(symbol=symbol, report_type=report_type, factor_key="macro")
+        response: dict[str, Any] = {"symbol": symbol, "report_type": report_type, "macro": macro}
+        if quality_flag is not None:
+            response["quality_flag"] = quality_flag
+        return response
+
+    def _run_credit_snapshot(self, payload: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+        symbol = self._resolve_symbol(payload=payload, context=context)
+        report_type = self._resolve_report_type(payload=payload)
+        credit, quality_flag = self._collect_factor(symbol=symbol, report_type=report_type, factor_key="credit")
+        response: dict[str, Any] = {"symbol": symbol, "report_type": report_type, "credit": credit}
+        if quality_flag is not None:
+            response["quality_flag"] = quality_flag
+        return response
+
+    def _run_sentiment_snapshot(self, payload: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+        symbol = self._resolve_symbol(payload=payload, context=context)
+        report_type = self._resolve_report_type(payload=payload)
+        sentiment, quality_flag = self._collect_factor(symbol=symbol, report_type=report_type, factor_key="sentiment")
+        response: dict[str, Any] = {"symbol": symbol, "report_type": report_type, "sentiment": sentiment}
+        if quality_flag is not None:
+            response["quality_flag"] = quality_flag
+        return response
+
+    def _run_news_search(self, payload: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+        symbol = self._resolve_symbol(payload=payload, context=context)
+        report_type = self._resolve_report_type(payload=payload)
+        query = self._optional_str(payload.get("query"))
+        top_k = int(payload.get("top_k") or 5)
+        top_k = max(min(top_k, 20), 1)
+
+        if self._news_service is not None and hasattr(self._news_service, "search"):
+            try:
+                result = self._news_service.search(
+                    symbol=symbol,
+                    report_type=report_type,
+                    query=query,
+                    top_k=top_k,
+                )
+                if isinstance(result, dict):
+                    return dict(result)
+            except Exception:  # noqa: BLE001
+                pass
+
+        sentiment, quality_flag = self._collect_factor(symbol=symbol, report_type=report_type, factor_key="sentiment")
+        headlines = sentiment.get("headlines")
+        normalized_headlines = [str(item).strip() for item in headlines if str(item).strip()] if isinstance(headlines, list) else []
+        if query:
+            normalized_headlines = [item for item in normalized_headlines if query.lower() in item.lower()]
+        selected_headlines = normalized_headlines[:top_k]
+
+        sentiment_summary = {
+            "sentiment_score": sentiment.get("sentiment_score"),
+            "headline_count": sentiment.get("headline_count"),
+            "sentiment_level": sentiment.get("sentiment_level"),
+        }
+        response: dict[str, Any] = {
+            "symbol": symbol,
+            "report_type": report_type,
+            "query": query,
+            "top_k": top_k,
+            "headlines": selected_headlines,
+            "sentiment": sentiment_summary,
+        }
+        if quality_flag is not None:
+            response["quality_flag"] = quality_flag
+        return response
+
     @staticmethod
     def _optional_str(value: Any) -> str | None:
         if value is None:
             return None
         normalized = str(value).strip()
         return normalized or None
+
+    def _resolve_symbol(self, payload: dict[str, Any], context: dict[str, Any]) -> str:
+        entity_context = context.get("entity_context")
+        context_symbol = self._optional_str(entity_context.get("symbol")) if isinstance(entity_context, dict) else None
+        symbol = self._optional_str(payload.get("symbol")) or context_symbol
+        if symbol is None:
+            raise ValueError("symbol is required for factor tools")
+        return symbol
+
+    def _resolve_report_type(self, payload: dict[str, Any]) -> str:
+        report_type = self._optional_str(payload.get("report_type"))
+        return report_type or "standard"
+
+    def _collect_factor(
+        self,
+        symbol: str,
+        report_type: str,
+        factor_key: str,
+    ) -> tuple[dict[str, Any], dict[str, Any] | None]:
+        if self._factor_service is None:
+            raise RuntimeError("factor service is not configured")
+        return self._factor_service.collect_factor(
+            symbol=symbol,
+            report_type=report_type,
+            factor_key=factor_key,
+        )
+
+    @classmethod
+    def _normalize_entity_context(
+        cls,
+        payload: dict[str, Any],
+        context: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        raw_context = context.get("entity_context")
+        context_symbol = cls._optional_str(raw_context.get("symbol")) if isinstance(raw_context, dict) else None
+        payload_symbol = cls._optional_str(payload.get("symbol"))
+        symbol = context_symbol or payload_symbol
+        if symbol is None:
+            return None
+
+        context_name = cls._optional_str(raw_context.get("resolved_name")) if isinstance(raw_context, dict) else None
+        payload_name = cls._optional_str(payload.get("resolved_name"))
+        resolved_name = context_name or payload_name or symbol
+
+        aliases: list[str] = []
+        aliases.extend(cls._coerce_aliases(raw_context.get("aliases")) if isinstance(raw_context, dict) else [])
+        aliases.extend(cls._coerce_aliases(payload.get("aliases")))
+        aliases.extend([symbol, resolved_name])
+        deduped_aliases: list[str] = []
+        for item in aliases:
+            normalized = cls._optional_str(item)
+            if normalized is None:
+                continue
+            if normalized not in deduped_aliases:
+                deduped_aliases.append(normalized)
+
+        return {
+            "symbol": symbol,
+            "resolved_name": resolved_name,
+            "aliases": deduped_aliases,
+        }
+
+    @staticmethod
+    def _coerce_aliases(value: Any) -> list[str]:
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return [str(item) for item in value]
+        if isinstance(value, tuple):
+            return [str(item) for item in value]
+        text = str(value).strip()
+        if not text:
+            return []
+        return [text]

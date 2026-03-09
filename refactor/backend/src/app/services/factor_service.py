@@ -61,6 +61,41 @@ def _sentiment_level(score: float) -> str:
     return "neutral"
 
 
+def _coerce_headlines(raw: Any) -> list[str]:
+    if raw is None:
+        return []
+
+    values: list[str] = []
+    if isinstance(raw, list):
+        iterable = raw
+    else:
+        iterable = [raw]
+
+    for item in iterable:
+        if isinstance(item, dict):
+            text = str(item.get("title") or item.get("headline") or "").strip()
+        else:
+            text = str(item).strip()
+        if text and text not in values:
+            values.append(text)
+    return values
+
+
+def _fallback_headlines(symbol: str, sentiment_level: str) -> list[str]:
+    direction = sentiment_level.lower()
+    if direction == "positive":
+        tone = "Risk appetite improves on policy support."
+    elif direction == "negative":
+        tone = "Market concerns rise amid short-term volatility."
+    else:
+        tone = "Market sentiment stays mixed with limited conviction."
+    return [
+        f"{symbol}: {tone}",
+        f"{symbol}: Institutional flow and liquidity are being monitored.",
+        f"{symbol}: Macro and credit context remain key watch points.",
+    ]
+
+
 def _degraded_quality_flag(factor_key: str, reason: str) -> dict[str, str]:
     return {
         "factor": factor_key,
@@ -212,10 +247,14 @@ class SentimentFactorProvider:
                 level = str(payload.get("sentiment_level", _sentiment_level(score))).lower()
                 if level not in {"positive", "neutral", "negative"}:
                     level = _sentiment_level(score)
+                headlines = _coerce_headlines(payload.get("headlines"))
+                if not headlines:
+                    headlines = _fallback_headlines(symbol=symbol, sentiment_level=level)
                 return {
                     "sentiment_score": score,
                     "headline_count": headline_count,
                     "sentiment_level": level,
+                    "headlines": headlines,
                 }
             except Exception as exc:
                 fallback = self._fallback(symbol=symbol, report_type=report_type)
@@ -243,6 +282,7 @@ class SentimentFactorProvider:
             "sentiment_score": round(score, 3),
             "headline_count": headline_count,
             "sentiment_level": level,
+            "headlines": _fallback_headlines(symbol=symbol, sentiment_level=level),
         }
 
 

@@ -41,6 +41,27 @@ _FACTOR_COLLECTION_NODE_MAP = {
     "collect_sentiment_factor": "sentiment",
 }
 
+_DEFAULT_MARKET_REGION = "cn"
+
+_MARKET_STRATEGY_BLUEPRINTS: dict[str, dict[str, str]] = {
+    "cn": {
+        "id": "cn_market_blueprint_v1",
+        "title": "A-share Three-Stage Recap Strategy",
+        "content": (
+            "Focus on index direction, liquidity structure, and sector rotation. "
+            "Map conclusions to next-session position sizing, pace, and risk controls."
+        ),
+    },
+    "us": {
+        "id": "us_market_blueprint_v1",
+        "title": "US Market Regime Strategy",
+        "content": (
+            "Focus on SPX/NDX/DJI trend alignment, macro narrative, and leadership rotation. "
+            "Output a clear risk-on/risk-off posture with invalidation points."
+        ),
+    },
+}
+
 
 class AnalysisService:
     """Analysis orchestration service backed by persistent storage."""
@@ -59,6 +80,7 @@ class AnalysisService:
         analysis_node_max_retries: int = 0,
         analysis_node_retry_backoff_ms: int = 0,
         analysis_orchestrator_engine: str = "local",
+        default_market_region: str = _DEFAULT_MARKET_REGION,
         default_prompt_lock_mode: str = "lenient",
         queue_auto_process: bool = True,
         auto_notify_enabled: bool = False,
@@ -79,6 +101,7 @@ class AnalysisService:
         self._analysis_node_max_retries = max(int(analysis_node_max_retries), 0)
         self._analysis_node_retry_backoff_ms = max(int(analysis_node_retry_backoff_ms), 0)
         self._analysis_orchestrator_engine = self._normalize_analysis_orchestrator_engine(analysis_orchestrator_engine)
+        self._default_market_region = self._normalize_market_region(default_market_region)
         self._analysis_node_handlers: dict[str, Callable[[dict[str, Any]], None]] = {
             "resolve_strategy_context": self._node_resolve_strategy_context,
             "resolve_prompt": self._node_resolve_prompt,
@@ -93,7 +116,11 @@ class AnalysisService:
         self._analysis_flow_stages = self._normalize_analysis_flow_template(analysis_flow_template)
         self._task_queue.register_handler("analysis.run", self._handle_analysis_task)
 
-    def submit_job(self, symbol: str, report_type: str) -> dict[str, str]:
+    def submit_job(self, symbol: str, report_type: str, market_region: str | None = None) -> dict[str, str]:
+        normalized_market_region = self._normalize_market_region(
+            market_region,
+            default=self._default_market_region,
+        )
         job_id = str(uuid4())
         now = _utc_now()
         with self._database.connection() as conn:
@@ -109,7 +136,12 @@ class AnalysisService:
 
         self._task_queue.enqueue(
             task_type="analysis.run",
-            payload={"job_id": job_id, "symbol": symbol, "report_type": report_type},
+            payload={
+                "job_id": job_id,
+                "symbol": symbol,
+                "report_type": report_type,
+                "market_region": normalized_market_region,
+            },
         )
         if self._queue_auto_process:
             self._task_queue.process_all()
@@ -151,13 +183,18 @@ class AnalysisService:
         job_id = payload["job_id"]
         symbol = payload["symbol"]
         report_type = payload["report_type"]
+        market_region = self._normalize_market_region(payload.get("market_region"), default=self._default_market_region)
         now = _utc_now()
         execution_id: str | None = None
         trace_nodes: list[dict[str, Any]] = []
         try:
             execution_ref = self._workflow_service.start_execution(
                 flow_id="stock_analysis_v1",
-                flow_input={"symbol": symbol, "report_type": report_type},
+                flow_input={
+                    "symbol": symbol,
+                    "report_type": report_type,
+                    "market_region": market_region,
+                },
                 enqueue=False,
                 defer_run=True,
             )
@@ -165,6 +202,7 @@ class AnalysisService:
             context: dict[str, Any] = {
                 "symbol": symbol,
                 "report_type": report_type,
+                "market_region": market_region,
             }
             orchestrator = self._execute_flow(context=context, trace_nodes=trace_nodes)
 
@@ -248,6 +286,27 @@ class AnalysisService:
         if normalized not in {"local", "langgraph"}:
             raise ValueError(f"Invalid analysis orchestrator engine: {engine}")
         return normalized
+
+    def _normalize_market_region(self, market_region: Any, default: str | None = None) -> str:
+        fallback_raw = _DEFAULT_MARKET_REGION if default is None else str(default)
+        fallback = fallback_raw.strip().lower() or _DEFAULT_MARKET_REGION
+        if fallback not in _MARKET_STRATEGY_BLUEPRINTS:
+            fallback = _DEFAULT_MARKET_REGION
+        if market_region is None:
+            return fallback
+        normalized = str(market_region).strip().lower()
+        if not normalized:
+            return fallback
+        if normalized not in _MARKET_STRATEGY_BLUEPRINTS:
+            raise ValueError(f"Invalid market region: {market_region}")
+        return normalized
+
+    @staticmethod
+    def _resolve_strategy_blueprint(market_region: str) -> dict[str, str]:
+        blueprint = _MARKET_STRATEGY_BLUEPRINTS.get(market_region)
+        if blueprint is None:
+            blueprint = _MARKET_STRATEGY_BLUEPRINTS[_DEFAULT_MARKET_REGION]
+        return dict(blueprint)
 
     def _execute_flow(
         self,
@@ -590,9 +649,15 @@ class AnalysisService:
                 report_type=context["report_type"],
             )
             context["strategy_context"] = strategy_context
+        market_region = self._normalize_market_region(
+            context.get("market_region"),
+            default=self._default_market_region,
+        )
+        context["market_region"] = market_region
         context["prompt_resolution"] = self._resolve_prompt(
             symbol=context["symbol"],
             report_type=context["report_type"],
+            market_region=market_region,
             strategy_context=strategy_context,
         )
 
@@ -655,7 +720,10 @@ class AnalysisService:
         meta = {
             "stock_code": context["symbol"],
             "report_type": context["report_type"],
+            "market_region": context["market_region"],
             "prompt_ref": prompt_resolution["prompt_ref"],
+            "strategy_blueprint_id": prompt_resolution["strategy_blueprint_id"],
+            "strategy_blueprint_title": prompt_resolution["strategy_blueprint_title"],
             "factor_quality_flags": dashboard.get("quality_flags", []),
         }
         strategy_context = context.get("strategy_context")
@@ -715,17 +783,32 @@ class AnalysisService:
         self,
         symbol: str,
         report_type: str,
+        market_region: str,
         strategy_context: dict[str, Any] | None = None,
     ) -> dict[str, str]:
+        blueprint = self._resolve_strategy_blueprint(market_region)
+        common_prompt_payload = {
+            "strategy_blueprint_id": blueprint["id"],
+            "strategy_blueprint_title": blueprint["title"],
+            "strategy_blueprint": blueprint["content"],
+        }
         if self._prompt_service is None:
             return {
+                **common_prompt_payload,
                 "prompt_ref": "builtin.analysis.reply@0",
-                "rendered_prompt": f"Analyze symbol={symbol}, report_type={report_type}.",
+                "rendered_prompt": (
+                    f"Analyze symbol={symbol}, report_type={report_type}, market_region={market_region}.\n"
+                    f"Strategy blueprint ({blueprint['id']}): {blueprint['content']}"
+                ),
             }
 
         variables = {
             "symbol": symbol,
             "report_type": report_type,
+            "market_region": market_region,
+            "strategy_blueprint_id": blueprint["id"],
+            "strategy_blueprint_title": blueprint["title"],
+            "strategy_blueprint": blueprint["content"],
         }
         lock_mode = self._resolve_prompt_lock_mode(strategy_context=strategy_context)
         binding_prompt_refs = normalize_prompt_refs(strategy_context=strategy_context)
@@ -736,7 +819,7 @@ class AnalysisService:
             lock_mode=lock_mode,
         )
         if binding_rendered is not None:
-            return binding_rendered
+            return {**binding_rendered, **common_prompt_payload}
         if lock_mode == "strict" and binding_prompt_refs:
             raise PromptLockError(
                 flow_id="stock_analysis_v1",
@@ -752,14 +835,19 @@ class AnalysisService:
                     variables=variables,
                 )
                 return {
+                    **common_prompt_payload,
                     "prompt_ref": rendered["prompt_ref"],
                     "rendered_prompt": rendered["rendered_prompt"],
                 }
             except (KeyError, ValueError):
                 continue
         return {
+            **common_prompt_payload,
             "prompt_ref": "builtin.analysis.reply@0",
-            "rendered_prompt": f"Analyze symbol={symbol}, report_type={report_type}.",
+            "rendered_prompt": (
+                f"Analyze symbol={symbol}, report_type={report_type}, market_region={market_region}.\n"
+                f"Strategy blueprint ({blueprint['id']}): {blueprint['content']}"
+            ),
         }
 
     def _resolve_prompt_lock_mode(self, strategy_context: dict[str, Any] | None) -> str:
